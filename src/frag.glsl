@@ -10,7 +10,8 @@ uniform sampler2D s;
 uniform int light_count;
 
 // Lights [(x,y,z), [r,g,b], ...]
-uniform vec3 l[STR(R_MAX_LIGHT_V3)];
+// max 64 lights
+uniform vec3 l[64];
 
 // flag to turn off lighting
 varying float f_unlit;
