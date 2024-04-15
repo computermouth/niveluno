@@ -5,6 +5,8 @@ use sdl2::video::GLProfile;
 
 use gl;
 
+mod render;
+
 fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
