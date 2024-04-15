@@ -1,45 +1,56 @@
-extern crate sdl2;
 
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use std::time::Duration;
+use sdl2::video::GLProfile;
 
-pub fn main() -> Result<(), String> {
-    let sdl_context = sdl2::init()?;
-    let video_subsystem = sdl_context.video()?;
+use gl;
 
-    let window = video_subsystem
-        .window("rust-sdl2 demo: Video", 800, 600)
-        .position_centered()
+fn main() {
+    let sdl_context = sdl2::init().unwrap();
+    let video_subsystem = sdl_context.video().unwrap();
+    
+    let gl_attr = video_subsystem.gl_attr();
+    gl_attr.set_context_profile(GLProfile::GLES);
+    gl_attr.set_context_version(3, 0);
+
+    let window = video_subsystem.window("Window", 800, 600)
         .opengl()
+        .resizable()
         .build()
-        .map_err(|e| e.to_string())?;
+        .unwrap();
 
-    let mut canvas = window.into_canvas().build().map_err(|e| e.to_string())?;
+    // Unlike the other example above, nobody created a context for your window, so you need to create one.
+    let _ctx = window.gl_create_context().unwrap();
+    gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
+    
+    debug_assert_eq!(gl_attr.context_profile(), GLProfile::GLES);
+    debug_assert_eq!(gl_attr.context_version(), (3, 0));
 
-    canvas.set_draw_color(Color::RGB(255, 0, 0));
-    canvas.clear();
-    canvas.present();
-    let mut event_pump = sdl_context.event_pump()?;
+    let mut event_pump = sdl_context.event_pump().unwrap();
+
+    let mut color = (0.2, 0.3, 0.4, 1.0);
 
     'running: loop {
+        unsafe {
+            gl::ClearColor(color.0, color.1, color.2, color.3);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+        }
+
+        window.gl_swap_window();
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
+                Event::Quit {..} | Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
+                    break 'running
+                },
+                Event::KeyDown { keycode: Some(Keycode::R), .. } => color.0 = 0.7,
+                Event::KeyDown { keycode: Some(Keycode::G), .. } => color.1 = 0.6,
+                Event::KeyDown { keycode: Some(Keycode::B), .. } => color.2 = 0.8,
+                Event::KeyUp { keycode: Some(Keycode::R), .. } => color.0 = 0.2,
+                Event::KeyUp { keycode: Some(Keycode::G), .. } => color.1 = 0.3,
+                Event::KeyUp { keycode: Some(Keycode::B), .. } => color.2 = 0.4,
                 _ => {}
             }
         }
-
-        canvas.clear();
-        canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 30));
-        // The rest of the game loop goes here...
+        std::thread::sleep(std::time::Duration::from_secs_f32(1./60.));
     }
-
-    Ok(())
 }
