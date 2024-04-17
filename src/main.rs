@@ -7,40 +7,42 @@ use gl;
 mod nuerror;
 mod render;
 
-fn main() {
-    let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
+fn init_systems() -> Result<(), nuerror::NUError> {
+    render::init()?;
+
+    Ok(())
+}
+
+fn main() -> Result<(), u8> {
+    let sdl_context = sdl2::init().map_err(|e| nuerror::NUError::SDLError(e))?;
+    let video_subsystem = sdl_context
+        .video()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
 
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(GLProfile::GLES);
     gl_attr.set_context_version(3, 0);
 
     let window = video_subsystem
-        .window("Window", 800, 600)
+        .window("niveluno", render::D_WINDOW_W, render::D_WINDOW_H)
         .opengl()
         .resizable()
         .build()
-        .unwrap();
+        .map_err(|_| nuerror::NUError::WindowBuildError)?;
 
-    // Unlike the other example above, nobody created a context for your window, so you need to create one.
-    let _ctx = window.gl_create_context().unwrap();
+    let _ctx = window.gl_create_context().map_err(|e| nuerror::NUError::SDLError(e))?;
     gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
 
     debug_assert_eq!(gl_attr.context_profile(), GLProfile::GLES);
     debug_assert_eq!(gl_attr.context_version(), (3, 0));
 
-    let _ = render::init();
+    init_systems()?;
 
-    let mut event_pump = sdl_context.event_pump().unwrap();
-
-    let mut color = (0.2, 0.3, 0.4, 1.0);
+    let mut event_pump = sdl_context
+        .event_pump()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
 
     'running: loop {
-        unsafe {
-            gl::ClearColor(color.0, color.1, color.2, color.3);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-        }
-
         window.gl_swap_window();
         for event in event_pump.poll_iter() {
             match event {
@@ -49,33 +51,11 @@ fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
-                Event::KeyDown {
-                    keycode: Some(Keycode::R),
-                    ..
-                } => color.0 = 0.7,
-                Event::KeyDown {
-                    keycode: Some(Keycode::G),
-                    ..
-                } => color.1 = 0.6,
-                Event::KeyDown {
-                    keycode: Some(Keycode::B),
-                    ..
-                } => color.2 = 0.8,
-                Event::KeyUp {
-                    keycode: Some(Keycode::R),
-                    ..
-                } => color.0 = 0.2,
-                Event::KeyUp {
-                    keycode: Some(Keycode::G),
-                    ..
-                } => color.1 = 0.3,
-                Event::KeyUp {
-                    keycode: Some(Keycode::B),
-                    ..
-                } => color.2 = 0.4,
                 _ => {}
             }
         }
         std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
     }
+
+    Ok(())
 }

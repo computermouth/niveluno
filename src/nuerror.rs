@@ -13,6 +13,18 @@ pub enum NUError {
     ShaderLinkError(String),
     #[error{"Error creating shader program"}]
     ShaderProgramCreateError,
+    #[error{"Error setting up vertex attribute data"}]
+    VertexAttribError,
     #[error{"{0}"}]
     Utf8Error(#[from] FromUtf8Error),
+    #[error{"Error building sdl2 window"}]
+    WindowBuildError,
+    #[error("Error initializing sdl2: {0}")]
+    SDLError(String),
+}
+
+impl From<NUError> for u8 {
+    fn from(e: NUError) -> Self {
+        e.into()
+    }
 }

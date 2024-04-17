@@ -1,12 +1,46 @@
 use std::ffi::CString;
+use std::ptr::addr_of_mut;
 
 use gl;
 use gl::types::*;
 
 use crate::nuerror::NUError;
 
+// draw texture res, default window res
+pub const INTERNAL_W: i32 = 320;
+pub const INTERNAL_H: i32 = 180;
+pub const D_WINDOW_W: u32 = 640;
+pub const D_WINDOW_H: u32 = 360;
+
 const V_SHADER_STR: &str = include_str!("vert.glsl");
 const F_SHADER_STR: &str = include_str!("frag.glsl");
+
+// OU-global collections
+static mut DRAW_CALLS: Vec<i32> = vec![];
+static mut TEXTURES: Vec<i32> = vec![];
+
+// shader stuff
+static mut SHADER_PROGRAM: GLuint = 0;
+static mut VERTEX_BUFFER: GLuint = 0;
+
+// uniforms
+static mut U_CAMERA: GLint = 0;
+static mut U_LIGHTS: GLint = 0;
+static mut U_LIGHT_COUNT: GLint = 0;
+static mut U_MOUSE: GLint = 0;
+static mut U_POS: GLint = 0;
+static mut U_ROTATION: GLint = 0;
+static mut U_FRAME_MIX: GLint = 0;
+static mut U_UNLIT: GLint = 0;
+
+// vertex attribute location for mixing
+static mut VA_P2: GLint = 0;
+static mut VA_N2: GLint = 0;
+
+static mut DEFAULT_FBO: GLint = 0;
+static mut OFFSCREEN_FBO: GLuint = 0;
+static mut OFFSCREEN_COLOR_TEX: GLuint = 0;
+static mut OFFSCREEN_DEPTH_TEX: GLuint = 0;
 
 fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUError> {
     // https://dev.to/samkevich/learn-opengl-with-rust-shaders-28i3
@@ -84,14 +118,169 @@ fn create_program(vert: GLuint, frag: GLuint) -> Result<GLuint, NUError> {
     Ok(program)
 }
 
-pub fn init() -> Result<(), NUError> {
-    let program = create_program(
-        compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
-        compile_shader(gl::FRAGMENT_SHADER, F_SHADER_STR)?,
-    )?;
+fn vertex_attribute(
+    shader_program: GLuint,
+    attrib_name: &str,
+    count: isize,
+    vertex_size: isize,
+    offset: isize,
+) -> Result<GLint, NUError> {
+    let mut location: GLint = 0;
+    _ = location;
 
     unsafe {
-        gl::UseProgram(program);
+        location = gl::GetAttribLocation(shader_program, attrib_name.as_ptr() as *const i8);
+        gl::EnableVertexAttribArray(location as u32);
+        gl::VertexAttribPointer(
+            location as GLuint,
+            count as GLint,
+            gl::FLOAT,
+            gl::FALSE,
+            (vertex_size * 4) as GLsizei,
+            (offset * 4) as *const GLvoid,
+        );
+    }
+
+    match location {
+        0 => {
+            let e = NUError::VertexAttribError;
+            eprintln!("{}", e);
+            Err(e)
+        }
+        _ => Ok(location),
+    }
+}
+
+pub fn init() -> Result<(), NUError> {
+    // compile and set shader
+    unsafe {
+        SHADER_PROGRAM = create_program(
+            compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
+            compile_shader(gl::FRAGMENT_SHADER, F_SHADER_STR)?,
+        )?;
+        gl::UseProgram(SHADER_PROGRAM);
+    }
+
+    // set up uniforms
+    unsafe {
+        // todo, map these characters to the reference of these static muts
+        // also change these names in the shader
+        U_CAMERA = gl::GetUniformLocation(SHADER_PROGRAM, "c".as_ptr() as *const i8);
+        U_LIGHTS = gl::GetUniformLocation(SHADER_PROGRAM, "l".as_ptr() as *const i8);
+        U_LIGHT_COUNT = gl::GetUniformLocation(SHADER_PROGRAM, "light_count".as_ptr() as *const i8);
+        U_MOUSE = gl::GetUniformLocation(SHADER_PROGRAM, "m".as_ptr() as *const i8);
+        // i think mp and mr are matrix_pos and matrix_rotation
+        U_POS = gl::GetUniformLocation(SHADER_PROGRAM, "mp".as_ptr() as *const i8);
+        U_ROTATION = gl::GetUniformLocation(SHADER_PROGRAM, "mr".as_ptr() as *const i8);
+        U_FRAME_MIX = gl::GetUniformLocation(SHADER_PROGRAM, "f".as_ptr() as *const i8);
+        U_UNLIT = gl::GetUniformLocation(SHADER_PROGRAM, "unlit".as_ptr() as *const i8);
+    }
+
+    // vertex buffer
+    unsafe {
+        // fuck if I know what addr_of_mut does
+        gl::GenBuffers(1, addr_of_mut!(VERTEX_BUFFER));
+        gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
+    }
+
+    // vertex attribute initialization
+    unsafe {
+        // I don't remember why these first 3 don't get assigned to something
+        vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
+        vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
+        vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
+        VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
+        VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
+    }
+
+    // gl extras
+    unsafe {
+        gl::Enable(gl::DEPTH_TEST);
+        gl::DepthFunc(gl::LESS);
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        gl::Enable(gl::CULL_FACE);
+    }
+
+    // create viewport and clear
+    unsafe {
+        gl::Viewport(0, 0, INTERNAL_W, INTERNAL_H);
+        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+    }
+
+    // save default fbo
+    unsafe {
+        gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, addr_of_mut!(DEFAULT_FBO));
+    }
+
+    // initialize offscreen fbo
+    unsafe {
+        gl::GenFramebuffers(1, addr_of_mut!(OFFSCREEN_FBO));
+        gl::BindFramebuffer(gl::FRAMEBUFFER, OFFSCREEN_FBO);
+    }
+
+    // initialize backing texture for offscreen fbo
+    unsafe {
+        gl::GenTextures(1, addr_of_mut!(OFFSCREEN_COLOR_TEX));
+        gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_COLOR_TEX);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as GLint,
+            INTERNAL_W,
+            INTERNAL_H,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            0 as *const GLvoid,
+        );
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            OFFSCREEN_COLOR_TEX,
+            0,
+        );
+    }
+
+    // initialize depth texture for offscreen fbo
+    unsafe {
+        gl::GenTextures(1, addr_of_mut!(OFFSCREEN_DEPTH_TEX));
+        gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_DEPTH_TEX);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::DEPTH_COMPONENT as GLint,
+            INTERNAL_W,
+            INTERNAL_H,
+            0,
+            gl::DEPTH_COMPONENT,
+            gl::UNSIGNED_INT,
+            0 as *const GLvoid,
+        );
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::DEPTH_ATTACHMENT,
+            gl::TEXTURE_2D,
+            OFFSCREEN_DEPTH_TEX,
+            0,
+        );
+    }
+
+    // restore the vertex buffer and attributes
+    unsafe {
+        // i don't remember why this happens either, maybe unnecessary?
+        // is this because of the other shader and switching?
+        gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
+        vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
+        vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
+        vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
+        VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
+        VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
     }
 
     Ok(())
