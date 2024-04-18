@@ -2,6 +2,7 @@ use std::string::FromUtf8Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
+#[repr(u8)]
 pub enum NUError {
     #[error{"Error loading shader"}]
     ShaderLoadError,
@@ -23,8 +24,8 @@ pub enum NUError {
     SDLError(String),
 }
 
-impl From<NUError> for u8 {
-    fn from(e: NUError) -> Self {
-        e.into()
+impl From<NUError> for String {
+    fn from(e: NUError) -> String {
+        e.to_string()
     }
 }

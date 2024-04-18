@@ -1,5 +1,6 @@
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::mixer::{self, InitFlag};
 use sdl2::video::GLProfile;
 
 use gl;
@@ -7,14 +8,10 @@ use gl;
 mod nuerror;
 mod render;
 
-fn init_systems() -> Result<(), nuerror::NUError> {
-    render::init()?;
-
-    Ok(())
-}
-
-fn main() -> Result<(), u8> {
+fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window), nuerror::NUError> {
     let sdl_context = sdl2::init().map_err(|e| nuerror::NUError::SDLError(e))?;
+
+    // video
     let video_subsystem = sdl_context
         .video()
         .map_err(|e| nuerror::NUError::SDLError(e))?;
@@ -30,13 +27,86 @@ fn main() -> Result<(), u8> {
         .build()
         .map_err(|_| nuerror::NUError::WindowBuildError)?;
 
-    let _ctx = window.gl_create_context().map_err(|e| nuerror::NUError::SDLError(e))?;
+    let _ctx = window
+        .gl_create_context()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
     gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
 
     debug_assert_eq!(gl_attr.context_profile(), GLProfile::GLES);
     debug_assert_eq!(gl_attr.context_version(), (3, 0));
 
-    init_systems()?;
+    // mixer
+    sdl_context
+        .audio()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+    mixer::open_audio(mixer::DEFAULT_FREQUENCY, mixer::DEFAULT_FORMAT, 2, 2048)
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+    sdl2::mixer::init(InitFlag::OGG).map_err(|e| nuerror::NUError::SDLError(e))?;
+    // todo, tune?
+    mixer::allocate_channels(64);
+
+    // timer
+    sdl_context
+        .timer()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+
+    // todo, text init here?
+
+    Ok((sdl_context, window))
+}
+
+fn init_nu() -> Result<(), nuerror::NUError> {
+    render::init()?;
+
+    Ok(())
+}
+
+fn main() -> Result<(), String> {
+    // let (sdl_context, window) = init_sdl()?;
+
+    let sdl_context = sdl2::init().map_err(|e| nuerror::NUError::SDLError(e))?;
+
+    // video
+    let video_subsystem = sdl_context
+        .video()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+
+    let gl_attr = video_subsystem.gl_attr();
+    gl_attr.set_context_profile(GLProfile::GLES);
+    gl_attr.set_context_version(3, 0);
+
+    let window = video_subsystem
+        .window("niveluno", render::D_WINDOW_W, render::D_WINDOW_H)
+        .opengl()
+        .resizable()
+        .build()
+        .map_err(|_| nuerror::NUError::WindowBuildError)?;
+
+    // fuck I hate rust, if _ctx Drop()s, all the GL calls will fail
+    let _ctx: sdl2::video::GLContext = window
+        .gl_create_context()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+    gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
+
+    debug_assert_eq!(gl_attr.context_profile(), GLProfile::GLES);
+    debug_assert_eq!(gl_attr.context_version(), (3, 0));
+
+    // mixer
+    sdl_context
+        .audio()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+    mixer::open_audio(mixer::DEFAULT_FREQUENCY, mixer::DEFAULT_FORMAT, 2, 2048)
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+    sdl2::mixer::init(InitFlag::OGG).map_err(|e| nuerror::NUError::SDLError(e))?;
+    // todo, tune?
+    mixer::allocate_channels(64);
+
+    // timer
+    sdl_context
+        .timer()
+        .map_err(|e| nuerror::NUError::SDLError(e))?;
+
+    init_nu()?;
 
     let mut event_pump = sdl_context
         .event_pump()
