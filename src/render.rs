@@ -12,8 +12,8 @@ pub const INTERNAL_H: i32 = 180;
 pub const D_WINDOW_W: u32 = 640;
 pub const D_WINDOW_H: u32 = 360;
 
-const V_SHADER_STR: &str = include_str!("vert.glsl");
-const F_SHADER_STR: &str = include_str!("frag.glsl");
+const V_SHADER_STR: &str = include_str!("game_vert.glsl");
+const F_SHADER_STR: &str = include_str!("game_frag.glsl");
 
 // OU-global collections
 static mut DRAW_CALLS: Vec<i32> = vec![];
@@ -42,7 +42,7 @@ static mut OFFSCREEN_FBO: GLuint = 0;
 static mut OFFSCREEN_COLOR_TEX: GLuint = 0;
 static mut OFFSCREEN_DEPTH_TEX: GLuint = 0;
 
-fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUError> {
+pub fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUError> {
     // https://dev.to/samkevich/learn-opengl-with-rust-shaders-28i3
 
     let mut shader: GLuint = 0;
@@ -51,10 +51,6 @@ fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUErr
 
     unsafe {
         shader = gl::CreateShader(shader_type);
-        // if shader == -1 {
-        //     return Err(NUError::ShaderCreateError);
-        // }
-        // let shader: GLuint = shader as GLuint;
         gl::ShaderSource(shader, 1, &shader_cstr.as_ptr(), std::ptr::null());
         gl::CompileShader(shader);
 
@@ -71,11 +67,7 @@ fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUErr
                 &mut error_log_size,
                 error_log.as_mut_ptr() as *mut _,
             );
-            eprintln!("sdf {}", String::from_utf8(error_log.clone())?);
-            // error_log.set_len(error_log_size as usize);
             let e = NUError::ShaderCompilationError(String::from_utf8(error_log)?);
-            eprintln!("{}", e);
-            eprintln!("fuck {}", success);
             return Err(e);
         }
     }
@@ -83,7 +75,7 @@ fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUErr
     Ok(shader as GLuint)
 }
 
-fn create_program(vert: GLuint, frag: GLuint) -> Result<GLuint, NUError> {
+pub fn create_program(vert: GLuint, frag: GLuint) -> Result<GLuint, NUError> {
     let mut program: GLuint = 0;
     let _ = program;
 
@@ -156,135 +148,134 @@ fn vertex_attribute(
 pub fn init() -> Result<(), NUError> {
     // compile and set shader
     unsafe {
-        let vshad = compile_shader(gl::FRAGMENT_SHADER, F_SHADER_STR)?;
-        // SHADER_PROGRAM = create_program(
-        //     compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
-        //     compile_shader(gl::FRAGMENT_SHADER, F_SHADER_STR)?,
-        // )?;
-        // gl::UseProgram(SHADER_PROGRAM);
+        SHADER_PROGRAM = create_program(
+            compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
+            compile_shader(gl::FRAGMENT_SHADER, F_SHADER_STR)?,
+        )?;
+        gl::UseProgram(SHADER_PROGRAM);
     }
 
-    // // set up uniforms
-    // unsafe {
-    //     // todo, map these characters to the reference of these static muts
-    //     // also change these names in the shader
-    //     U_CAMERA = gl::GetUniformLocation(SHADER_PROGRAM, "c".as_ptr() as *const i8);
-    //     U_LIGHTS = gl::GetUniformLocation(SHADER_PROGRAM, "l".as_ptr() as *const i8);
-    //     U_LIGHT_COUNT = gl::GetUniformLocation(SHADER_PROGRAM, "light_count".as_ptr() as *const i8);
-    //     U_MOUSE = gl::GetUniformLocation(SHADER_PROGRAM, "m".as_ptr() as *const i8);
-    //     // i think mp and mr are matrix_pos and matrix_rotation
-    //     U_POS = gl::GetUniformLocation(SHADER_PROGRAM, "mp".as_ptr() as *const i8);
-    //     U_ROTATION = gl::GetUniformLocation(SHADER_PROGRAM, "mr".as_ptr() as *const i8);
-    //     U_FRAME_MIX = gl::GetUniformLocation(SHADER_PROGRAM, "f".as_ptr() as *const i8);
-    //     U_UNLIT = gl::GetUniformLocation(SHADER_PROGRAM, "unlit".as_ptr() as *const i8);
-    // }
+    // set up uniforms
+    unsafe {
+        // todo, map these characters to the reference of these static muts
+        // also change these names in the shader
+        U_CAMERA = gl::GetUniformLocation(SHADER_PROGRAM, "c".as_ptr() as *const i8);
+        U_LIGHTS = gl::GetUniformLocation(SHADER_PROGRAM, "l".as_ptr() as *const i8);
+        U_LIGHT_COUNT = gl::GetUniformLocation(SHADER_PROGRAM, "light_count".as_ptr() as *const i8);
+        U_MOUSE = gl::GetUniformLocation(SHADER_PROGRAM, "m".as_ptr() as *const i8);
+        // i think mp and mr are matrix_pos and matrix_rotation
+        U_POS = gl::GetUniformLocation(SHADER_PROGRAM, "mp".as_ptr() as *const i8);
+        U_ROTATION = gl::GetUniformLocation(SHADER_PROGRAM, "mr".as_ptr() as *const i8);
+        U_FRAME_MIX = gl::GetUniformLocation(SHADER_PROGRAM, "f".as_ptr() as *const i8);
+        U_UNLIT = gl::GetUniformLocation(SHADER_PROGRAM, "unlit".as_ptr() as *const i8);
+    }
 
-    // // vertex buffer
-    // unsafe {
-    //     // fuck if I know what addr_of_mut does
-    //     gl::GenBuffers(1, addr_of_mut!(VERTEX_BUFFER));
-    //     gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
-    // }
+    // vertex buffer
+    unsafe {
+        // fuck if I know what addr_of_mut does
+        gl::GenBuffers(1, addr_of_mut!(VERTEX_BUFFER));
+        gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
+    }
 
-    // // vertex attribute initialization
-    // unsafe {
-    //     // I don't remember why these first 3 don't get assigned to something
-    //     vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
-    //     vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
-    //     vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
-    //     VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
-    //     VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
-    // }
+    // vertex attribute initialization
+    unsafe {
+        // I don't remember why these first 3 don't get assigned to something
+        vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
+        vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
+        vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
+        VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
+        VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
+    }
 
-    // // gl extras
-    // unsafe {
-    //     gl::Enable(gl::DEPTH_TEST);
-    //     gl::DepthFunc(gl::LESS);
-    //     gl::Enable(gl::BLEND);
-    //     gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
-    //     gl::Enable(gl::CULL_FACE);
-    // }
+    // gl extras
+    unsafe {
+        gl::Enable(gl::DEPTH_TEST);
+        gl::DepthFunc(gl::LESS);
+        gl::Enable(gl::BLEND);
+        gl::BlendFunc(gl::SRC_ALPHA, gl::ONE_MINUS_SRC_ALPHA);
+        gl::Enable(gl::CULL_FACE);
+    }
 
-    // // create viewport and clear
-    // unsafe {
-    //     gl::Viewport(0, 0, INTERNAL_W, INTERNAL_H);
-    //     gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-    // }
+    // create viewport and clear
+    unsafe {
+        gl::Viewport(0, 0, INTERNAL_W, INTERNAL_H);
+        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+    }
 
-    // // save default fbo
-    // unsafe {
-    //     gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, addr_of_mut!(DEFAULT_FBO));
-    // }
+    // save default fbo
+    unsafe {
+        gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, addr_of_mut!(DEFAULT_FBO));
+    }
 
-    // // initialize offscreen fbo
-    // unsafe {
-    //     gl::GenFramebuffers(1, addr_of_mut!(OFFSCREEN_FBO));
-    //     gl::BindFramebuffer(gl::FRAMEBUFFER, OFFSCREEN_FBO);
-    // }
+    // initialize offscreen fbo
+    unsafe {
+        gl::GenFramebuffers(1, addr_of_mut!(OFFSCREEN_FBO));
+        gl::BindFramebuffer(gl::FRAMEBUFFER, OFFSCREEN_FBO);
+    }
 
-    // // initialize backing texture for offscreen fbo
-    // unsafe {
-    //     gl::GenTextures(1, addr_of_mut!(OFFSCREEN_COLOR_TEX));
-    //     gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_COLOR_TEX);
-    //     gl::TexImage2D(
-    //         gl::TEXTURE_2D,
-    //         0,
-    //         gl::RGBA as GLint,
-    //         INTERNAL_W,
-    //         INTERNAL_H,
-    //         0,
-    //         gl::RGBA,
-    //         gl::UNSIGNED_BYTE,
-    //         0 as *const GLvoid,
-    //     );
-    //     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-    //     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-    //     gl::FramebufferTexture2D(
-    //         gl::FRAMEBUFFER,
-    //         gl::COLOR_ATTACHMENT0,
-    //         gl::TEXTURE_2D,
-    //         OFFSCREEN_COLOR_TEX,
-    //         0,
-    //     );
-    // }
+    // initialize backing texture for offscreen fbo
+    unsafe {
+        gl::GenTextures(1, addr_of_mut!(OFFSCREEN_COLOR_TEX));
+        gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_COLOR_TEX);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as GLint,
+            INTERNAL_W,
+            INTERNAL_H,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            0 as *const GLvoid,
+        );
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::COLOR_ATTACHMENT0,
+            gl::TEXTURE_2D,
+            OFFSCREEN_COLOR_TEX,
+            0,
+        );
+    }
 
-    // // initialize depth texture for offscreen fbo
-    // unsafe {
-    //     gl::GenTextures(1, addr_of_mut!(OFFSCREEN_DEPTH_TEX));
-    //     gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_DEPTH_TEX);
-    //     gl::TexImage2D(
-    //         gl::TEXTURE_2D,
-    //         0,
-    //         gl::DEPTH_COMPONENT as GLint,
-    //         INTERNAL_W,
-    //         INTERNAL_H,
-    //         0,
-    //         gl::DEPTH_COMPONENT,
-    //         gl::UNSIGNED_INT,
-    //         0 as *const GLvoid,
-    //     );
-    //     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
-    //     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
-    //     gl::FramebufferTexture2D(
-    //         gl::FRAMEBUFFER,
-    //         gl::DEPTH_ATTACHMENT,
-    //         gl::TEXTURE_2D,
-    //         OFFSCREEN_DEPTH_TEX,
-    //         0,
-    //     );
-    // }
+    // initialize depth texture for offscreen fbo
+    unsafe {
+        gl::GenTextures(1, addr_of_mut!(OFFSCREEN_DEPTH_TEX));
+        gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_DEPTH_TEX);
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::DEPTH_COMPONENT as GLint,
+            INTERNAL_W,
+            INTERNAL_H,
+            0,
+            gl::DEPTH_COMPONENT,
+            gl::UNSIGNED_INT,
+            0 as *const GLvoid,
+        );
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as GLint);
+        gl::FramebufferTexture2D(
+            gl::FRAMEBUFFER,
+            gl::DEPTH_ATTACHMENT,
+            gl::TEXTURE_2D,
+            OFFSCREEN_DEPTH_TEX,
+            0,
+        );
+    }
 
-    // // restore the vertex buffer and attributes
-    // unsafe {
-    //     // i don't remember why this happens either, maybe unnecessary?
-    //     // is this because of the other shader and switching?
-    //     gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
-    //     vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
-    //     vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
-    //     vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
-    //     VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
-    //     VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
-    // }
+    // restore the vertex buffer and attributes
+    unsafe {
+        // i don't remember why this happens either, maybe unnecessary?
+        // is this because of the other shader and switching?
+        gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
+        vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
+        vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
+        vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
+        VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
+        VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
+    }
 
     Ok(())
 }
