@@ -1,5 +1,3 @@
-use std::mem::MaybeUninit;
-
 use sdl2::pixels;
 use sdl2::rect;
 use sdl2::rwops::RWops;
@@ -122,7 +120,7 @@ pub fn text_init() -> Result<(), NUError> {
     )?;
 
     #[rustfmt::skip]
-    const _OVLY_VERT: [gl::types::GLfloat;24] = [
+    const OVLY_VERT: [gl::types::GLfloat;24] = [
         // bottom right
         // Position     Texture coordinates
          1.0, -1.0,     1.0, 1.0,
@@ -150,11 +148,11 @@ pub fn text_init() -> Result<(), NUError> {
         // Create a VBO and upload the vertex data
         gl::GenBuffers(1, &mut overlay_vbo);
         gl::BindBuffer(gl::ARRAY_BUFFER, overlay_vbo);
-        let sz = (u::_OVLY_VERT.len() * std::mem::size_of::<f32>()) as isize;
+        let sz = (OVLY_VERT.len() * std::mem::size_of::<f32>()) as isize;
         gl::BufferData(
             gl::ARRAY_BUFFER,
             sz,
-            u::_OVLY_VERT.as_ptr() as *const GLvoid,
+            OVLY_VERT.as_ptr() as *const GLvoid,
             gl::STATIC_DRAW,
         );
 
