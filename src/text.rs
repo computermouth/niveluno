@@ -1,3 +1,5 @@
+use std::mem::MaybeUninit;
+
 use sdl2::pixels;
 use sdl2::rect;
 use sdl2::rwops::RWops;
@@ -66,7 +68,7 @@ struct TextGod<'a> {
     pub overlay_program: GLuint,
     pub overlay_position: GLuint,
     pub overlay_texcoord: GLuint,
-    pub overlay_tex: GLuint,
+    pub overlay_tex_u: GLuint,
     pub overlay_vbo: GLuint,
     pub overlay_texture: GLuint,
 }
@@ -120,20 +122,18 @@ pub fn text_init() -> Result<(), NUError> {
     )?;
 
     #[rustfmt::skip]
-    mod u {
-        pub const _OVLY_VERT: [gl::types::GLfloat;24] = [
-            // bottom right
-            // Position     Texture coordinates
-             1.0, -1.0,     1.0, 1.0,
-            -1.0, -1.0,     0.0, 1.0,
-             1.0,  1.0,     1.0, 0.0,
-            // top left
-            // Position     Texture coordinates
-            -1.0,  1.0,     0.0, 0.0,
-             1.0,  1.0,     1.0, 0.0,
-            -1.0, -1.0,     0.0, 1.0,
-        ];
-    }
+    const _OVLY_VERT: [gl::types::GLfloat;24] = [
+        // bottom right
+        // Position     Texture coordinates
+         1.0, -1.0,     1.0, 1.0,
+        -1.0, -1.0,     0.0, 1.0,
+         1.0,  1.0,     1.0, 0.0,
+        // top left
+        // Position     Texture coordinates
+        -1.0,  1.0,     0.0, 0.0,
+         1.0,  1.0,     1.0, 0.0,
+        -1.0, -1.0,     0.0, 1.0,
+    ];
 
     let mut overlay_position: GLint = 0;
     let mut overlay_texcoord: GLint = 0;
@@ -190,6 +190,8 @@ pub fn text_end_frame() -> Result<(), NUError> {
         }
     }
 
+    // this seems fuckin dumb
+    // should just be able to filter or something, right?
     let game_time = game::get_time();
     let mut remaining = Vec::new();
     for i in 0..ts.len() {
@@ -205,9 +207,81 @@ pub fn text_end_frame() -> Result<(), NUError> {
         }
     }
 
-    // let remaining: Vec<InternalTimedSurface> = ts.iter().filter(|v|{
-    //     v.end_time > game::get_time()
-    // }).map(|v| {text_push_surface(v.ts); v}).collect();
+    let mut overlay_tex_u = None;
+    let mut overlay_texture = None;
+    let mut overlay_surface = None;
+    let mut overlay_program = None;
+    let mut overlay_vbo = None;
+    let mut overlay_position = None;
+    let mut overlay_texcoord = None;
+    unsafe {
+        if let Some(tg) = &mut TEXT_GOD {
+            overlay_tex_u = Some(tg.overlay_tex_u);
+            overlay_texture = Some(tg.overlay_texture);
+            overlay_surface = Some(&tg.overlay_surface);
+            overlay_program = Some(tg.overlay_program);
+            overlay_vbo = Some(tg.overlay_vbo);
+            overlay_position = Some(tg.overlay_position);
+            overlay_texcoord = Some(tg.overlay_texcoord);
+        }
+    };
+
+    // set up overlay texture
+    unsafe {
+        let os = overlay_surface.unwrap();
+        let pixels = os.with_lock(|p| p.to_vec());
+        gl::BindTexture(gl::TEXTURE_2D, overlay_texture.unwrap());
+        gl::TexImage2D(
+            gl::TEXTURE_2D,
+            0,
+            gl::RGBA as i32,
+            os.width() as i32,
+            os.height() as i32,
+            0,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            pixels.as_ptr() as *const GLvoid,
+        );
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+    }
+    // program and buffer
+    unsafe {
+        gl::Disable(gl::CULL_FACE);
+        gl::UseProgram(overlay_program.unwrap());
+        gl::BindBuffer(gl::ARRAY_BUFFER, overlay_vbo.unwrap());
+    }
+    // vertices
+    unsafe {
+        let stride_sz = (4 * std::mem::size_of::<GLfloat>()) as i32;
+        let pointr_sz = 2 * std::mem::size_of::<GLfloat>();
+        gl::EnableVertexAttribArray(overlay_position.unwrap());
+        gl::EnableVertexAttribArray(overlay_texcoord.unwrap());
+        gl::VertexAttribPointer(
+            overlay_position.unwrap(),
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            stride_sz,
+            0 as *const GLvoid,
+        );
+        gl::VertexAttribPointer(
+            overlay_texcoord.unwrap(),
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            stride_sz,
+            pointr_sz as *const GLvoid,
+        );
+    }
+
+    unsafe {
+        gl::ActiveTexture(gl::TEXTURE0);
+        gl::BindTexture(gl::TEXTURE_2D, overlay_texture.unwrap());
+        gl::Uniform1i(overlay_tex_u.unwrap() as i32, 0);
+        gl::DrawArrays(gl::TRIANGLES, 0, 6);
+        gl::Enable(gl::CULL_FACE);
+    }
 
     Ok(())
 }
