@@ -30,24 +30,23 @@ pub struct FontInput {
     pub size: FontSize,
 }
 
-#[derive(Clone)]
-pub struct TextSurface {
-    pub x: i32,
-    pub y: i32,
-    pub w: i32,
-    pub h: i32,
+// #[derive(Clone)]
+pub struct TextSurface<'a> {
+    pub x: u32,
+    pub y: u32,
+    pub w: u32,
+    pub h: u32,
     // todo, figure out what type this should be
-    pub data: Vec<u8>,
+    pub data: Surface<'a>,
 }
 
-pub struct TimedSurface {
-    pub ts: TextSurface,
+pub struct TimedSurface<'a> {
+    pub ts: TextSurface<'a>,
     pub ms: u32,
 }
 
-#[derive(Clone)]
-struct InternalTimedSurface {
-    pub ts: TextSurface,
+struct InternalTimedSurface<'a> {
+    pub ts: TextSurface<'a>,
     pub end_time: f32,
 }
 
@@ -61,7 +60,7 @@ struct TextGod<'a> {
     pub font_sm: Font<'a, 'a>,
     pub font_md: Font<'a, 'a>,
     pub font_lg: Font<'a, 'a>,
-    pub timed_surfaces: Vec<InternalTimedSurface>,
+    pub timed_surfaces: Vec<InternalTimedSurface<'a>>,
     // gl things
     pub overlay_program: GLuint,
     pub overlay_position: GLuint,
@@ -188,14 +187,26 @@ pub fn text_end_frame() -> Result<(), NUError> {
         }
     }
 
-    // this seems fuckin dumb
-    // should just be able to filter or something, right?
+    /*
+       // this seems fuckin dumb
+       // should just be able to filter or something, right?
+       let game_time = game::get_time();
+       let mut remaining = Vec::new();
+       for i in 0..ts.len() {
+           if ts[i].end_time > game_time {
+               text_push_surface(&ts[i].ts);
+               remaining.push(ts[i]);
+           }
+       }
+    */
+    // todo, less dumb, but this reverse is wasteful probably
+    ts.reverse();
     let game_time = game::get_time();
     let mut remaining = Vec::new();
-    for i in 0..ts.len() {
-        if ts[i].end_time > game_time {
-            text_push_surface(&ts[i].ts);
-            remaining.push(ts[i].clone());
+    while let Some(t) = ts.pop() {
+        if t.end_time > game_time {
+            text_push_surface(&t.ts);
+            remaining.push(t);
         }
     }
 
@@ -284,14 +295,37 @@ pub fn text_end_frame() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn text_create_surface(input: FontInput) -> Box<TextSurface> {
-    Box::new(TextSurface {
+pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface<'a>>, NUError> {
+    let mut tg = None;
+    unsafe {
+        if let Some(t) = &TEXT_GOD {
+            tg = Some(t);
+        } else {
+            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
+        }
+    }
+
+    let font = match input.size {
+        FontSize::SM => &tg.unwrap().font_sm,
+        FontSize::MD => &tg.unwrap().font_md,
+        FontSize::LG => &tg.unwrap().font_lg,
+    };
+
+    let fg = sdl2::pixels::Color::RGBA(input.color.r, input.color.g, input.color.b, input.color.a);
+    let tmp_fg = font
+        .render(&input.text)
+        .solid(fg)
+        .map_err(|e| NUError::SDLError(e.to_string()))?;
+
+    // todo, background??
+
+    Ok(Box::new(TextSurface {
         x: 0,
         y: 0,
-        w: 0,
-        h: 0,
-        data: Vec::new(),
-    })
+        w: tmp_fg.width(),
+        h: tmp_fg.height(),
+        data: tmp_fg,
+    }))
 }
 pub fn text_push_timed_surface(time_surf: TimedSurface) {}
 pub fn text_push_surface(ts: &TextSurface) {}
