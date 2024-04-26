@@ -1,5 +1,3 @@
-use std::ffi::NulError;
-
 use sdl2::pixels;
 use sdl2::rect;
 use sdl2::rwops::RWops;
@@ -9,6 +7,7 @@ use sdl2::ttf::{Font, Sdl2TtfContext};
 use gl;
 use gl::types::*;
 
+use crate::game;
 use crate::nuerror::NUError;
 use crate::render;
 
@@ -31,6 +30,7 @@ pub struct FontInput {
     pub size: FontSize,
 }
 
+#[derive(Clone)]
 pub struct TextSurface {
     pub x: i32,
     pub y: i32,
@@ -40,13 +40,14 @@ pub struct TextSurface {
     pub data: Vec<u8>,
 }
 
-pub struct TimedSurface<'a> {
-    pub ts: &'a TextSurface,
+pub struct TimedSurface {
+    pub ts: TextSurface,
     pub ms: u32,
 }
 
-struct InternalTimedSurface<'a> {
-    pub ts: &'a TextSurface,
+#[derive(Clone)]
+struct InternalTimedSurface {
+    pub ts: TextSurface,
     pub end_time: f32,
 }
 
@@ -60,7 +61,7 @@ struct TextGod<'a> {
     pub font_sm: Font<'a, 'a>,
     pub font_md: Font<'a, 'a>,
     pub font_lg: Font<'a, 'a>,
-    pub timed_surfaces: Vec<InternalTimedSurface<'a>>,
+    pub timed_surfaces: Vec<InternalTimedSurface>,
     // gl things
     pub overlay_program: GLuint,
     pub overlay_position: GLuint,
@@ -179,6 +180,38 @@ pub fn text_init() -> Result<(), NUError> {
     Ok(())
 }
 
+pub fn text_end_frame() -> Result<(), NUError> {
+    let ts: &mut Vec<InternalTimedSurface>;
+    unsafe {
+        if let Some(tg) = &mut TEXT_GOD {
+            ts = &mut tg.timed_surfaces;
+        } else {
+            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
+        }
+    }
+
+    let game_time = game::get_time();
+    let mut remaining = Vec::new();
+    for i in 0..ts.len() {
+        if ts[i].end_time > game_time {
+            text_push_surface(&ts[i].ts);
+            remaining.push(ts[i].clone());
+        }
+    }
+
+    unsafe {
+        if let Some(tg) = &mut TEXT_GOD {
+            tg.timed_surfaces = remaining;
+        }
+    }
+
+    // let remaining: Vec<InternalTimedSurface> = ts.iter().filter(|v|{
+    //     v.end_time > game::get_time()
+    // }).map(|v| {text_push_surface(v.ts); v}).collect();
+
+    Ok(())
+}
+
 pub fn text_create_surface(input: FontInput) -> Box<TextSurface> {
     Box::new(TextSurface {
         x: 0,
@@ -190,7 +223,5 @@ pub fn text_create_surface(input: FontInput) -> Box<TextSurface> {
 }
 pub fn text_push_timed_surface(time_surf: TimedSurface) {}
 pub fn text_push_surface(ts: &TextSurface) {}
-pub fn text_free_surface(ts: &TextSurface) {}
 pub fn text_prepare_frame() {}
-pub fn text_end_frame() {}
 pub fn text_quit() {}

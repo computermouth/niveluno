@@ -5,6 +5,7 @@ use sdl2::video::GLProfile;
 
 use gl;
 
+mod game;
 mod nuerror;
 mod render;
 mod text;

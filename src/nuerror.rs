@@ -22,6 +22,8 @@ pub enum NUError {
     WindowBuildError,
     #[error("Error initializing sdl2: {0}")]
     SDLError(String),
+    #[error("Miscellaneous error: {0}")]
+    MiscError(String),
 }
 
 impl From<NUError> for String {
