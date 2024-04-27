@@ -1,3 +1,6 @@
+use std::ops::Deref;
+use std::rc::Rc;
+
 use sdl2::pixels;
 use sdl2::rect;
 use sdl2::rwops::RWops;
@@ -37,17 +40,21 @@ pub struct TextSurface<'a> {
     pub w: u32,
     pub h: u32,
     // todo, figure out what type this should be
-    pub data: Surface<'a>,
+    pub data: Rc<Surface<'a>>,
 }
 
 pub struct TimedSurface<'a> {
-    pub ts: TextSurface<'a>,
-    pub ms: u32,
+    ts: TextSurface<'a>,
+    end_time: f32,
 }
 
-struct InternalTimedSurface<'a> {
-    pub ts: TextSurface<'a>,
-    pub end_time: f32,
+impl<'a> TimedSurface<'a> {
+    pub fn new(ts: TextSurface, ms: u32) -> TimedSurface {
+        TimedSurface {
+            ts: ts,
+            end_time: game::get_time() + ms as f32 / 1000.
+        }
+    }
 }
 
 struct TextGod<'a> {
@@ -60,7 +67,7 @@ struct TextGod<'a> {
     pub font_sm: Font<'a, 'a>,
     pub font_md: Font<'a, 'a>,
     pub font_lg: Font<'a, 'a>,
-    pub timed_surfaces: Vec<InternalTimedSurface<'a>>,
+    pub timed_surfaces: Vec<TimedSurface<'a>>,
     // gl things
     pub overlay_program: GLuint,
     pub overlay_position: GLuint,
@@ -73,6 +80,8 @@ struct TextGod<'a> {
 const V_SHADER_STR: &str = include_str!("game_vert.glsl");
 const F_SHADER_STR: &str = include_str!("game_frag.glsl");
 
+// this could probably be a refcell inside some NUGod struct
+// that's just passed everywhere, maybe this is less annoying though
 static mut TEXT_GOD: Option<TextGod<'static>> = None;
 
 pub fn text_init() -> Result<(), NUError> {
@@ -111,7 +120,7 @@ pub fn text_init() -> Result<(), NUError> {
         .load_font_from_rwops(font_lg_rw, 32)
         .map_err(|e| NUError::SDLError(e))?;
 
-    let timed_surfaces: Vec<InternalTimedSurface> = vec![];
+    let timed_surfaces: Vec<TimedSurface> = vec![];
 
     let overlay_program = render::create_program(
         render::compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
@@ -137,6 +146,7 @@ pub fn text_init() -> Result<(), NUError> {
     let mut overlay_tex: GLint = 0;
     let mut overlay_vbo: GLuint = 0;
     let mut overlay_texture: GLuint = 0;
+    _ = (overlay_position, overlay_texcoord, overlay_tex, overlay_vbo, overlay_texture);
 
     unsafe {
         gl::UseProgram(overlay_program);
@@ -178,7 +188,7 @@ pub fn text_init() -> Result<(), NUError> {
 }
 
 pub fn text_end_frame() -> Result<(), NUError> {
-    let ts: &mut Vec<InternalTimedSurface>;
+    let ts: &mut Vec<TimedSurface>;
     unsafe {
         if let Some(tg) = &mut TEXT_GOD {
             ts = &mut tg.timed_surfaces;
@@ -297,6 +307,7 @@ pub fn text_end_frame() -> Result<(), NUError> {
 
 pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface<'a>>, NUError> {
     let mut tg = None;
+    _ = tg;
     unsafe {
         if let Some(t) = &TEXT_GOD {
             tg = Some(t);
@@ -324,10 +335,56 @@ pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface<'a>>,
         y: 0,
         w: tmp_fg.width(),
         h: tmp_fg.height(),
-        data: tmp_fg,
+        data: Rc::new(tmp_fg),
     }))
 }
-pub fn text_push_timed_surface(time_surf: TimedSurface) {}
+
+pub fn text_prepare_frame() -> Result<(), NUError> {
+    let mut os = None;
+    unsafe {
+        if let Some(tg) = &mut TEXT_GOD {
+            os = Some(&mut tg.overlay_surface);
+        } else {
+            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
+        }
+    }
+    os.unwrap()
+        .fill_rect(
+            rect::Rect::new(0, 0, render::INTERNAL_W as u32, render::INTERNAL_H as u32),
+            pixels::Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            },
+        )
+        .map_err(|e| NUError::SDLError(e))?;
+    Ok(())
+}
+
+static mut fart: Option<Vec<Box<TimedSurface>>> = None;
+
+// i have no idea why this wor
+pub fn text_push_timed_surface(time_surf: Box<TimedSurface>) -> Result<(), NUError> {
+    let mut ts = None;
+    unsafe {
+        if let Some(tg) = &mut TEXT_GOD {
+            ts = Some(&mut tg.timed_surfaces);
+        } else {
+            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
+        }
+    }
+
+    unsafe {
+        if let Some(f) = &mut fart {
+            f.push(time_surf);
+        }
+    }
+
+    // ts.unwrap().push(time_surf);
+    drop(time_surf);
+    Ok(())
+}
+
 pub fn text_push_surface(ts: &TextSurface) {}
-pub fn text_prepare_frame() {}
 pub fn text_quit() {}
