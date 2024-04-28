@@ -1,5 +1,4 @@
-use std::ops::Deref;
-use std::rc::Rc;
+use std::ptr::addr_of_mut;
 
 use sdl2::pixels;
 use sdl2::rect;
@@ -34,25 +33,25 @@ pub struct FontInput {
 }
 
 // #[derive(Clone)]
-pub struct TextSurface<'a> {
+pub struct TextSurface {
     pub x: u32,
     pub y: u32,
     pub w: u32,
     pub h: u32,
     // todo, figure out what type this should be
-    pub data: Rc<Surface<'a>>,
+    pub data: Surface<'static>,
 }
 
-pub struct TimedSurface<'a> {
-    ts: TextSurface<'a>,
+pub struct TimedSurface {
+    ts: TextSurface,
     end_time: f32,
 }
 
-impl<'a> TimedSurface<'a> {
+impl TimedSurface {
     pub fn new(ts: TextSurface, ms: u32) -> TimedSurface {
         TimedSurface {
             ts: ts,
-            end_time: game::get_time() + ms as f32 / 1000.
+            end_time: game::get_time() + ms as f32 / 1000.,
         }
     }
 }
@@ -67,7 +66,7 @@ struct TextGod<'a> {
     pub font_sm: Font<'a, 'a>,
     pub font_md: Font<'a, 'a>,
     pub font_lg: Font<'a, 'a>,
-    pub timed_surfaces: Vec<TimedSurface<'a>>,
+    pub timed_surfaces: Vec<TimedSurface>,
     // gl things
     pub overlay_program: GLuint,
     pub overlay_position: GLuint,
@@ -146,7 +145,13 @@ pub fn text_init() -> Result<(), NUError> {
     let mut overlay_tex: GLint = 0;
     let mut overlay_vbo: GLuint = 0;
     let mut overlay_texture: GLuint = 0;
-    _ = (overlay_position, overlay_texcoord, overlay_tex, overlay_vbo, overlay_texture);
+    _ = (
+        overlay_position,
+        overlay_texcoord,
+        overlay_tex,
+        overlay_vbo,
+        overlay_texture,
+    );
 
     unsafe {
         gl::UseProgram(overlay_program);
@@ -215,7 +220,7 @@ pub fn text_end_frame() -> Result<(), NUError> {
     let mut remaining = Vec::new();
     while let Some(t) = ts.pop() {
         if t.end_time > game_time {
-            text_push_surface(&t.ts);
+            text_push_surface(&t.ts)?;
             remaining.push(t);
         }
     }
@@ -305,7 +310,7 @@ pub fn text_end_frame() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface<'a>>, NUError> {
+pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface>, NUError> {
     let mut tg = None;
     _ = tg;
     unsafe {
@@ -335,7 +340,7 @@ pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface<'a>>,
         y: 0,
         w: tmp_fg.width(),
         h: tmp_fg.height(),
-        data: Rc::new(tmp_fg),
+        data: tmp_fg,
     }))
 }
 
@@ -362,10 +367,8 @@ pub fn text_prepare_frame() -> Result<(), NUError> {
     Ok(())
 }
 
-static mut fart: Option<Vec<Box<TimedSurface>>> = None;
-
 // i have no idea why this wor
-pub fn text_push_timed_surface(time_surf: Box<TimedSurface>) -> Result<(), NUError> {
+pub fn text_push_timed_surface(time_surf: TimedSurface) -> Result<(), NUError> {
     let mut ts = None;
     unsafe {
         if let Some(tg) = &mut TEXT_GOD {
@@ -375,16 +378,29 @@ pub fn text_push_timed_surface(time_surf: Box<TimedSurface>) -> Result<(), NUErr
         }
     }
 
-    unsafe {
-        if let Some(f) = &mut fart {
-            f.push(time_surf);
-        }
-    }
-
-    // ts.unwrap().push(time_surf);
-    drop(time_surf);
+    ts.unwrap().push(time_surf);
     Ok(())
 }
 
-pub fn text_push_surface(ts: &TextSurface) {}
-pub fn text_quit() {}
+pub fn text_push_surface(ts: &TextSurface) -> Result<(), NUError> {
+    let mut os = None;
+    unsafe {
+        if let Some(tg) = &mut TEXT_GOD {
+            os = Some(&mut tg.overlay_surface);
+        } else {
+            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
+        }
+    }
+
+    let dst_rect = sdl2::rect::Rect::new(ts.x as i32, ts.y as i32, ts.w, ts.h);
+    ts.data
+        .blit(None, os.unwrap(), dst_rect)
+        .map_err(|e| NUError::SDLError(e))?;
+
+    Ok(())
+}
+pub fn text_quit() {
+    unsafe {
+        TEXT_GOD = None;
+    }
+}

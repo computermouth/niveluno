@@ -4,6 +4,7 @@ use sdl2::mixer::{self, InitFlag};
 use sdl2::video::GLProfile;
 
 use gl;
+use text::text_quit;
 
 mod game;
 mod nuerror;
@@ -87,6 +88,9 @@ fn main() -> Result<(), String> {
         }
         std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
     }
+
+    // probably unnecessary
+    text_quit();
 
     Ok(())
 }
