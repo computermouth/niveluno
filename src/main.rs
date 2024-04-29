@@ -4,9 +4,9 @@ use sdl2::mixer::{self, InitFlag};
 use sdl2::video::GLProfile;
 
 use gl;
-use text::text_quit;
 
 mod game;
+mod math;
 mod nuerror;
 mod render;
 mod text;
@@ -61,6 +61,7 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
 
 fn init_nu() -> Result<(), nuerror::NUError> {
     render::init()?;
+    text::init()?;
 
     Ok(())
 }
@@ -90,7 +91,8 @@ fn main() -> Result<(), String> {
     }
 
     // probably unnecessary
-    text_quit();
+    text::quit();
+    render::quit();
 
     Ok(())
 }

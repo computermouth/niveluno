@@ -1,9 +1,10 @@
-use std::ffi::CString;
+use std::ffi::{CString, NulError};
 use std::ptr::addr_of_mut;
 
 use gl;
 use gl::types::*;
 
+use crate::math::Vec3;
 use crate::nuerror::NUError;
 
 // draw texture res, default window res
@@ -277,5 +278,57 @@ pub fn init() -> Result<(), NUError> {
         VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
     }
 
+    Ok(())
+}
+
+struct PngBin {}
+
+pub fn create_texture(p: PngBin) -> Result<usize, NUError> {
+    Ok((0))
+}
+
+pub fn prepare_frame(r: f32, g: f32, b: f32) -> Result<(), NUError> {
+    Ok(())
+}
+
+pub fn end_frame() -> Result<(), NUError> {
+    Ok(())
+}
+
+struct DrawCall {}
+
+pub fn draw(d: DrawCall) -> Result<(), NUError> {
+    Ok(())
+}
+
+pub fn submit_buffer() -> Result<(), NUError> {
+    Ok(())
+}
+
+pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<(), NUError> {
+    Ok(())
+}
+
+pub fn push_quad(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, u: f32, v: f32) -> Result<(), NUError> {
+    Ok(())
+}
+
+pub fn push_block(
+    x: f32,
+    y: f32,
+    z: f32,
+    sx: f32,
+    sy: f32,
+    sz: f32,
+    texture: isize,
+) -> Result<(), NUError> {
+    Ok(())
+}
+
+pub fn push_light(pos: Vec3, intensity: f32, r: f32, g: f32, b: f32) -> Result<(), NUError> {
+    Ok(())
+}
+
+pub fn quit() -> Result<(), NUError> {
     Ok(())
 }

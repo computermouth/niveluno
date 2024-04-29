@@ -56,6 +56,9 @@ impl TimedSurface {
     }
 }
 
+const V_SHADER_STR: &str = include_str!("game_vert.glsl");
+const F_SHADER_STR: &str = include_str!("game_frag.glsl");
+
 struct TextGod<'a> {
     pub context: Sdl2TtfContext,
     // RefCell<Surface<'a>> ??
@@ -76,14 +79,21 @@ struct TextGod<'a> {
     pub overlay_texture: GLuint,
 }
 
-const V_SHADER_STR: &str = include_str!("game_vert.glsl");
-const F_SHADER_STR: &str = include_str!("game_frag.glsl");
+impl<'a> TextGod<'a> {
+    pub fn get() -> Result<&'static mut TextGod<'static>, NUError> {
+        unsafe {
+            TEXT_GOD
+                .as_mut()
+                .ok_or_else(|| NUError::MiscError("TEXT_GOD uninit".to_string()))
+        }
+    }
+}
 
 // this could probably be a refcell inside some NUGod struct
 // that's just passed everywhere, maybe this is less annoying though
 static mut TEXT_GOD: Option<TextGod<'static>> = None;
 
-pub fn text_init() -> Result<(), NUError> {
+pub fn init() -> Result<(), NUError> {
     // context
     let ctx = sdl2::ttf::init().map_err(|e| NUError::SDLError(e.to_string()))?;
     // surface
@@ -123,7 +133,7 @@ pub fn text_init() -> Result<(), NUError> {
 
     let overlay_program = render::create_program(
         render::compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
-        render::compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
+        render::compile_shader(gl::FRAGMENT_SHADER, F_SHADER_STR)?,
     )?;
 
     #[rustfmt::skip]
@@ -192,35 +202,16 @@ pub fn text_init() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn text_end_frame() -> Result<(), NUError> {
-    let ts: &mut Vec<TimedSurface>;
-    unsafe {
-        if let Some(tg) = &mut TEXT_GOD {
-            ts = &mut tg.timed_surfaces;
-        } else {
-            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
-        }
-    }
+pub fn end_frame() -> Result<(), NUError> {
+    let ts: &mut Vec<TimedSurface> = TextGod::get()?.timed_surfaces.as_mut();
 
-    /*
-       // this seems fuckin dumb
-       // should just be able to filter or something, right?
-       let game_time = game::get_time();
-       let mut remaining = Vec::new();
-       for i in 0..ts.len() {
-           if ts[i].end_time > game_time {
-               text_push_surface(&ts[i].ts);
-               remaining.push(ts[i]);
-           }
-       }
-    */
     // todo, less dumb, but this reverse is wasteful probably
     ts.reverse();
     let game_time = game::get_time();
     let mut remaining = Vec::new();
     while let Some(t) = ts.pop() {
         if t.end_time > game_time {
-            text_push_surface(&t.ts)?;
+            push_surface(&t.ts)?;
             remaining.push(t);
         }
     }
@@ -310,21 +301,11 @@ pub fn text_end_frame() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface>, NUError> {
-    let mut tg = None;
-    _ = tg;
-    unsafe {
-        if let Some(t) = &TEXT_GOD {
-            tg = Some(t);
-        } else {
-            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
-        }
-    }
-
+pub fn create_surface<'a>(input: FontInput) -> Result<Box<TextSurface>, NUError> {
     let font = match input.size {
-        FontSize::SM => &tg.unwrap().font_sm,
-        FontSize::MD => &tg.unwrap().font_md,
-        FontSize::LG => &tg.unwrap().font_lg,
+        FontSize::SM => &TextGod::get()?.font_sm,
+        FontSize::MD => &TextGod::get()?.font_sm,
+        FontSize::LG => &TextGod::get()?.font_sm,
     };
 
     let fg = sdl2::pixels::Color::RGBA(input.color.r, input.color.g, input.color.b, input.color.a);
@@ -344,62 +325,40 @@ pub fn text_create_surface<'a>(input: FontInput) -> Result<Box<TextSurface>, NUE
     }))
 }
 
-pub fn text_prepare_frame() -> Result<(), NUError> {
-    let mut os = None;
-    unsafe {
-        if let Some(tg) = &mut TEXT_GOD {
-            os = Some(&mut tg.overlay_surface);
-        } else {
-            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
-        }
-    }
-    os.unwrap()
-        .fill_rect(
-            rect::Rect::new(0, 0, render::INTERNAL_W as u32, render::INTERNAL_H as u32),
-            pixels::Color {
-                r: 0,
-                g: 0,
-                b: 0,
-                a: 0,
-            },
-        )
-        .map_err(|e| NUError::SDLError(e))?;
+pub fn prepare_frame() -> Result<(), NUError> {
+    let mut os = &mut TextGod::get()?.overlay_surface;
+    os.fill_rect(
+        rect::Rect::new(0, 0, render::INTERNAL_W as u32, render::INTERNAL_H as u32),
+        pixels::Color {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        },
+    )
+    .map_err(|e| NUError::SDLError(e))?;
     Ok(())
 }
 
-// i have no idea why this wor
-pub fn text_push_timed_surface(time_surf: TimedSurface) -> Result<(), NUError> {
-    let mut ts = None;
-    unsafe {
-        if let Some(tg) = &mut TEXT_GOD {
-            ts = Some(&mut tg.timed_surfaces);
-        } else {
-            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
-        }
-    }
+pub fn push_timed_surface(time_surf: TimedSurface) -> Result<(), NUError> {
+    let ts = &mut TextGod::get()?.timed_surfaces;
 
-    ts.unwrap().push(time_surf);
+    ts.push(time_surf);
     Ok(())
 }
 
-pub fn text_push_surface(ts: &TextSurface) -> Result<(), NUError> {
-    let mut os = None;
-    unsafe {
-        if let Some(tg) = &mut TEXT_GOD {
-            os = Some(&mut tg.overlay_surface);
-        } else {
-            return Err(NUError::MiscError("TEXT_GOD uninit".to_string()));
-        }
-    }
+pub fn push_surface(ts: &TextSurface) -> Result<(), NUError> {
+    let os = &mut TextGod::get()?.overlay_surface;
 
     let dst_rect = sdl2::rect::Rect::new(ts.x as i32, ts.y as i32, ts.w, ts.h);
     ts.data
-        .blit(None, os.unwrap(), dst_rect)
+        .blit(None, os, dst_rect)
         .map_err(|e| NUError::SDLError(e))?;
 
     Ok(())
 }
-pub fn text_quit() {
+
+pub fn quit() {
     unsafe {
         TEXT_GOD = None;
     }
