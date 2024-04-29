@@ -16,32 +16,48 @@ pub const D_WINDOW_H: u32 = 360;
 const V_SHADER_STR: &str = include_str!("game_vert.glsl");
 const F_SHADER_STR: &str = include_str!("game_frag.glsl");
 
-// OU-global collections
-static mut DRAW_CALLS: Vec<i32> = vec![];
-static mut TEXTURES: Vec<i32> = vec![];
+struct RenderGod {
+    // OU-global collections
+    pub draw_calls: Vec<i32>,
+    pub textures: Vec<i32>,
 
-// shader stuff
-static mut SHADER_PROGRAM: GLuint = 0;
-static mut VERTEX_BUFFER: GLuint = 0;
+    // shader stuff
+    pub shader_program: GLuint,
+    pub vertex_buffer: GLuint,
 
-// uniforms
-static mut U_CAMERA: GLint = 0;
-static mut U_LIGHTS: GLint = 0;
-static mut U_LIGHT_COUNT: GLint = 0;
-static mut U_MOUSE: GLint = 0;
-static mut U_POS: GLint = 0;
-static mut U_ROTATION: GLint = 0;
-static mut U_FRAME_MIX: GLint = 0;
-static mut U_UNLIT: GLint = 0;
+    // uniforms
+    pub u_camera: GLint,
+    pub u_lights: GLint,
+    pub u_light_count: GLint,
+    pub u_mouse: GLint,
+    pub u_pos: GLint,
+    pub u_rotation: GLint,
+    pub u_frame_mix: GLint,
+    pub u_unlit: GLint,
 
-// vertex attribute location for mixing
-static mut VA_P2: GLint = 0;
-static mut VA_N2: GLint = 0;
+    // vertex attribute location for mixing
+    pub va_p2: GLint,
+    pub va_n2: GLint,
 
-static mut DEFAULT_FBO: GLint = 0;
-static mut OFFSCREEN_FBO: GLuint = 0;
-static mut OFFSCREEN_COLOR_TEX: GLuint = 0;
-static mut OFFSCREEN_DEPTH_TEX: GLuint = 0;
+    pub default_fbo: GLint,
+    pub offscreen_fbo: GLuint,
+    pub offscreen_color_tex: GLuint,
+    pub offscreen_depth_tex: GLuint,
+}
+
+impl RenderGod {
+    pub fn get() -> Result<&'static mut RenderGod, NUError> {
+        unsafe {
+            RENDER_GOD
+                .as_mut()
+                .ok_or_else(|| NUError::MiscError("RENDER_GOD uninit".to_string()))
+        }
+    }
+}
+
+// this could probably be a refcell inside some NUGod struct
+// that's just passed everywhere, maybe this is less annoying though
+static mut RENDER_GOD: Option<RenderGod> = None;
 
 pub fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUError> {
     // https://dev.to/samkevich/learn-opengl-with-rust-shaders-28i3
@@ -147,45 +163,81 @@ fn vertex_attribute(
 }
 
 pub fn init() -> Result<(), NUError> {
+    let rg = RenderGod {
+        // OU-global collections
+        draw_calls: vec![],
+        textures: vec![],
+
+        // shader stuff
+        shader_program: 0,
+        vertex_buffer: 0,
+
+        // uniforms
+        u_camera: 0,
+        u_lights: 0,
+        u_light_count: 0,
+        u_mouse: 0,
+        u_pos: 0,
+        u_rotation: 0,
+        u_frame_mix: 0,
+        u_unlit: 0,
+
+        // vertex attribute location for mixing
+        va_p2: 0,
+        va_n2: 0,
+
+        default_fbo: 0,
+        offscreen_fbo: 0,
+        offscreen_color_tex: 0,
+        offscreen_depth_tex: 0,
+    };
+
+    unsafe {
+        RENDER_GOD = Some(rg);
+    }
+
+    let rg = RenderGod::get()?;
+
     // compile and set shader
     unsafe {
-        SHADER_PROGRAM = create_program(
+        rg.shader_program = create_program(
             compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
             compile_shader(gl::FRAGMENT_SHADER, F_SHADER_STR)?,
         )?;
-        gl::UseProgram(SHADER_PROGRAM);
+        gl::UseProgram(rg.shader_program);
     }
 
     // set up uniforms
     unsafe {
         // todo, map these characters to the reference of these static muts
         // also change these names in the shader
-        U_CAMERA = gl::GetUniformLocation(SHADER_PROGRAM, "c".as_ptr() as *const i8);
-        U_LIGHTS = gl::GetUniformLocation(SHADER_PROGRAM, "l".as_ptr() as *const i8);
-        U_LIGHT_COUNT = gl::GetUniformLocation(SHADER_PROGRAM, "light_count".as_ptr() as *const i8);
-        U_MOUSE = gl::GetUniformLocation(SHADER_PROGRAM, "m".as_ptr() as *const i8);
+        rg.u_camera = gl::GetUniformLocation(rg.shader_program, "c".as_ptr() as *const i8);
+        rg.u_lights = gl::GetUniformLocation(rg.shader_program, "l".as_ptr() as *const i8);
+        rg.u_light_count =
+            gl::GetUniformLocation(rg.shader_program, "light_count".as_ptr() as *const i8);
+        rg.u_mouse = gl::GetUniformLocation(rg.shader_program, "m".as_ptr() as *const i8);
         // i think mp and mr are matrix_pos and matrix_rotation
-        U_POS = gl::GetUniformLocation(SHADER_PROGRAM, "mp".as_ptr() as *const i8);
-        U_ROTATION = gl::GetUniformLocation(SHADER_PROGRAM, "mr".as_ptr() as *const i8);
-        U_FRAME_MIX = gl::GetUniformLocation(SHADER_PROGRAM, "f".as_ptr() as *const i8);
-        U_UNLIT = gl::GetUniformLocation(SHADER_PROGRAM, "unlit".as_ptr() as *const i8);
+        rg.u_pos = gl::GetUniformLocation(rg.shader_program, "mp".as_ptr() as *const i8);
+        rg.u_rotation = gl::GetUniformLocation(rg.shader_program, "mr".as_ptr() as *const i8);
+        rg.u_frame_mix = gl::GetUniformLocation(rg.shader_program, "f".as_ptr() as *const i8);
+        rg.u_unlit = gl::GetUniformLocation(rg.shader_program, "unlit".as_ptr() as *const i8);
     }
 
     // vertex buffer
     unsafe {
         // fuck if I know what addr_of_mut does
-        gl::GenBuffers(1, addr_of_mut!(VERTEX_BUFFER));
-        gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
+        gl::GenBuffers(1, addr_of_mut!(rg.vertex_buffer));
+        gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
     }
 
     // vertex attribute initialization
     unsafe {
         // I don't remember why these first 3 don't get assigned to something
-        vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
-        vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
-        vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
-        VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
-        VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
+        vertex_attribute(rg.shader_program, "p", 3, 8, 0)?;
+        vertex_attribute(rg.shader_program, "t", 2, 8, 3)?;
+        vertex_attribute(rg.shader_program, "n", 3, 8, 5)?;
+        rg.va_p2 = vertex_attribute(rg.shader_program, "p2", 3, 8, 0)?;
+        rg.va_n2 = vertex_attribute(rg.shader_program, "n2", 3, 8, 5)?;
     }
 
     // gl extras
@@ -205,19 +257,19 @@ pub fn init() -> Result<(), NUError> {
 
     // save default fbo
     unsafe {
-        gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, addr_of_mut!(DEFAULT_FBO));
+        gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, addr_of_mut!(rg.default_fbo));
     }
 
     // initialize offscreen fbo
     unsafe {
-        gl::GenFramebuffers(1, addr_of_mut!(OFFSCREEN_FBO));
-        gl::BindFramebuffer(gl::FRAMEBUFFER, OFFSCREEN_FBO);
+        gl::GenFramebuffers(1, addr_of_mut!(rg.offscreen_fbo));
+        gl::BindFramebuffer(gl::FRAMEBUFFER, rg.offscreen_fbo);
     }
 
     // initialize backing texture for offscreen fbo
     unsafe {
-        gl::GenTextures(1, addr_of_mut!(OFFSCREEN_COLOR_TEX));
-        gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_COLOR_TEX);
+        gl::GenTextures(1, addr_of_mut!(rg.offscreen_color_tex));
+        gl::BindTexture(gl::TEXTURE_2D, rg.offscreen_color_tex);
         gl::TexImage2D(
             gl::TEXTURE_2D,
             0,
@@ -235,15 +287,15 @@ pub fn init() -> Result<(), NUError> {
             gl::FRAMEBUFFER,
             gl::COLOR_ATTACHMENT0,
             gl::TEXTURE_2D,
-            OFFSCREEN_COLOR_TEX,
+            rg.offscreen_color_tex,
             0,
         );
     }
 
     // initialize depth texture for offscreen fbo
     unsafe {
-        gl::GenTextures(1, addr_of_mut!(OFFSCREEN_DEPTH_TEX));
-        gl::BindTexture(gl::TEXTURE_2D, OFFSCREEN_DEPTH_TEX);
+        gl::GenTextures(1, addr_of_mut!(rg.offscreen_depth_tex));
+        gl::BindTexture(gl::TEXTURE_2D, rg.offscreen_depth_tex);
         gl::TexImage2D(
             gl::TEXTURE_2D,
             0,
@@ -261,7 +313,7 @@ pub fn init() -> Result<(), NUError> {
             gl::FRAMEBUFFER,
             gl::DEPTH_ATTACHMENT,
             gl::TEXTURE_2D,
-            OFFSCREEN_DEPTH_TEX,
+            rg.offscreen_depth_tex,
             0,
         );
     }
@@ -270,12 +322,12 @@ pub fn init() -> Result<(), NUError> {
     unsafe {
         // i don't remember why this happens either, maybe unnecessary?
         // is this because of the other shader and switching?
-        gl::BindBuffer(gl::ARRAY_BUFFER, VERTEX_BUFFER);
-        vertex_attribute(SHADER_PROGRAM, "p", 3, 8, 0)?;
-        vertex_attribute(SHADER_PROGRAM, "t", 2, 8, 3)?;
-        vertex_attribute(SHADER_PROGRAM, "n", 3, 8, 5)?;
-        VA_P2 = vertex_attribute(SHADER_PROGRAM, "p2", 3, 8, 0)?;
-        VA_N2 = vertex_attribute(SHADER_PROGRAM, "n2", 3, 8, 5)?;
+        gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
+        vertex_attribute(rg.shader_program, "p", 3, 8, 0)?;
+        vertex_attribute(rg.shader_program, "t", 2, 8, 3)?;
+        vertex_attribute(rg.shader_program, "n", 3, 8, 5)?;
+        rg.va_p2 = vertex_attribute(rg.shader_program, "p2", 3, 8, 0)?;
+        rg.va_n2 = vertex_attribute(rg.shader_program, "n2", 3, 8, 5)?;
     }
 
     Ok(())
@@ -284,7 +336,7 @@ pub fn init() -> Result<(), NUError> {
 struct PngBin {}
 
 pub fn create_texture(p: PngBin) -> Result<usize, NUError> {
-    Ok((0))
+    Ok(0)
 }
 
 pub fn prepare_frame(r: f32, g: f32, b: f32) -> Result<(), NUError> {
@@ -329,6 +381,8 @@ pub fn push_light(pos: Vec3, intensity: f32, r: f32, g: f32, b: f32) -> Result<(
     Ok(())
 }
 
-pub fn quit() -> Result<(), NUError> {
-    Ok(())
+pub fn quit() {
+    unsafe {
+        RENDER_GOD = None;
+    }
 }
