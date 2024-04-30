@@ -10,7 +10,7 @@ uniform sampler2D s;
 uniform int light_count;
 
 // Lights [(x,y,z), [r,g,b], ...]
-// todo, dynamic len
+// todo, dynamic len, render.rs MAX_LIGHT_V3S
 uniform vec3 l[64];
 
 // flag to turn off lighting

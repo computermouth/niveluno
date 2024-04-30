@@ -1,3 +1,4 @@
+use minipng;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
@@ -22,6 +23,8 @@ pub enum NUError {
     WindowBuildError,
     #[error("Error initializing sdl2: {0}")]
     SDLError(String),
+    #[error("MiniPNG error: {0}")]
+    MiniPNGError(String),
     #[error("Miscellaneous error: {0}")]
     MiscError(String),
 }
