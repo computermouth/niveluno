@@ -25,13 +25,13 @@ const F_SHADER_STR: &str = include_str!("game_frag.glsl");
 const MAX_VERTS: usize = 1024 * 128 * 64;
 const MAX_LIGHT_V3S: usize = 32 * 2;
 
-const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
+pub const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
 
 // We collect all draw calls in an array and draw them all at once at the end
 // the frame. This way the lights buffer will be completely filled and we
 // only need to set it once for all geometry
 #[derive(Clone, Copy)]
-struct DrawCall {
+pub struct DrawCall {
     pos: Vec3,
     yaw: f32,
     pitch: f32,
@@ -55,11 +55,11 @@ struct RenderGod {
     pub textures: Vec<MetaTex>,
     // 8 properties per vert [x,y,z, u,v, nx,ny,nz]
     // rename, vert_array_buffer_data
-    pub r_buffer: [f32; MAX_VERTS * 8],
+    pub r_buffer: Box<[f32; MAX_VERTS * 8]>,
     pub r_num_verts: usize,
     // 2 vec3 per light [(x,y,z), [r,g,b], ...]
     // rename, light_array_buffer_data
-    pub r_light_buffer: [f32; MAX_LIGHT_V3S * 3],
+    pub r_light_buffer: Box<[f32; MAX_LIGHT_V3S * 3]>,
     pub r_num_lights: usize,
 
     // shader stuff
@@ -182,12 +182,12 @@ pub fn create_program(vert: GLuint, frag: GLuint) -> Result<GLuint, NUError> {
 
 fn vertex_attribute(
     shader_program: GLuint,
-    attrib_name: &str,
+    attrib_name: CString,
     count: isize,
     vertex_size: isize,
     offset: isize,
 ) -> Result<GLint, NUError> {
-    let mut location: GLint = 0;
+    let mut location: GLint = -1;
     _ = location;
 
     unsafe {
@@ -204,7 +204,7 @@ fn vertex_attribute(
     }
 
     match location {
-        0 => {
+        -1 => {
             let e = NUError::VertexAttribError;
             eprintln!("{}", e);
             Err(e)
@@ -214,16 +214,26 @@ fn vertex_attribute(
 }
 
 pub fn init() -> Result<(), NUError> {
+    if RenderGod::get().is_ok() {
+        return Err(NUError::MiscError("RENDER_GOD already init".to_string()));
+    }
+
     let rg = RenderGod {
         // global collections
         draw_calls: vec![],
         textures: vec![],
 
         // 8 properties per vert [x,y,z, u,v, nx,ny,nz]
-        r_buffer: [0.; MAX_VERTS * 8],
+        r_buffer: vec![0.; MAX_VERTS * 8]
+            .into_boxed_slice()
+            .try_into()
+            .unwrap(),
         r_num_verts: 0,
         // 2 vec3 per light [(x,y,z), [r,g,b], ...]
-        r_light_buffer: [0.; MAX_LIGHT_V3S * 3],
+        r_light_buffer: vec![0.; MAX_LIGHT_V3S * 3]
+            .into_boxed_slice()
+            .try_into()
+            .unwrap(),
         r_num_lights: 0,
 
         // shader stuff
@@ -304,11 +314,11 @@ pub fn init() -> Result<(), NUError> {
 
     // vertex attribute initialization
     // I don't remember why these first 3 don't get assigned to something
-    vertex_attribute(rg.shader_program, "p", 3, 8, 0)?;
-    vertex_attribute(rg.shader_program, "t", 2, 8, 3)?;
-    vertex_attribute(rg.shader_program, "n", 3, 8, 5)?;
-    rg.va_p2 = vertex_attribute(rg.shader_program, "p2", 3, 8, 0)?;
-    rg.va_n2 = vertex_attribute(rg.shader_program, "n2", 3, 8, 5)?;
+    vertex_attribute(rg.shader_program, CString::new("p")?, 3, 8, 0)?;
+    vertex_attribute(rg.shader_program, CString::new("t")?, 2, 8, 3)?;
+    vertex_attribute(rg.shader_program, CString::new("n")?, 3, 8, 5)?;
+    rg.va_p2 = vertex_attribute(rg.shader_program, CString::new("p2")?, 3, 8, 0)?;
+    rg.va_n2 = vertex_attribute(rg.shader_program, CString::new("n2")?, 3, 8, 5)?;
 
     // gl extras
     unsafe {
@@ -393,11 +403,11 @@ pub fn init() -> Result<(), NUError> {
         // i don't remember why this happens either, maybe unnecessary?
         // is this because of the other shader and switching?
         gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
-        vertex_attribute(rg.shader_program, "p", 3, 8, 0)?;
-        vertex_attribute(rg.shader_program, "t", 2, 8, 3)?;
-        vertex_attribute(rg.shader_program, "n", 3, 8, 5)?;
-        rg.va_p2 = vertex_attribute(rg.shader_program, "p2", 3, 8, 0)?;
-        rg.va_n2 = vertex_attribute(rg.shader_program, "n2", 3, 8, 5)?;
+        vertex_attribute(rg.shader_program, CString::new("p")?, 3, 8, 0)?;
+        vertex_attribute(rg.shader_program, CString::new("t")?, 2, 8, 3)?;
+        vertex_attribute(rg.shader_program, CString::new("n")?, 3, 8, 5)?;
+        rg.va_p2 = vertex_attribute(rg.shader_program, CString::new("p2")?, 3, 8, 0)?;
+        rg.va_n2 = vertex_attribute(rg.shader_program, CString::new("n2")?, 3, 8, 5)?;
     }
 
     Ok(())
@@ -480,11 +490,11 @@ pub fn end_frame() -> Result<(), NUError> {
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
     }
 
-    vertex_attribute(rg.shader_program, "p", 3, 8, 0)?;
-    vertex_attribute(rg.shader_program, "t", 2, 8, 3)?;
-    vertex_attribute(rg.shader_program, "n", 3, 8, 5)?;
-    rg.va_p2 = vertex_attribute(rg.shader_program, "p2", 3, 8, 0)?;
-    rg.va_n2 = vertex_attribute(rg.shader_program, "n2", 3, 8, 5)?;
+    vertex_attribute(rg.shader_program, CString::new("p")?, 3, 8, 0)?;
+    vertex_attribute(rg.shader_program, CString::new("t")?, 2, 8, 3)?;
+    vertex_attribute(rg.shader_program, CString::new("n")?, 3, 8, 5)?;
+    rg.va_p2 = vertex_attribute(rg.shader_program, CString::new("p2")?, 3, 8, 0)?;
+    rg.va_n2 = vertex_attribute(rg.shader_program, CString::new("n2")?, 3, 8, 5)?;
 
     unsafe {
         gl::Uniform4f(
@@ -556,7 +566,7 @@ pub fn end_frame() -> Result<(), NUError> {
 
     // todo works here, but eeeeggghhhh
     // would rather put it after the blit
-    text::end_frame();
+    text::end_frame()?;
 
     unsafe {
         gl::BindFramebuffer(gl::READ_FRAMEBUFFER, rg.offscreen_fbo);
@@ -586,7 +596,7 @@ pub fn draw(d: DrawCall) -> Result<(), NUError> {
 }
 
 pub fn submit_buffer() -> Result<(), NUError> {
-    let rb = RenderGod::get()?.r_buffer;
+    let rb = &RenderGod::get()?.r_buffer;
     let nv = RenderGod::get()?.r_num_verts;
     unsafe {
         gl::BufferData(
@@ -638,11 +648,72 @@ pub fn push_block(
     sy: f32,
     sz: f32,
     texture: isize,
-) -> Result<(), NUError> {
-    Ok(())
+) -> Result<usize, NUError> {
+    let tex = &RenderGod::get()?.textures[texture as usize];
+    let tex_w = tex.width;
+    let tex_h = tex.height;
+    let index = RenderGod::get()?.r_num_verts;
+
+    let tx = sx / tex_w as f32;
+    let ty = sy / tex_h as f32;
+    let tz = sz / tex_w as f32;
+
+    // top
+    let v0 = Vec3::new(x, y + sy, z);
+    let v1 = Vec3::new(x + sx, y + sy, z);
+    let v2 = Vec3::new(x, y + sy, z + sz);
+    let v3 = Vec3::new(x + sx, y + sy, z + sz);
+
+    // bottom
+    let v4 = Vec3::new(x, y, z + sz);
+    let v5 = Vec3::new(x + sx, y, z + sz);
+    let v6 = Vec3::new(x, y, z);
+    let v7 = Vec3::new(x + sx, y, z);
+
+    push_quad(v0, v1, v2, v3, tx, tz)?; // top
+    push_quad(v4, v5, v6, v7, tx, tz)?; // bottom
+    push_quad(v2, v3, v4, v5, tx, ty)?; // front
+    push_quad(v1, v0, v7, v6, tx, ty)?; // back
+    push_quad(v3, v1, v5, v7, tz, ty)?; // right
+    push_quad(v0, v2, v6, v4, tz, ty)?; // left
+
+    Ok(index)
 }
 
 pub fn push_light(pos: Vec3, intensity: f32, r: f32, g: f32, b: f32) -> Result<(), NUError> {
+    let cam_pos = RenderGod::get()?.camera_position;
+    let r_num_lights = &mut RenderGod::get()?.r_num_lights;
+    let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
+
+    // Calculate the distance to the light, fade it out between 768--1024
+    let fade = math::clamp(
+        math::scale(math::vec3_dist(pos, cam_pos), 768., 1024., 1., 0.),
+        0.,
+        1.,
+    ) * intensity
+        * 10.;
+
+    // epsilon thing??
+    // -MIN_POSITIVE < fade < MIN_POSITIVE ??
+    if fade == 0. {
+        return Ok(());
+    }
+
+    if *r_num_lights * 2 >= MAX_LIGHT_V3S {
+        eprintln!("max lights reached");
+        return Ok(());
+    }
+
+    let lindex = *r_num_lights * 6;
+    r_light_buffer[lindex + 0] = pos.x;
+    r_light_buffer[lindex + 1] = pos.y;
+    r_light_buffer[lindex + 2] = pos.z;
+    r_light_buffer[lindex + 3] = r * fade;
+    r_light_buffer[lindex + 4] = g * fade;
+    r_light_buffer[lindex + 5] = b * fade;
+
+    *r_num_lights += 1;
+
     Ok(())
 }
 

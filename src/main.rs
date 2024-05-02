@@ -5,6 +5,7 @@ use sdl2::video::GLProfile;
 
 use gl;
 
+mod audio;
 mod game;
 mod math;
 mod nuerror;
@@ -60,8 +61,11 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
 }
 
 fn init_nu() -> Result<(), nuerror::NUError> {
-    render::init()?;
+    // text has to come before render init
+    // not sure why, todo
     text::init()?;
+    render::init()?;
+    audio::init()?;
 
     Ok(())
 }
@@ -75,8 +79,18 @@ fn main() -> Result<(), String> {
         .event_pump()
         .map_err(|e| nuerror::NUError::SDLError(e))?;
 
+    let title = text::create_surface(text::FontInput {
+        text: "TITLE".to_string(),
+        color: text::FontColor {
+            r: 167,
+            g: 167,
+            b: 167,
+            a: 255,
+        },
+        size: text::FontSize::LG,
+    })?;
+
     'running: loop {
-        window.gl_swap_window();
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -87,7 +101,30 @@ fn main() -> Result<(), String> {
                 _ => {}
             }
         }
-        std::thread::sleep(std::time::Duration::from_secs_f32(1. / 60.));
+
+        render::prepare_frame()?;
+
+        text::push_surface(&title)?;
+        render::end_frame()?;
+        window.gl_swap_window();
+
+        loop {
+            let s = sdl2::get_error();
+            if s == "" {
+                break;
+            }
+            eprintln!("sdlerror: {}", s);
+            panic!();
+        }
+
+        loop {
+            let s = unsafe { gl::GetError() };
+            if s == gl::NO_ERROR {
+                break;
+            }
+            eprintln!("glerror: {:x}", s);
+            panic!();
+        }
     }
 
     // probably unnecessary

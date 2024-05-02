@@ -1,4 +1,5 @@
 use minipng;
+use std::ffi::NulError;
 use std::string::FromUtf8Error;
 use thiserror::Error;
 
@@ -17,6 +18,8 @@ pub enum NUError {
     ShaderProgramCreateError,
     #[error{"Error setting up vertex attribute data"}]
     VertexAttribError,
+    #[error{"Error {0}"}]
+    NulError(String),
     #[error{"{0}"}]
     Utf8Error(#[from] FromUtf8Error),
     #[error{"Error building sdl2 window"}]
@@ -27,6 +30,12 @@ pub enum NUError {
     MiniPNGError(String),
     #[error("Miscellaneous error: {0}")]
     MiscError(String),
+}
+
+impl From<NulError> for NUError {
+    fn from(e: NulError) -> NUError {
+        NUError::NulError(e.to_string())
+    }
 }
 
 impl From<NUError> for String {
