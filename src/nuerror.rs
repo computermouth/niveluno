@@ -1,4 +1,3 @@
-use minipng;
 use std::ffi::NulError;
 use std::string::FromUtf8Error;
 use thiserror::Error;
@@ -22,6 +21,8 @@ pub enum NUError {
     NulError(String),
     #[error{"{0}"}]
     Utf8Error(#[from] FromUtf8Error),
+    #[error{"System time error: {0}"}]
+    SystemTimeError(String),
     #[error{"Error building sdl2 window"}]
     WindowBuildError,
     #[error("Error initializing sdl2: {0}")]

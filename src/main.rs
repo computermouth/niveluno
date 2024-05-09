@@ -1,7 +1,10 @@
+use math::Vec3;
+use nuerror::NUError;
+use render::draw;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mixer::{self, InitFlag};
-use sdl2::video::GLProfile;
+use sdl2::video::{self, GLProfile, SwapInterval};
 
 use gl;
 
@@ -56,6 +59,9 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
         .map_err(|e| nuerror::NUError::SDLError(e))?;
 
     // todo, text init here?
+    video_subsystem
+        .gl_set_swap_interval(SwapInterval::Immediate)
+        .map_err(|e| NUError::SDLError(e))?;
 
     Ok((sdl_context, window, ctx))
 }
@@ -66,6 +72,11 @@ fn init_nu() -> Result<(), nuerror::NUError> {
     text::init()?;
     render::init()?;
     audio::init()?;
+
+    // todo, do this in somewhere like
+    // render::end_frame, if num_verts has changed
+    // since last buffer submission
+    render::submit_buffer()?;
 
     Ok(())
 }
@@ -82,7 +93,7 @@ fn main() -> Result<(), String> {
     let title = text::create_surface(text::FontInput {
         text: "TITLE".to_string(),
         color: text::FontColor {
-            r: 167,
+            r: 255,
             g: 167,
             b: 167,
             a: 255,
@@ -90,7 +101,33 @@ fn main() -> Result<(), String> {
         size: text::FontSize::LG,
     })?;
 
+    let tex = render::placeholder_tex_id()?;
+    let b = render::push_block(32., 32., 160., 32., 32., 32., tex)?;
+
+    // todo, run this if r_buffer usage has changed
+    render::submit_buffer()?;
+
+    let mut time = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+        .as_secs();
+    let mut oldtime = time;
+    let mut newtime = time;
+    let mut frames = 0;
+
     'running: loop {
+        frames += 1;
+        time = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+            .as_secs();
+        newtime = time;
+        if newtime - oldtime >= 2 {
+            eprintln!("fps: {}", frames as f32 / 2.0);
+            oldtime = newtime;
+            frames = 0;
+        }
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -104,7 +141,25 @@ fn main() -> Result<(), String> {
 
         render::prepare_frame()?;
 
+        let dc = render::DrawCall {
+            pos: Vec3 {
+                x: 0.,
+                y: 0.,
+                z: 0.,
+            },
+            yaw: 0.0,
+            pitch: 0.0,
+            texture: tex as u32,
+            f1: b as i32,
+            f2: b as i32,
+            mix: 0.0,
+            num_verts: 36,
+            unlit: true,
+        };
+        draw(dc)?;
+
         text::push_surface(&title)?;
+
         render::end_frame()?;
         window.gl_swap_window();
 

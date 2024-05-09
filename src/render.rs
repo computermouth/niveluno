@@ -1,5 +1,4 @@
-use std::ffi::{CString, NulError};
-use std::num;
+use std::ffi::CString;
 use std::ptr::addr_of_mut;
 
 use minipng;
@@ -32,15 +31,15 @@ pub const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
 // only need to set it once for all geometry
 #[derive(Clone, Copy)]
 pub struct DrawCall {
-    pos: Vec3,
-    yaw: f32,
-    pitch: f32,
-    texture: GLuint,
-    f1: GLint, // todo, first frame of interpolation
-    f2: GLint, // second frame of interpolation
-    mix: f32,
-    unlit: bool,
-    num_verts: usize,
+    pub pos: Vec3,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub texture: GLuint,
+    pub f1: GLint, // todo, first frame of interpolation
+    pub f2: GLint, // second frame of interpolation
+    pub mix: f32,
+    pub unlit: bool,
+    pub num_verts: usize,
 }
 
 struct MetaTex {
@@ -94,6 +93,8 @@ struct RenderGod {
     pub pad_y: i32,
     pub current_window_width: i32,
     pub current_window_height: i32,
+
+    pub placeholder_tex_id: usize,
 }
 
 impl RenderGod {
@@ -109,6 +110,10 @@ impl RenderGod {
 // this could probably be a refcell inside some NUGod struct
 // that's just passed everywhere, maybe this is less annoying though
 static mut RENDER_GOD: Option<RenderGod> = None;
+
+pub fn placeholder_tex_id() -> Result<isize, NUError> {
+    Ok(RenderGod::get()?.placeholder_tex_id as isize)
+}
 
 pub fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUError> {
     // https://dev.to/samkevich/learn-opengl-with-rust-shaders-28i3
@@ -272,6 +277,8 @@ pub fn init() -> Result<(), NUError> {
         pad_y: 0,
         current_window_width: D_WINDOW_W as i32,
         current_window_height: D_WINDOW_H as i32,
+
+        placeholder_tex_id: 0,
     };
 
     unsafe {
@@ -293,16 +300,16 @@ pub fn init() -> Result<(), NUError> {
     unsafe {
         // todo, map these characters to the reference of these static muts
         // also change these names in the shader
-        rg.u_camera = gl::GetUniformLocation(rg.shader_program, "c".as_ptr() as *const i8);
-        rg.u_lights = gl::GetUniformLocation(rg.shader_program, "l".as_ptr() as *const i8);
+        rg.u_camera = gl::GetUniformLocation(rg.shader_program, CString::new("c")?.as_ptr());
+        rg.u_lights = gl::GetUniformLocation(rg.shader_program, CString::new("l")?.as_ptr());
         rg.u_light_count =
-            gl::GetUniformLocation(rg.shader_program, "light_count".as_ptr() as *const i8);
-        rg.u_mouse = gl::GetUniformLocation(rg.shader_program, "m".as_ptr() as *const i8);
+            gl::GetUniformLocation(rg.shader_program, CString::new("light_count")?.as_ptr());
+        rg.u_mouse = gl::GetUniformLocation(rg.shader_program, CString::new("m")?.as_ptr());
         // i think mp and mr are matrix_pos and matrix_rotation
-        rg.u_pos = gl::GetUniformLocation(rg.shader_program, "mp".as_ptr() as *const i8);
-        rg.u_rotation = gl::GetUniformLocation(rg.shader_program, "mr".as_ptr() as *const i8);
-        rg.u_frame_mix = gl::GetUniformLocation(rg.shader_program, "f".as_ptr() as *const i8);
-        rg.u_unlit = gl::GetUniformLocation(rg.shader_program, "unlit".as_ptr() as *const i8);
+        rg.u_pos = gl::GetUniformLocation(rg.shader_program, CString::new("mp")?.as_ptr());
+        rg.u_rotation = gl::GetUniformLocation(rg.shader_program, CString::new("mr")?.as_ptr());
+        rg.u_frame_mix = gl::GetUniformLocation(rg.shader_program, CString::new("f")?.as_ptr());
+        rg.u_unlit = gl::GetUniformLocation(rg.shader_program, CString::new("unlit")?.as_ptr());
     }
 
     // vertex buffer
@@ -410,21 +417,32 @@ pub fn init() -> Result<(), NUError> {
         rg.va_n2 = vertex_attribute(rg.shader_program, CString::new("n2")?, 3, 8, 5)?;
     }
 
+    rg.placeholder_tex_id = create_texture(PngBin {
+        data: PLACEHOLDER_PNG.to_vec(),
+    })?;
+
     Ok(())
 }
 
-struct PngBin {
+pub struct PngBin {
     data: Vec<u8>,
 }
 
 pub fn create_texture(p: PngBin) -> Result<usize, NUError> {
-    let mut buffer = vec![0; p.data.len()];
+    let header =
+        minipng::decode_png_header(&p.data).map_err(|e| NUError::MiniPNGError(e.to_string()))?;
+    let mut buffer = vec![0; header.required_bytes()];
     let (width, height) = match minipng::decode_png(&p.data, &mut buffer)
         .map_err(|e| NUError::MiniPNGError(e.to_string()))
     {
         Ok(i) => (i.width(), i.height()),
         Err(e) => {
-            eprintln!("create_texture failed: {}", e.to_string());
+            eprintln!(
+                "create_texture failed: {} {} {}",
+                e.to_string(),
+                p.data.len(),
+                buffer.len()
+            );
             buffer = PLACEHOLDER_PNG.to_vec();
             (1, 1)
         }
@@ -619,9 +637,9 @@ pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<(), NUError>
     r_buffer[vindex + 2] = pos.z;
     r_buffer[vindex + 3] = u;
     r_buffer[vindex + 4] = v;
-    r_buffer[vindex + 6] = normal.x;
-    r_buffer[vindex + 7] = normal.y;
-    r_buffer[vindex + 8] = normal.z;
+    r_buffer[vindex + 5] = normal.x;
+    r_buffer[vindex + 6] = normal.y;
+    r_buffer[vindex + 7] = normal.z;
 
     RenderGod::get()?.r_num_verts += 1;
 

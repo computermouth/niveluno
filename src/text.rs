@@ -191,11 +191,6 @@ pub fn init() -> Result<(), NUError> {
             CString::new("tex")?.as_ptr() as *const i8,
         );
 
-        eprintln!(
-            "{} {} {} {}",
-            tg.overlay_program, tg.overlay_position, tg.overlay_texcoord, tg.overlay_tex_u
-        );
-
         // Create a VBO and upload the vertex data
         gl::GenBuffers(1, &mut tg.overlay_vbo);
         gl::BindBuffer(gl::ARRAY_BUFFER, tg.overlay_vbo);
@@ -289,7 +284,7 @@ pub fn end_frame() -> Result<(), NUError> {
         gl::EnableVertexAttribArray(overlay_position as u32);
 
         loop {
-            let s = unsafe { gl::GetError() };
+            let s = gl::GetError();
             if s == gl::NO_ERROR {
                 break;
             }
