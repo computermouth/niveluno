@@ -4,12 +4,13 @@ use render::draw;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mixer::{self, InitFlag};
-use sdl2::video::{self, GLProfile, SwapInterval};
+use sdl2::video::{GLProfile, SwapInterval};
 
 use gl;
 
 mod audio;
 mod game;
+mod input;
 mod math;
 mod nuerror;
 mod render;
@@ -72,6 +73,7 @@ fn init_nu() -> Result<(), nuerror::NUError> {
     text::init()?;
     render::init()?;
     audio::init()?;
+    input::init()?;
 
     // todo, do this in somewhere like
     // render::end_frame, if num_verts has changed
@@ -82,7 +84,7 @@ fn init_nu() -> Result<(), nuerror::NUError> {
 }
 
 fn main() -> Result<(), String> {
-    let (sdl_context, window, _gl_context) = init_sdl()?;
+    let (sdl_context, mut window, _gl_context) = init_sdl()?;
 
     init_nu()?;
 
@@ -112,7 +114,7 @@ fn main() -> Result<(), String> {
         .map_err(|e| NUError::SystemTimeError(e.to_string()))?
         .as_secs();
     let mut oldtime = time;
-    let mut newtime = time;
+    let mut newtime;
     let mut frames = 0;
 
     'running: loop {
@@ -128,15 +130,9 @@ fn main() -> Result<(), String> {
             frames = 0;
         }
 
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-                _ => {}
-            }
+        input::consume(&mut window, &mut event_pump)?;
+        if input::get_quit()? {
+            break 'running;
         }
 
         render::prepare_frame()?;
