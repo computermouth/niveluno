@@ -130,7 +130,7 @@ fn main() -> Result<(), String> {
             frames = 0;
         }
 
-        input::consume(&mut window, &mut event_pump)?;
+        input::consume(&mut window, &sdl_context.mouse(), &mut event_pump)?;
         if input::get_quit()? {
             break 'running;
         }

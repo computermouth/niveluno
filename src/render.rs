@@ -111,6 +111,28 @@ impl RenderGod {
 // that's just passed everywhere, maybe this is less annoying though
 static mut RENDER_GOD: Option<RenderGod> = None;
 
+pub fn change_window_size(w: i32, h: i32) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    rg.current_window_width = w;
+    rg.current_window_height = h;
+
+    let fw = w as f32;
+    let fh = h as f32;
+    let dw = INTERNAL_W as f32;
+    let dh = INTERNAL_H as f32;
+    let ratio: f32;
+    rg.pad_x = 0;
+    rg.pad_y = 0;
+    if fw / dw >= fh / dh {
+        ratio = fh / dh;
+        rg.pad_x = ((fw - (dw * ratio)) / 2.0) as i32;
+    } else {
+        ratio = fw / dw;
+        rg.pad_y = ((fh - (dh * ratio)) / 2.0) as i32;
+    }
+    Ok(())
+}
+
 pub fn placeholder_tex_id() -> Result<isize, NUError> {
     Ok(RenderGod::get()?.placeholder_tex_id as isize)
 }

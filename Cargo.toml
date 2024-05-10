@@ -4,8 +4,6 @@ version = "0.1.0"
 # needs to be 2021 until OU mutable globals are replaced
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 gl = "0.14.0"
 minipng = "=0.1.1"
