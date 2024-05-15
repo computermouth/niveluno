@@ -214,6 +214,7 @@ dependencies = [
  "gltf",
  "rmp-serde",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
