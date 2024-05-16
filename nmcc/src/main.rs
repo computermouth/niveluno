@@ -128,12 +128,13 @@ fn trs_from_decomp (i: ([f32; 3], [f32; 4], [f32; 3])) -> (Vec3, Quat4, Vec3) {
     )
 }
 
-fn get_ref_obj(n: gltf::Node) -> Option<Reference> {
+fn get_ref_obj(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Reference> {
 
     let (c_pos, _, scale) = trs_from_decomp(n.transform().decomposed());
 
-    if c_pos.x >= 0. ||
-       c_pos.y >= 0. ||
+    // not completely negative
+    if c_pos.x >= 0. &&
+       c_pos.y >= 0. &&
        c_pos.z >= 0. {
         return None;
     }
@@ -175,16 +176,70 @@ fn get_ref_obj(n: gltf::Node) -> Option<Reference> {
     }
 
     match extras {
-        Some(Extras{_type: Some("decor"), ..}) => None, // do decor
-        Some(Extras{_type: Some("entity"), _entity: Some("player")}) => None, // do entity - player
-        Some(Extras{_type: Some("entity"), _entity: Some("light")}) => None, // do entity - light
-        Some(Extras{_type: Some("entity"), _entity: Some("trigger")}) => None, // do entity - trigger
-        Some(Extras{_type: Some("entity"), _entity: Some(_)}) => None, // do entity - general
+        Some(Extras{_type: Some("decor"), ..}) => parse_ref_decor(n, b), // do decor
+        Some(Extras{_type: Some("entity"), _entity: Some("player")}) => print_name(n), // do entity - player
+        Some(Extras{_type: Some("entity"), _entity: Some("light")}) => print_name(n), // do entity - light
+        Some(Extras{_type: Some("entity"), _entity: Some("trigger")}) => print_name(n), // do entity - trigger
+        Some(Extras{_type: Some("entity"), _entity: Some(_)}) => print_name(n), // do entity - general
         Some(Extras{_type: Some(_), ..}) => None, // warn, unknown type
         Some(Extras{_type: None, ..}) => None, // warn, no type
         None => None, // warn no extras
     }
 
+}
+
+fn parse_ref_decor(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Reference> {
+
+    let vertex_count = 0;
+    let vertices: Vec<f32> = vec![];
+    let u: Vec<f32> = vec![];
+    let v: Vec<f32> = vec![];
+    let texture: Vec<u8> = vec![];
+
+    let mesh = n.mesh().or_else(|| {eprintln!("W: {:?} has no mesh", n.name()); None})?;
+
+    let primitives = &mut mesh.primitives();
+    if primitives.len() != 1 {
+        eprintln!("W: {:?} mesh has multiple primitives", n.name());
+        return None;
+    }
+
+    let z_prim = primitives.nth(0).or_else(||{ eprintln!("W: {:?} mesh has no zeroth primitive", n.name()); None})?;
+
+    let pos_acc = z_prim.attributes().find(|a| {
+        a.0 == gltf::Semantic::Positions
+    }).or_else(|| {eprintln!("W: {:?} has no position accessor", n.name()); None})?;
+    let uv_acc = z_prim.attributes().find(|a| {
+        a.0 == gltf::Semantic::TexCoords(0)
+    }).or_else(|| {eprintln!("W: {:?} has no texcoords_0 accessor", n.name()); None})?;
+    let ind_acc = z_prim.indices().or_else(|| {eprintln!("W: {:?} has no index accessor", n.name()); None})?;
+
+    let index_count = ind_acc.count();
+    let view = ind_acc.view().or_else(|| {eprintln!("W: {:?} couldn't get view", n.name()); None})?;
+    let buffer_index = view.buffer().index();
+    let data = &b[buffer_index];
+
+    let start = view.offset();
+    let end = start + view.length();
+    let data_slice = &data[start..end];
+
+    // Determine the component type and read indices accordingly
+    match ind_acc.data_type() {
+        gltf::accessor::DataType::U16 => {}
+        e => panic!("Unsupported index component type: {:?}", e),
+    }
+    
+    let indices: Vec<u16> = data_slice.chunks(2)
+        .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
+        .collect();
+    println!("{:?} {:?}", n.name(), indices);
+
+    None
+}
+
+fn print_name(n: gltf::Node) -> Option<Reference> {
+    eprintln!("{:?}", n.name());
+    None
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -199,13 +254,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (document, buffers, images) = gltf::import(path)?;
 
+
     let map = Map{ refs: vec![], inst: vec![] };
 
     // wasteful looping over it twice.
     // pack refs
     let skip_refs: Vec<usize> = vec![];
     for (i , node) in document.nodes().enumerate() {
-        if let Some(r) = get_ref_obj(node) {}
+        if let Some(r) = get_ref_obj(node, &buffers) {}
     }
 
     /*
