@@ -600,6 +600,9 @@ pub fn end_frame() -> Result<(), NUError> {
         }
 
         unsafe {
+            // todo, use EBO, and switch to
+            // gl::DrawElements()
+            // this should save ram, vram, and hopefully also gpu vertex data copy time
             gl::DrawArrays(gl::TRIANGLES, c.f1, c.num_verts as i32);
         }
     }

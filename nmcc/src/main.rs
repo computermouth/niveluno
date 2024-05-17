@@ -1,5 +1,6 @@
 
 use std::vec;
+use std::collections::HashMap;
 
 use gltf;
 use serde::{Deserialize, Serialize};
@@ -128,7 +129,7 @@ fn trs_from_decomp (i: ([f32; 3], [f32; 4], [f32; 3])) -> (Vec3, Quat4, Vec3) {
     )
 }
 
-fn get_ref_obj(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Reference> {
+fn get_ref_obj(n: gltf::Node, b: &Vec<gltf::buffer::Data>, im: &mut HashMap<[u32;3], usize>, ib: &mut Vec<[f32;3]>) -> Option<Reference> {
 
     let (c_pos, _, scale) = trs_from_decomp(n.transform().decomposed());
 
@@ -176,7 +177,7 @@ fn get_ref_obj(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Reference> 
     }
 
     match extras {
-        Some(Extras{_type: Some("decor"), ..}) => parse_ref_decor(n, b), // do decor
+        Some(Extras{_type: Some("decor"), ..}) => parse_ref_decor(n, b, im, ib), // do decor
         Some(Extras{_type: Some("entity"), _entity: Some("player")}) => print_name(n), // do entity - player
         Some(Extras{_type: Some("entity"), _entity: Some("light")}) => print_name(n), // do entity - light
         Some(Extras{_type: Some("entity"), _entity: Some("trigger")}) => print_name(n), // do entity - trigger
@@ -188,7 +189,7 @@ fn get_ref_obj(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Reference> 
 
 }
 
-fn parse_ref_decor(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Reference> {
+fn parse_ref_decor(n: gltf::Node, b: &Vec<gltf::buffer::Data>, im: &mut HashMap<[u32;3], usize>, ib: &mut Vec<[f32;3]>) -> Option<Reference> {
 
     let vertex_count = 0;
     let vertices: Vec<f32> = vec![];
@@ -199,6 +200,7 @@ fn parse_ref_decor(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Referen
     let mesh = n.mesh().or_else(|| {eprintln!("W: {:?} has no mesh", n.name()); None})?;
 
     let primitives = &mut mesh.primitives();
+    // todo, fuck this
     if primitives.len() != 1 {
         eprintln!("W: {:?} mesh has multiple primitives", n.name());
         return None;
@@ -208,10 +210,10 @@ fn parse_ref_decor(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Referen
 
     let pos_acc = z_prim.attributes().find(|a| {
         a.0 == gltf::Semantic::Positions
-    }).or_else(|| {eprintln!("W: {:?} has no position accessor", n.name()); None})?;
+    }).or_else(|| {eprintln!("W: {:?} has no position accessor", n.name()); None})?.1;
     let uv_acc = z_prim.attributes().find(|a| {
         a.0 == gltf::Semantic::TexCoords(0)
-    }).or_else(|| {eprintln!("W: {:?} has no texcoords_0 accessor", n.name()); None})?;
+    }).or_else(|| {eprintln!("W: {:?} has no texcoords_0 accessor", n.name()); None})?.1;
     let ind_acc = z_prim.indices().or_else(|| {eprintln!("W: {:?} has no index accessor", n.name()); None})?;
 
     let index_count = ind_acc.count();
@@ -229,12 +231,66 @@ fn parse_ref_decor(n: gltf::Node, b: &Vec<gltf::buffer::Data>) -> Option<Referen
         e => panic!("Unsupported index component type: {:?}", e),
     }
     
-    let indices: Vec<u16> = data_slice.chunks(2)
+    let vert_indices: Vec<u16> = data_slice.chunks(2)
         .map(|chunk| u16::from_le_bytes([chunk[0], chunk[1]]))
         .collect();
-    println!("{:?} {:?}", n.name(), indices);
+    
+    println!("{:?}[{}] {:?}", n.name(), index_count, vert_indices);
+
+    let pos_count = pos_acc.count();
+    let pos_view = pos_acc.view().or_else(|| {eprintln!("W: {:?} couldn't get pos view", n.name()); None})?;
+    let pos_buffer_index = pos_view.buffer().index();
+    let pos_data = &b[pos_buffer_index];
+
+    let pos_start = pos_view.offset();
+    let pos_end = pos_start + pos_view.length();
+    let pos_data_slice = &pos_data[pos_start..pos_end];
+
+    // Determine the component type and read indices accordingly
+    match pos_acc.data_type() {
+        gltf::accessor::DataType::F32 => {}
+        e => panic!("Unsupported position component type: {:?}", e),
+    }
+    
+    let vert_positions: Vec<f32> = pos_data_slice.chunks(4)
+        .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+        .collect();
+
+    println!("{:?}[{}] {:?}", n.name(), pos_count, vert_positions);
+
+    let mut out_vind = Vec::new();
+
+    for i in 0..index_count {
+        let f1 = vert_positions[vert_indices[i] as usize * 3 + 0];
+        let f2 = vert_positions[vert_indices[i] as usize * 3 + 1];
+        let f3 = vert_positions[vert_indices[i] as usize * 3 + 2];
+
+        let farr = [f1,f2,f3];
+        let uarr = u32_arr_from_f32_arr(farr);
+
+        eprintln!("[{}]: {:?} {:?}", vert_indices[i], farr, uarr);
+
+        if let Some(found) = im.get(&uarr) {
+            out_vind.push(*found);
+        } else {
+            ib.push(farr);
+            im.insert(uarr, ib.len() - 1);
+            out_vind.push(ib.len() - 1);
+        }
+    }
+
+    println!("out_vind[{}]: {:?}", out_vind.len(), out_vind);
+    println!("ib[{}] {:?}", ib.len(), ib);
 
     None
+}
+
+fn u32_arr_from_f32_arr(i: [f32;3]) -> [u32;3] {
+    [i[0].to_bits(), i[1].to_bits(), i[2].to_bits()]
+}
+
+fn f32_arr_from_u32_arr(i: [u32;3]) -> [f32;3] {
+    [f32::from_bits(i[0]),f32::from_bits(i[1]),f32::from_bits(i[2])]
 }
 
 fn print_name(n: gltf::Node) -> Option<Reference> {
@@ -257,11 +313,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let map = Map{ refs: vec![], inst: vec![] };
 
+    let mut index_map: HashMap<[u32;3], usize> = HashMap::new();
+    let mut index_buffer: Vec<[f32;3]> = vec![];
+
     // wasteful looping over it twice.
     // pack refs
     let skip_refs: Vec<usize> = vec![];
     for (i , node) in document.nodes().enumerate() {
-        if let Some(r) = get_ref_obj(node, &buffers) {}
+        if let Some(r) = get_ref_obj(node, &buffers, &mut index_map, &mut index_buffer) {}
     }
 
     /*
