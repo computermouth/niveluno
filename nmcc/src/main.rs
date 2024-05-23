@@ -38,6 +38,17 @@ enum Reference {
     Entity(EntityReference),
 }
 
+// todo, this seems like a better abstraction, which doesn't
+// require a nmcc change when adding new special entities
+// downside of maybe doing a few string compares on map load
+struct EntityInstance2 {
+    // names[index] == player, but also reference[index] == __nomodel
+    // names[index] == ogre, but also reference[index] == ${ogre_reference}
+    pub index: u32,
+    pub params: Vec<(u32,u32)>, // indexes to (k,v)
+    pub rotation: u32, // quat
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 struct DecorInstance {
     pub index: usize,
