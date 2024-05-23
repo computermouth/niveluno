@@ -162,10 +162,20 @@ fn main() -> Result<(), String> {
         }
 
         let ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| NUError::SystemTimeError(e.to_string()))?
-        .as_millis();
-        render::push_light(Vec3{x: 25., y: 25., z: 25. + 100. * (0.001 * (ms - start_ms) as f32).sin() }, 15., 100., 150., 50.)?;
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+            .as_millis();
+        render::push_light(
+            Vec3 {
+                x: 25.,
+                y: 25.,
+                z: 25. + 100. * (0.001 * (ms - start_ms) as f32).sin(),
+            },
+            15.,
+            100.,
+            150.,
+            50.,
+        )?;
 
         text::push_surface(&title)?;
 
