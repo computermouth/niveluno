@@ -88,6 +88,14 @@ impl<'a> TextGod<'a> {
 
 // this could probably be a refcell inside some NUGod struct
 // that's just passed everywhere, maybe this is less annoying though
+//
+// Actually do something like this:
+// use std::sync::{Mutex, OnceLock};
+// fn text_get_god<'a>() -> &'static Mutex<TextGod<'a>> {
+//     static TEXT_GOD: OnceLock<Mutex<TextGod>> = OnceLock::new();
+//     TEXT_GOD.get_or_init(|| init())
+// }
+
 static mut TEXT_GOD: Option<TextGod<'static>> = None;
 
 pub fn init() -> Result<(), NUError> {
