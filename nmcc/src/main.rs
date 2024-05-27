@@ -1,11 +1,11 @@
-use std::{fs::OpenOptions, vec};
+use std::vec;
 
 use gltf;
 use rmp::{
     self,
-    encode::{write_bin, write_bin_len, write_f32, write_str, write_str_len},
+    encode::{write_bin, write_f32, write_str, write_str_len},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json;
 
 mod big_buffer;
@@ -30,9 +30,9 @@ struct DecorReference {
 #[derive(Debug)]
 struct EntityReference {
     pub name: u32,
+    pub texture: u32,
     pub vertices: Vec<Vec<u32>>,
     pub uvs: Vec<u32>,
-    pub texture: u32,
 }
 
 #[derive(Debug)]
@@ -720,8 +720,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = vec![];
 
     // top-level array
-    // rmp::encode::write_array_len(&mut buf, 8)?;
-    rmp::encode::write_array_len(&mut buf, 6)?;
+    rmp::encode::write_array_len(&mut buf, 8)?;
 
     {
         // floats
@@ -771,11 +770,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    eprintln!("map_ref_decs: {:?}\n", map_ref_decs);
-    eprintln!("map_ref_entt: {:?}\n", map_ref_entt);
-    eprintln!("map_ins_decs: {:?}\n", map_ins_decs);
-    eprintln!("map_ins_entt: {:?}\n", map_ins_entt);
-
     {
         // map_ref_decs
         rmp::encode::write_array_len(&mut buf, map_ref_decs.len() as u32)?;
@@ -800,30 +794,67 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    /*
-    let m = Map {
-        refs: vec![
-            Reference::Decor(DecorReference { vertex_count: 2, vertices: vec![1., 2.], u: vec![3., 4.], v: vec![5., 6.], texture: vec![7, 8] }),
-            Reference::Decor(DecorReference { vertex_count: 2, vertices: vec![2., 3.], u: vec![4., 5.], v: vec![6., 7.], texture: vec![8, 9] }),
-            Reference::Entity(EntityReference { animation_count: 1, vertex_count: 2, vertices: vec![1., 2.], u: vec![3., 4.], v: vec![5., 6.], texture: vec![7, 8] }),
-        ],
-        inst: vec![
-            Instance::Decor(DecorInstance{ index: 0, location: [1.,2.,3.], rotation: [0., 0., 0.]}),
-            Instance::Decor(DecorInstance{ index: 1, location: [1.,2.,3.], rotation: [0., 0., 0.]}),
-            Instance::Entity(EntityInstance::General(GeneralInstance{index: 2, location: [1.,2.,3.], rotation: [0., 0., 0.], params: vec![("a".to_string(),"b".to_string())]})),
-            Instance::Entity(EntityInstance::Light(LightInstance{location: [1.,2.,3.], color: [10, 20, 30]})),
-            Instance::Entity(EntityInstance::Player(PlayerInstance{location: [1.,2.,3.], rotation: [0., 0., 0.]})),
-            Instance::Entity(EntityInstance::Trigger(TriggerInstance{location: [1.,2.,3.], radius: 10.})),
-        ]
-    };
+    {
+        // map_ref_entt
+        rmp::encode::write_array_len(&mut buf, map_ref_entt.len() as u32)?;
+        for entt in map_ref_entt {
+            rmp::encode::write_array_len(&mut buf, 4)?;
+            rmp::encode::write_u32(&mut buf, entt.name)?;
+            rmp::encode::write_u32(&mut buf, entt.texture)?;
+            {
+                // verts
+                rmp::encode::write_array_len(&mut buf, entt.vertices.len() as u32)?;
+                for frame in entt.vertices {
+                    rmp::encode::write_array_len(&mut buf, frame.len() as u32)?;
+                    for i in frame {
+                        rmp::encode::write_u32(&mut buf, i)?;
+                    }
+                }
+            }
+            {
+                // uvs
+                rmp::encode::write_array_len(&mut buf, entt.uvs.len() as u32)?;
+                for i in entt.uvs {
+                    rmp::encode::write_u32(&mut buf, i)?;
+                }
+            }
+        }
+    }
 
-    */
+    eprintln!("map_ins_decs: {:?}\n", map_ins_decs);
+
+    {
+        // map_ins_decs
+        rmp::encode::write_array_len(&mut buf, map_ins_decs.len() as u32)?;
+        for dec in map_ins_decs {
+            rmp::encode::write_array_len(&mut buf, 4)?;
+            rmp::encode::write_u32(&mut buf, dec.index)?;
+            rmp::encode::write_u32(&mut buf, dec.location)?;
+            rmp::encode::write_u32(&mut buf, dec.rotation)?;
+            rmp::encode::write_u32(&mut buf, dec.scale)?;
+        }
+    }
+
+    {
+        // map_ins_entt
+        rmp::encode::write_array_len(&mut buf, map_ins_entt.len() as u32)?;
+        for entt in map_ins_entt {
+            rmp::encode::write_array_len(&mut buf, 4)?;
+            match entt.index {
+                Some(i) => rmp::encode::write_u32(&mut buf, i)?,
+                None => rmp::encode::write_nil(&mut buf)?,
+            }
+            rmp::encode::write_array_len(&mut buf, entt.params.len() as u32)?;
+            for i in entt.params {
+                rmp::encode::write_u32(&mut buf, i)?;
+            }
+            rmp::encode::write_u32(&mut buf, entt.location)?;
+            rmp::encode::write_u32(&mut buf, entt.rotation)?;
+            rmp::encode::write_u32(&mut buf, entt.scale)?;
+        }
+    }
+
     std::fs::write("map.mp", buf)?;
-
-    // let i = std::fs::read("map.mp")?;
-
-    // let mut de = rmp_serde::Deserializer::new(std::io::Cursor::new(&i[..]));
-    // let o: Map = Deserialize::deserialize(&mut de)?;
 
     Ok(())
 }

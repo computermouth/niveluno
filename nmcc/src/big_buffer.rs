@@ -261,13 +261,13 @@ impl BigBuffer {
         ])
     }
 
-    pub fn print_data(&self) {
-        eprintln!("data[{}]: {:?}", self.f32_data.len(), self.f32_data);
-    }
+    // pub fn print_data(&self) {
+    //     eprintln!("data[{}]: {:?}", self.f32_data.len(), self.f32_data);
+    // }
 
-    pub fn print_map(&self) {
-        eprintln!("map: {:?}", self.f32_hmap);
-    }
+    // pub fn print_map(&self) {
+    //     eprintln!("map: {:?}", self.f32_hmap);
+    // }
 
     // #[derive(Debug)]
     // pub struct BigBuffer {
