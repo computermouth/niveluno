@@ -720,7 +720,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = vec![];
 
     // top-level array
-    rmp::encode::write_array_len(&mut buf, 8)?;
+    rmp::encode::write_array_len(&mut buf, 9)?;
 
     {
         // floats
@@ -839,7 +839,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // map_ins_entt
         rmp::encode::write_array_len(&mut buf, map_ins_entt.len() as u32)?;
         for entt in map_ins_entt {
-            rmp::encode::write_array_len(&mut buf, 4)?;
+            rmp::encode::write_array_len(&mut buf, 5)?;
             match entt.index {
                 Some(i) => rmp::encode::write_u32(&mut buf, i)?,
                 None => rmp::encode::write_nil(&mut buf)?,
