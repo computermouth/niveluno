@@ -261,30 +261,6 @@ impl BigBuffer {
         ])
     }
 
-    // pub fn print_data(&self) {
-    //     eprintln!("data[{}]: {:?}", self.f32_data.len(), self.f32_data);
-    // }
-
-    // pub fn print_map(&self) {
-    //     eprintln!("map: {:?}", self.f32_hmap);
-    // }
-
-    // #[derive(Debug)]
-    // pub struct BigBuffer {
-    //     f32_data: Vec<f32>,
-    //     f32_hmap: HashMap<HashItem, usize>,
-    //     img_data: Vec<Vec<u8>>,
-    //     // decor reference name data
-    //     drn_data: Vec<String>,
-    //     drn_hmap: HashMap<String, u32>,
-    //     // entt reference name data
-    //     ern_data: Vec<String>,
-    //     ern_hmap: HashMap<String, u32>,
-    //     // parameter kvs
-    //     kvs_data: Vec<String>,
-    //     kvs_hmap: HashMap<String, u32>
-    // }
-
     pub fn get_f32_data(&self) -> &Vec<f32> {
         &self.f32_data
     }

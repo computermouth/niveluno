@@ -1,63 +1,19 @@
 use std::vec;
 
 use gltf;
-use rmp::{
-    self,
-    encode::{write_bin, write_f32, write_str, write_str_len},
-};
 use serde::Deserialize;
 use serde_json;
 
 mod big_buffer;
+mod mpack;
+mod types;
 
-#[derive(Debug)]
-struct NmccError<'a>(&'a str);
-impl<'a> std::fmt::Display for NmccError<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NmccError: {:?}", self.0)
-    }
-}
-impl<'a> std::error::Error for NmccError<'a> {}
-
-#[derive(Debug)]
-struct DecorReference {
-    pub name: u32,
-    pub texture: u32,
-    pub vertices: Vec<u32>,
-    pub uvs: Vec<u32>,
-}
-
-#[derive(Debug)]
-struct EntityReference {
-    pub name: u32,
-    pub texture: u32,
-    pub vertices: Vec<Vec<u32>>,
-    pub uvs: Vec<u32>,
-}
+use types::*;
 
 #[derive(Debug)]
 enum Reference {
     Decor(DecorReference),
     Entity(EntityReference),
-}
-
-#[derive(Debug)]
-struct EntityInstance {
-    // names[index] == player, but also reference[index] == __nomodel
-    // names[index] == ogre, but also reference[index] == ${ogre_reference}
-    pub index: Option<u32>,
-    pub params: Vec<u32>, // indexes to [k,v,k,v,k,v] etc
-    pub location: u32,    // u32 -> [f32;3]
-    pub rotation: u32,    // u32 -> [f32;4]
-    pub scale: u32,       // u32 -> [f32;3]
-}
-
-#[derive(Debug)]
-struct DecorInstance {
-    pub index: u32,
-    pub location: u32, // u32 -> [f32;3]
-    pub rotation: u32, // u32 -> [f32;4]
-    pub scale: u32,    // u32 -> [f32;3]
 }
 
 #[derive(Debug)]
@@ -717,141 +673,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let mut buf = vec![];
+    let f32_data = bb.get_f32_data();
+    let img_data = bb.get_img_data();
+    let drn_data = bb.get_drn_data();
+    let ern_data = bb.get_ern_data();
+    let kvs_data = bb.get_kvs_data();
 
-    // top-level array
-    rmp::encode::write_array_len(&mut buf, 9)?;
+    let buf = mpack::marshal(
+        f32_data,
+        img_data,
+        drn_data,
+        ern_data,
+        kvs_data,
+        &map_ref_decs,
+        &map_ref_entt,
+        &map_ins_decs,
+        &map_ins_entt,
+    )?;
 
-    {
-        // floats
-        let floats = bb.get_f32_data();
-        rmp::encode::write_array_len(&mut buf, floats.len() as u32)?;
-        for f in floats {
-            write_f32(&mut buf, *f)?;
-        }
-    }
+    if cfg!(debug_assertions) {
+        let (o_f32, o_img, o_drn, o_ern, o_kvs, o_mrd, o_mre, o_mid, o_mie) =
+            mpack::unmarshal(&buf)?;
 
-    {
-        // img_data
-        let img_data = bb.get_img_data();
-        rmp::encode::write_array_len(&mut buf, img_data.len() as u32)?;
-        for img in img_data {
-            write_bin(&mut buf, img)?;
-        }
-    }
-
-    {
-        // drn_data
-        let drn_data = bb.get_drn_data();
-        rmp::encode::write_array_len(&mut buf, drn_data.len() as u32)?;
-        for drn in drn_data {
-            write_str_len(&mut buf, (drn.len() + 1) as u32)?;
-            write_str(&mut buf, drn)?;
-        }
-    }
-
-    {
-        // ern_data
-        let ern_data = bb.get_ern_data();
-        rmp::encode::write_array_len(&mut buf, ern_data.len() as u32)?;
-        for ern in ern_data {
-            write_str_len(&mut buf, (ern.len() + 1) as u32)?;
-            write_str(&mut buf, ern)?;
-        }
-    }
-
-    {
-        // kvs_data
-        let kvs_data = bb.get_kvs_data();
-        rmp::encode::write_array_len(&mut buf, kvs_data.len() as u32)?;
-        for kvs in kvs_data {
-            write_str_len(&mut buf, (kvs.len() + 1) as u32)?;
-            write_str(&mut buf, kvs)?;
-        }
-    }
-
-    {
-        // map_ref_decs
-        rmp::encode::write_array_len(&mut buf, map_ref_decs.len() as u32)?;
-        for dec in map_ref_decs {
-            rmp::encode::write_array_len(&mut buf, 4)?;
-            rmp::encode::write_u32(&mut buf, dec.name)?;
-            rmp::encode::write_u32(&mut buf, dec.texture)?;
-            {
-                // verts
-                rmp::encode::write_array_len(&mut buf, dec.vertices.len() as u32)?;
-                for i in dec.vertices {
-                    rmp::encode::write_u32(&mut buf, i)?;
-                }
-            }
-            {
-                // uvs
-                rmp::encode::write_array_len(&mut buf, dec.uvs.len() as u32)?;
-                for i in dec.uvs {
-                    rmp::encode::write_u32(&mut buf, i)?;
-                }
-            }
-        }
-    }
-
-    {
-        // map_ref_entt
-        rmp::encode::write_array_len(&mut buf, map_ref_entt.len() as u32)?;
-        for entt in map_ref_entt {
-            rmp::encode::write_array_len(&mut buf, 4)?;
-            rmp::encode::write_u32(&mut buf, entt.name)?;
-            rmp::encode::write_u32(&mut buf, entt.texture)?;
-            {
-                // verts
-                rmp::encode::write_array_len(&mut buf, entt.vertices.len() as u32)?;
-                for frame in entt.vertices {
-                    rmp::encode::write_array_len(&mut buf, frame.len() as u32)?;
-                    for i in frame {
-                        rmp::encode::write_u32(&mut buf, i)?;
-                    }
-                }
-            }
-            {
-                // uvs
-                rmp::encode::write_array_len(&mut buf, entt.uvs.len() as u32)?;
-                for i in entt.uvs {
-                    rmp::encode::write_u32(&mut buf, i)?;
-                }
-            }
-        }
-    }
-
-    eprintln!("map_ins_decs: {:?}\n", map_ins_decs);
-
-    {
-        // map_ins_decs
-        rmp::encode::write_array_len(&mut buf, map_ins_decs.len() as u32)?;
-        for dec in map_ins_decs {
-            rmp::encode::write_array_len(&mut buf, 4)?;
-            rmp::encode::write_u32(&mut buf, dec.index)?;
-            rmp::encode::write_u32(&mut buf, dec.location)?;
-            rmp::encode::write_u32(&mut buf, dec.rotation)?;
-            rmp::encode::write_u32(&mut buf, dec.scale)?;
-        }
-    }
-
-    {
-        // map_ins_entt
-        rmp::encode::write_array_len(&mut buf, map_ins_entt.len() as u32)?;
-        for entt in map_ins_entt {
-            rmp::encode::write_array_len(&mut buf, 5)?;
-            match entt.index {
-                Some(i) => rmp::encode::write_u32(&mut buf, i)?,
-                None => rmp::encode::write_nil(&mut buf)?,
-            }
-            rmp::encode::write_array_len(&mut buf, entt.params.len() as u32)?;
-            for i in entt.params {
-                rmp::encode::write_u32(&mut buf, i)?;
-            }
-            rmp::encode::write_u32(&mut buf, entt.location)?;
-            rmp::encode::write_u32(&mut buf, entt.rotation)?;
-            rmp::encode::write_u32(&mut buf, entt.scale)?;
-        }
+        assert_eq!(&o_f32, f32_data);
+        assert_eq!(&o_img, img_data);
+        assert_eq!(&o_drn, drn_data);
+        assert_eq!(&o_ern, ern_data);
+        assert_eq!(&o_kvs, kvs_data);
+        assert_eq!(&o_mrd, &map_ref_decs);
+        assert_eq!(&o_mre, &map_ref_entt);
+        assert_eq!(&o_mid, &map_ins_decs);
+        assert_eq!(&o_mie, &map_ins_entt);
     }
 
     std::fs::write("map.mp", buf)?;
