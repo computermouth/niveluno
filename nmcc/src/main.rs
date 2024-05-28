@@ -548,20 +548,12 @@ fn parse_ref_entt(
             if let Some(t) = targets.nth(0) {
                 if let Some(morph_acc) = t.positions() {
                     if let Some(morphs) = f32s_from_acc(&morph_acc, b, n.name()) {
-                        if morphs.len() != base_pos.len() {
-                            eprintln!(
-                                "W: wrong len morph target on {:?}'s prim[{i}] morph[{j}]",
-                                n.name()
-                            );
-                            continue;
-                        }
-
                         let mut out_morph = vec![];
                         for k in 0..base_pos.len() {
                             if let Some(vert) = bb.get_vert_at(base_pos[k] as usize) {
-                                let f1 = vert[0] + morphs[k * 3 + 0];
-                                let f2 = vert[1] + morphs[k * 3 + 1];
-                                let f3 = vert[2] + morphs[k * 3 + 2];
+                                let f1 = vert[0] + morphs[indices[k] as usize * 3 + 0];
+                                let f2 = vert[1] + morphs[indices[k] as usize * 3 + 1];
+                                let f3 = vert[2] + morphs[indices[k] as usize * 3 + 2];
 
                                 let index =
                                     bb.add_sequence(big_buffer::HashItem::Vert([f1, f2, f3]));

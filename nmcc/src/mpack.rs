@@ -1,5 +1,6 @@
 use std::io::Cursor;
 use std::io::Read;
+use std::io::Seek;
 
 use crate::types::*;
 use rmp::decode;
@@ -152,6 +153,23 @@ pub fn marshal(
     Ok(buf)
 }
 
+fn read_u32_from_marker(cur: &mut Cursor<&Vec<u8>>) -> Result<u32, Box<dyn std::error::Error>> {
+    let pos = cur.position();
+    let marker = decode::read_marker(cur).map_err(|_| NmccError("failed to read_marker"))?;
+    cur.set_position(pos);
+
+    match marker {
+        rmp::Marker::FixPos(val) => Ok(val as u32),
+        rmp::Marker::U8 => Ok(decode::read_u8(cur)? as u32),
+        rmp::Marker::U16 => Ok(decode::read_u16(cur)? as u32),
+        rmp::Marker::U32 => Ok(decode::read_u32(cur)?),
+        marker => {
+            eprintln!("Unexpected marker: {:?}", marker);
+            Err(Box::new(NmccError("unexpected marker for u32 value")))
+        }
+    }
+}
+
 pub fn unmarshal(
     buf: &Vec<u8>,
 ) -> Result<
@@ -185,7 +203,7 @@ pub fn unmarshal(
     assert_eq!(10, len);
 
     // version
-    let version = decode::read_u32(&mut cur)?;
+    let version = read_u32_from_marker(&mut cur)?;
     assert_eq!(0, version);
 
     {
@@ -251,22 +269,22 @@ pub fn unmarshal(
         let mrd_len = decode::read_array_len(&mut cur)?;
         for _ in 0..mrd_len {
             assert_eq!(4, decode::read_array_len(&mut cur)?);
-            let name = decode::read_u32(&mut cur)?;
-            let txtr = decode::read_u32(&mut cur)?;
+            let name = read_u32_from_marker(&mut cur)?;
+            let txtr = read_u32_from_marker(&mut cur)?;
             let mut verts = vec![];
             let mut uvs = vec![];
             {
                 // verts
                 let vert_len = decode::read_array_len(&mut cur)?;
                 for _ in 0..vert_len {
-                    verts.push(decode::read_u32(&mut cur)?);
+                    verts.push(read_u32_from_marker(&mut cur)?);
                 }
             }
             {
                 // uvs
                 let uv_len = decode::read_array_len(&mut cur)?;
                 for _ in 0..uv_len {
-                    uvs.push(decode::read_u32(&mut cur)?);
+                    uvs.push(read_u32_from_marker(&mut cur)?);
                 }
             }
             map_ref_decs.push(DecorReference {
@@ -283,8 +301,8 @@ pub fn unmarshal(
         let mre_len = decode::read_array_len(&mut cur)?;
         for _ in 0..mre_len {
             assert_eq!(4, decode::read_array_len(&mut cur)?);
-            let name = decode::read_u32(&mut cur)?;
-            let texture = decode::read_u32(&mut cur)?;
+            let name = read_u32_from_marker(&mut cur)?;
+            let texture = read_u32_from_marker(&mut cur)?;
             let mut vertices = vec![];
             let mut uvs = vec![];
             {
@@ -294,7 +312,7 @@ pub fn unmarshal(
                     let vertcount = decode::read_array_len(&mut cur)?;
                     let mut v = vec![];
                     for _ in 0..vertcount {
-                        v.push(decode::read_u32(&mut cur)?);
+                        v.push(read_u32_from_marker(&mut cur)?);
                     }
                     vertices.push(v);
                 }
@@ -303,7 +321,7 @@ pub fn unmarshal(
                 // uvs
                 let uv_len = decode::read_array_len(&mut cur)?;
                 for _ in 0..uv_len {
-                    uvs.push(decode::read_u32(&mut cur)?);
+                    uvs.push(read_u32_from_marker(&mut cur)?);
                 }
             }
             map_ref_entts.push(EntityReference {
@@ -322,10 +340,10 @@ pub fn unmarshal(
             assert_eq!(4, decode::read_array_len(&mut cur)?);
 
             map_ins_decs.push(DecorInstance {
-                index: decode::read_u32(&mut cur)?,
-                location: decode::read_u32(&mut cur)?,
-                rotation: decode::read_u32(&mut cur)?,
-                scale: decode::read_u32(&mut cur)?,
+                index: read_u32_from_marker(&mut cur)?,
+                location: read_u32_from_marker(&mut cur)?,
+                rotation: read_u32_from_marker(&mut cur)?,
+                scale: read_u32_from_marker(&mut cur)?,
             });
         }
     }
@@ -335,21 +353,28 @@ pub fn unmarshal(
         let entt_len = decode::read_array_len(&mut cur)?;
         for _ in 0..entt_len {
             assert_eq!(5, decode::read_array_len(&mut cur)?);
+            let pos = cur.position();
             let index = match decode::read_marker(&mut cur)
                 .map_err(|_| NmccError("failed to read index marker"))?
             {
-                rmp::Marker::Null => Ok(None),
-                rmp::Marker::U32 => Ok(Some(decode::read_u32(&mut cur)?)),
-                _ => Err(Box::new(NmccError("missing entity instance id"))),
-            }?;
+                rmp::Marker::Null => {
+                    cur.set_position(pos);
+                    decode::read_nil(&mut cur)?;
+                    None
+                }
+                _ => {
+                    cur.set_position(pos);
+                    Some(read_u32_from_marker(&mut cur)?)
+                }
+            };
             let plen = decode::read_array_len(&mut cur)?;
             let mut params = vec![];
             for _ in 0..plen {
-                params.push(decode::read_u32(&mut cur)?);
+                params.push(read_u32_from_marker(&mut cur)?);
             }
-            let location = decode::read_u32(&mut cur)?;
-            let rotation = decode::read_u32(&mut cur)?;
-            let scale = decode::read_u32(&mut cur)?;
+            let location = read_u32_from_marker(&mut cur)?;
+            let rotation = read_u32_from_marker(&mut cur)?;
+            let scale = read_u32_from_marker(&mut cur)?;
             map_ins_entts.push(EntityInstance {
                 index,
                 params,
