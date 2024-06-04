@@ -212,9 +212,9 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
 
             Some(Instance::Decor(DecorInstance {
                 index: di,
-                location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.y, c_pos.z])),
-                rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),
-                scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.y, scale.z])),
+                location: [bb.add_f32(c_pos.x), bb.add_f32(c_pos.y), bb.add_f32(c_pos.z)],
+                rotation: [bb.add_f32(rot.x), bb.add_f32(rot.y), bb.add_f32(rot.z), bb.add_f32(rot.w)],
+                scale: [bb.add_f32(scale.x), bb.add_f32(scale.y), bb.add_f32(scale.z)],
             }))
         }
         Some(Extras {
@@ -239,9 +239,9 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
             Some(Instance::Entity(EntityInstance {
                 index: ei,
                 params: p,
-                location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.y, c_pos.z])),
-                rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),
-                scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.y, scale.z])),
+                location: [bb.add_f32(c_pos.x), bb.add_f32(c_pos.y), bb.add_f32(c_pos.z)],
+                rotation: [bb.add_f32(rot.x), bb.add_f32(rot.y), bb.add_f32(rot.z), bb.add_f32(rot.w)],
+                scale: [bb.add_f32(scale.x), bb.add_f32(scale.y), bb.add_f32(scale.z)],
             }))
         }
         Some(Extras { _type: Some(s), .. }) => {
@@ -414,24 +414,16 @@ fn parse_ref_decor(
         // push positions to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
-            let f1 = positions[indices[i] as usize * 3 + 0];
-            let f2 = positions[indices[i] as usize * 3 + 1];
-            let f3 = positions[indices[i] as usize * 3 + 2];
-
-            let index = bb.add_sequence(big_buffer::HashItem::Vert([f1, f2, f3]));
-
-            out_pos.push(index);
+            out_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 0]));
+            out_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 1]));
+            out_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 2]));
         }
 
         // push uvs to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
-            let f1 = uvs[indices[i] as usize * 2 + 0];
-            let f2 = uvs[indices[i] as usize * 2 + 1];
-
-            let index = bb.add_sequence(big_buffer::HashItem::Uv__([f1, f2]));
-
-            out_uvs.push(index);
+            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 0]));
+            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 1]));
         }
 
         if i == 0 {
@@ -532,13 +524,9 @@ fn parse_ref_entt(
         // store indicies
         let mut base_pos = vec![];
         for i in 0..indices.len() {
-            let f1 = positions[indices[i] as usize * 3 + 0];
-            let f2 = positions[indices[i] as usize * 3 + 1];
-            let f3 = positions[indices[i] as usize * 3 + 2];
-
-            let index = bb.add_sequence(big_buffer::HashItem::Vert([f1, f2, f3]));
-
-            base_pos.push(index);
+            base_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 0]));
+            base_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 1]));
+            base_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 2]));
         }
         out_pos.push(base_pos.clone());
 
@@ -548,22 +536,24 @@ fn parse_ref_entt(
             if let Some(t) = targets.nth(0) {
                 if let Some(morph_acc) = t.positions() {
                     if let Some(morphs) = f32s_from_acc(&morph_acc, b, n.name()) {
+
+                        let mut flat_morphs = vec![];
+                        for k in 0..base_pos.len() / 3 {
+                            flat_morphs.push(morphs[indices[k] as usize * 3 + 0]);
+                            flat_morphs.push(morphs[indices[k] as usize * 3 + 1]);
+                            flat_morphs.push(morphs[indices[k] as usize * 3 + 2]);
+                        }
+                        eprintln!("{:?} {} {}", n.name(), base_pos.len(), flat_morphs.len());
                         let mut out_morph = vec![];
                         for k in 0..base_pos.len() {
-                            if let Some(vert) = bb.get_vert_at(base_pos[k] as usize) {
-                                let f1 = vert[0] + morphs[indices[k] as usize * 3 + 0];
-                                let f2 = vert[1] + morphs[indices[k] as usize * 3 + 1];
-                                let f3 = vert[2] + morphs[indices[k] as usize * 3 + 2];
-
-                                let index =
-                                    bb.add_sequence(big_buffer::HashItem::Vert([f1, f2, f3]));
-                                out_morph.push(index);
-                            } else {
+                            let vp = bb.get_f32(base_pos[k] as usize)
+                            .or_else(|| {
                                 eprintln!(
-                                    "W: bad base_pos lookup for {:?}'s prim[{i}] morph[{j}][{k}]",
-                                    n.name()
-                                );
-                            }
+                                    "W: couldn't find vp on {:?}'s prim[{i}] morph[{j}] f[k]",
+                                    n.name());
+                                None
+                            })?;
+                            out_morph.push(bb.add_f32(vp + flat_morphs[k]));
                         }
                         out_pos.push(out_morph);
                         continue;
@@ -579,12 +569,8 @@ fn parse_ref_entt(
         // push uvs to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
-            let f1 = uvs[indices[i] as usize * 2 + 0];
-            let f2 = uvs[indices[i] as usize * 2 + 1];
-
-            let index = bb.add_sequence(big_buffer::HashItem::Uv__([f1, f2]));
-
-            out_uvs.push(index);
+            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 0]));
+            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 1]));
         }
 
         if i == 0 {

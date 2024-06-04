@@ -1,6 +1,5 @@
 use std::io::Cursor;
 use std::io::Read;
-use std::io::Seek;
 
 use crate::types::*;
 use rmp::decode;
@@ -123,11 +122,18 @@ pub fn marshal(
         // map_ins_decs
         encode::write_array_len(&mut buf, map_ins_decs.len() as u32)?;
         for dec in map_ins_decs {
-            encode::write_array_len(&mut buf, 4)?;
+            encode::write_array_len(&mut buf, 11)?;
             encode::write_u32(&mut buf, dec.index)?;
-            encode::write_u32(&mut buf, dec.location)?;
-            encode::write_u32(&mut buf, dec.rotation)?;
-            encode::write_u32(&mut buf, dec.scale)?;
+            encode::write_u32(&mut buf, dec.location[0])?;
+            encode::write_u32(&mut buf, dec.location[1])?;
+            encode::write_u32(&mut buf, dec.location[2])?;
+            encode::write_u32(&mut buf, dec.rotation[0])?;
+            encode::write_u32(&mut buf, dec.rotation[1])?;
+            encode::write_u32(&mut buf, dec.rotation[2])?;
+            encode::write_u32(&mut buf, dec.rotation[3])?;
+            encode::write_u32(&mut buf, dec.scale[0])?;
+            encode::write_u32(&mut buf, dec.scale[1])?;
+            encode::write_u32(&mut buf, dec.scale[2])?;
         }
     }
 
@@ -135,7 +141,7 @@ pub fn marshal(
         // map_ins_entt
         encode::write_array_len(&mut buf, map_ins_entt.len() as u32)?;
         for entt in map_ins_entt {
-            encode::write_array_len(&mut buf, 5)?;
+            encode::write_array_len(&mut buf, 12)?;
             match entt.index {
                 Some(i) => encode::write_u32(&mut buf, i)?,
                 None => encode::write_nil(&mut buf)?,
@@ -144,9 +150,16 @@ pub fn marshal(
             for i in &entt.params {
                 encode::write_u32(&mut buf, *i)?;
             }
-            encode::write_u32(&mut buf, entt.location)?;
-            encode::write_u32(&mut buf, entt.rotation)?;
-            encode::write_u32(&mut buf, entt.scale)?;
+            encode::write_u32(&mut buf, entt.location[0])?;
+            encode::write_u32(&mut buf, entt.location[1])?;
+            encode::write_u32(&mut buf, entt.location[2])?;
+            encode::write_u32(&mut buf, entt.rotation[0])?;
+            encode::write_u32(&mut buf, entt.rotation[1])?;
+            encode::write_u32(&mut buf, entt.rotation[2])?;
+            encode::write_u32(&mut buf, entt.rotation[3])?;
+            encode::write_u32(&mut buf, entt.scale[0])?;
+            encode::write_u32(&mut buf, entt.scale[1])?;
+            encode::write_u32(&mut buf, entt.scale[2])?;
         }
     }
 
@@ -337,13 +350,13 @@ pub fn unmarshal(
         // map_ins_decs
         let dec_len = decode::read_array_len(&mut cur)?;
         for _ in 0..dec_len {
-            assert_eq!(4, decode::read_array_len(&mut cur)?);
+            assert_eq!(11, decode::read_array_len(&mut cur)?);
 
             map_ins_decs.push(DecorInstance {
                 index: read_u32_from_marker(&mut cur)?,
-                location: read_u32_from_marker(&mut cur)?,
-                rotation: read_u32_from_marker(&mut cur)?,
-                scale: read_u32_from_marker(&mut cur)?,
+                location: [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?],
+                rotation: [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?],
+                scale: [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?],
             });
         }
     }
@@ -352,7 +365,7 @@ pub fn unmarshal(
         // map_ins_entt
         let entt_len = decode::read_array_len(&mut cur)?;
         for _ in 0..entt_len {
-            assert_eq!(5, decode::read_array_len(&mut cur)?);
+            assert_eq!(12, decode::read_array_len(&mut cur)?);
             let pos = cur.position();
             let index = match decode::read_marker(&mut cur)
                 .map_err(|_| NmccError("failed to read index marker"))?
@@ -372,9 +385,9 @@ pub fn unmarshal(
             for _ in 0..plen {
                 params.push(read_u32_from_marker(&mut cur)?);
             }
-            let location = read_u32_from_marker(&mut cur)?;
-            let rotation = read_u32_from_marker(&mut cur)?;
-            let scale = read_u32_from_marker(&mut cur)?;
+            let location = [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?];
+            let rotation = [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?];
+            let scale = [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?];
             map_ins_entts.push(EntityInstance {
                 index,
                 params,
