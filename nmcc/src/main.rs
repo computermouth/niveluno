@@ -212,9 +212,9 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
 
             Some(Instance::Decor(DecorInstance {
                 index: di,
-                location: [bb.add_f32(c_pos.x), bb.add_f32(c_pos.y), bb.add_f32(c_pos.z)],
-                rotation: [bb.add_f32(rot.x), bb.add_f32(rot.y), bb.add_f32(rot.z), bb.add_f32(rot.w)],
-                scale: [bb.add_f32(scale.x), bb.add_f32(scale.y), bb.add_f32(scale.z)],
+                location: [c_pos.x, c_pos.y, c_pos.z],
+                rotation: [rot.x, rot.y, rot.z, rot.w],
+                scale: [scale.x, scale.y, scale.z],
             }))
         }
         Some(Extras {
@@ -239,9 +239,9 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
             Some(Instance::Entity(EntityInstance {
                 index: ei,
                 params: p,
-                location: [bb.add_f32(c_pos.x), bb.add_f32(c_pos.y), bb.add_f32(c_pos.z)],
-                rotation: [bb.add_f32(rot.x), bb.add_f32(rot.y), bb.add_f32(rot.z), bb.add_f32(rot.w)],
-                scale: [bb.add_f32(scale.x), bb.add_f32(scale.y), bb.add_f32(scale.z)],
+                location: [c_pos.x, c_pos.y, c_pos.z],
+                rotation: [rot.x, rot.y, rot.z, rot.w],
+                scale: [scale.x, scale.y, scale.z],
             }))
         }
         Some(Extras { _type: Some(s), .. }) => {
