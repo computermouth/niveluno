@@ -78,14 +78,14 @@ pub fn marshal(
                 // verts
                 encode::write_array_len(&mut buf, dec.vertices.len() as u32)?;
                 for i in &dec.vertices {
-                    encode::write_u32(&mut buf, *i)?;
+                    encode::write_f32(&mut buf, *i)?;
                 }
             }
             {
                 // uvs
                 encode::write_array_len(&mut buf, dec.uvs.len() as u32)?;
                 for i in &dec.uvs {
-                    encode::write_u32(&mut buf, *i)?;
+                    encode::write_f32(&mut buf, *i)?;
                 }
             }
         }
@@ -104,7 +104,7 @@ pub fn marshal(
                 for frame in &entt.vertices {
                     encode::write_array_len(&mut buf, frame.len() as u32)?;
                     for i in frame {
-                        encode::write_u32(&mut buf, *i)?;
+                        encode::write_f32(&mut buf, *i)?;
                     }
                 }
             }
@@ -112,7 +112,7 @@ pub fn marshal(
                 // uvs
                 encode::write_array_len(&mut buf, entt.uvs.len() as u32)?;
                 for i in &entt.uvs {
-                    encode::write_u32(&mut buf, *i)?;
+                    encode::write_f32(&mut buf, *i)?;
                 }
             }
         }
@@ -124,16 +124,16 @@ pub fn marshal(
         for dec in map_ins_decs {
             encode::write_array_len(&mut buf, 11)?;
             encode::write_u32(&mut buf, dec.index)?;
-            encode::write_u32(&mut buf, dec.location[0])?;
-            encode::write_u32(&mut buf, dec.location[1])?;
-            encode::write_u32(&mut buf, dec.location[2])?;
-            encode::write_u32(&mut buf, dec.rotation[0])?;
-            encode::write_u32(&mut buf, dec.rotation[1])?;
-            encode::write_u32(&mut buf, dec.rotation[2])?;
-            encode::write_u32(&mut buf, dec.rotation[3])?;
-            encode::write_u32(&mut buf, dec.scale[0])?;
-            encode::write_u32(&mut buf, dec.scale[1])?;
-            encode::write_u32(&mut buf, dec.scale[2])?;
+            encode::write_f32(&mut buf, dec.location[0])?;
+            encode::write_f32(&mut buf, dec.location[1])?;
+            encode::write_f32(&mut buf, dec.location[2])?;
+            encode::write_f32(&mut buf, dec.rotation[0])?;
+            encode::write_f32(&mut buf, dec.rotation[1])?;
+            encode::write_f32(&mut buf, dec.rotation[2])?;
+            encode::write_f32(&mut buf, dec.rotation[3])?;
+            encode::write_f32(&mut buf, dec.scale[0])?;
+            encode::write_f32(&mut buf, dec.scale[1])?;
+            encode::write_f32(&mut buf, dec.scale[2])?;
         }
     }
 
@@ -150,16 +150,16 @@ pub fn marshal(
             for i in &entt.params {
                 encode::write_u32(&mut buf, *i)?;
             }
-            encode::write_u32(&mut buf, entt.location[0])?;
-            encode::write_u32(&mut buf, entt.location[1])?;
-            encode::write_u32(&mut buf, entt.location[2])?;
-            encode::write_u32(&mut buf, entt.rotation[0])?;
-            encode::write_u32(&mut buf, entt.rotation[1])?;
-            encode::write_u32(&mut buf, entt.rotation[2])?;
-            encode::write_u32(&mut buf, entt.rotation[3])?;
-            encode::write_u32(&mut buf, entt.scale[0])?;
-            encode::write_u32(&mut buf, entt.scale[1])?;
-            encode::write_u32(&mut buf, entt.scale[2])?;
+            encode::write_f32(&mut buf, entt.location[0])?;
+            encode::write_f32(&mut buf, entt.location[1])?;
+            encode::write_f32(&mut buf, entt.location[2])?;
+            encode::write_f32(&mut buf, entt.rotation[0])?;
+            encode::write_f32(&mut buf, entt.rotation[1])?;
+            encode::write_f32(&mut buf, entt.rotation[2])?;
+            encode::write_f32(&mut buf, entt.rotation[3])?;
+            encode::write_f32(&mut buf, entt.scale[0])?;
+            encode::write_f32(&mut buf, entt.scale[1])?;
+            encode::write_f32(&mut buf, entt.scale[2])?;
         }
     }
 
@@ -290,14 +290,14 @@ pub fn unmarshal(
                 // verts
                 let vert_len = decode::read_array_len(&mut cur)?;
                 for _ in 0..vert_len {
-                    verts.push(read_u32_from_marker(&mut cur)?);
+                    verts.push(decode::read_f32(&mut cur)?);
                 }
             }
             {
                 // uvs
                 let uv_len = decode::read_array_len(&mut cur)?;
                 for _ in 0..uv_len {
-                    uvs.push(read_u32_from_marker(&mut cur)?);
+                    uvs.push(decode::read_f32(&mut cur)?);
                 }
             }
             map_ref_decs.push(DecorReference {
@@ -325,7 +325,7 @@ pub fn unmarshal(
                     let vertcount = decode::read_array_len(&mut cur)?;
                     let mut v = vec![];
                     for _ in 0..vertcount {
-                        v.push(read_u32_from_marker(&mut cur)?);
+                        v.push(decode::read_f32(&mut cur)?);
                     }
                     vertices.push(v);
                 }
@@ -334,7 +334,7 @@ pub fn unmarshal(
                 // uvs
                 let uv_len = decode::read_array_len(&mut cur)?;
                 for _ in 0..uv_len {
-                    uvs.push(read_u32_from_marker(&mut cur)?);
+                    uvs.push(decode::read_f32(&mut cur)?);
                 }
             }
             map_ref_entts.push(EntityReference {
@@ -354,9 +354,9 @@ pub fn unmarshal(
 
             map_ins_decs.push(DecorInstance {
                 index: read_u32_from_marker(&mut cur)?,
-                location: [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?],
-                rotation: [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?],
-                scale: [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?],
+                location: [decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?],
+                rotation: [decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?],
+                scale: [decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?],
             });
         }
     }
@@ -385,9 +385,9 @@ pub fn unmarshal(
             for _ in 0..plen {
                 params.push(read_u32_from_marker(&mut cur)?);
             }
-            let location = [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?];
-            let rotation = [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?];
-            let scale = [read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?,read_u32_from_marker(&mut cur)?];
+            let location = [decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?];
+            let rotation = [decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?];
+            let scale = [decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?,decode::read_f32(&mut cur)?];
             map_ins_entts.push(EntityInstance {
                 index,
                 params,

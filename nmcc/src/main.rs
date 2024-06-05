@@ -414,16 +414,16 @@ fn parse_ref_decor(
         // push positions to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
-            out_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 0]));
-            out_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 1]));
-            out_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 2]));
+            out_pos.push(positions[indices[i] as usize * 3 + 0]);
+            out_pos.push(positions[indices[i] as usize * 3 + 1]);
+            out_pos.push(positions[indices[i] as usize * 3 + 2]);
         }
 
         // push uvs to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
-            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 0]));
-            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 1]));
+            out_uvs.push(uvs[indices[i] as usize * 2 + 0]);
+            out_uvs.push(uvs[indices[i] as usize * 2 + 1]);
         }
 
         if i == 0 {
@@ -524,9 +524,9 @@ fn parse_ref_entt(
         // store indicies
         let mut base_pos = vec![];
         for i in 0..indices.len() {
-            base_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 0]));
-            base_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 1]));
-            base_pos.push(bb.add_f32(positions[indices[i] as usize * 3 + 2]));
+            base_pos.push(positions[indices[i] as usize * 3 + 0]);
+            base_pos.push(positions[indices[i] as usize * 3 + 1]);
+            base_pos.push(positions[indices[i] as usize * 3 + 2]);
         }
         out_pos.push(base_pos.clone());
 
@@ -543,17 +543,9 @@ fn parse_ref_entt(
                             flat_morphs.push(morphs[indices[k] as usize * 3 + 1]);
                             flat_morphs.push(morphs[indices[k] as usize * 3 + 2]);
                         }
-                        eprintln!("{:?} {} {}", n.name(), base_pos.len(), flat_morphs.len());
                         let mut out_morph = vec![];
                         for k in 0..base_pos.len() {
-                            let vp = bb.get_f32(base_pos[k] as usize)
-                            .or_else(|| {
-                                eprintln!(
-                                    "W: couldn't find vp on {:?}'s prim[{i}] morph[{j}] f[k]",
-                                    n.name());
-                                None
-                            })?;
-                            out_morph.push(bb.add_f32(vp + flat_morphs[k]));
+                            out_morph.push(base_pos[k] + flat_morphs[k]);
                         }
                         out_pos.push(out_morph);
                         continue;
@@ -569,8 +561,8 @@ fn parse_ref_entt(
         // push uvs to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
-            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 0]));
-            out_uvs.push(bb.add_f32(uvs[indices[i] as usize * 2 + 1]));
+            out_uvs.push(uvs[indices[i] as usize * 2 + 0]);
+            out_uvs.push(uvs[indices[i] as usize * 2 + 1]);
         }
 
         if i == 0 {
