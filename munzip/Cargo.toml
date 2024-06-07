@@ -7,7 +7,7 @@ description = "minimal deflate-only unzip library"
 homepage = "https://github.com/computermouth/niveluno/tree/master/munzip"
 repository = "https://github.com/computermouth/niveluno"
 readme = "README.md"
-keywords = ["zip", "unzip", "deflate", "decompress", "decompression", "decompressor", "minimal"]
+keywords = ["zip", "unzip", "deflate", "decompress", "minimal"]
 categories = ["compression", "encoding"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
