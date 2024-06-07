@@ -26,7 +26,7 @@ impl From<String> for MuError {
     }
 }
 
-#[repr(packed)]
+#[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
 pub struct LocalFileHeader {
     pub signature: u32,                 // 0x04034B50
@@ -42,7 +42,7 @@ pub struct LocalFileHeader {
     pub extra_field_length: u16, // unsupported
 }
 
-#[repr(packed)]
+#[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
 pub struct GlobalFileHeader {
     pub signature: u32,                 // 0x02014B50
@@ -64,7 +64,6 @@ pub struct GlobalFileHeader {
     pub relative_offset_of_local_header: u32,
 }
 
-#[repr(packed)]
 #[derive(Debug, Copy, Clone)]
 pub struct InternalHeader {
     pub compressed_size: u32,
@@ -73,7 +72,7 @@ pub struct InternalHeader {
     pub offset: u32,
 }
 
-#[repr(packed)]
+#[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
 pub struct EndRecord {
     pub signature: u32,
