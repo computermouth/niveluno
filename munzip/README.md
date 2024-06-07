@@ -3,7 +3,7 @@
 
 **mμnzip** is a port of [JUnzip](https://github.com/jokkebk/JUnzip) to Rust.
 
-While **JUnzip** supports `STORE`, and optionally `DEFLATE` and/or `ZLIB`, **mμnzip** foregoes `ZLIB` support.
+**mμnzip** exclusively supports `STORE` and `DEFLATE`. Support for `ZLIB` was intentionally omitted.
 
 ### features
 
