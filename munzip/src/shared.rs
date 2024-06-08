@@ -28,18 +28,15 @@ pub fn read_end_record(zip: &mut File) -> Result<EndRecord, MuError> {
     zip.seek(SeekFrom::Start(file_size - read_bytes))?;
 
     // Read the end of the file into a buffer
-    let mut buf = vec![0; read_bytes as usize];
-    zip.read_exact(&mut buf)?;
+    let mut buf = [0;BUFFER_SIZE];
+    zip.read_exact(&mut buf[0..read_bytes as usize])?;
 
     let mut er: Option<&[u8]> = None;
     let record_sz = std::mem::size_of::<EndRecord>();
-    for i in (0..=buf.len() - record_sz).rev() {
+    for i in (0..=(read_bytes as usize - record_sz)).rev() {
         let node = &buf[i..i + record_sz];
         // signature is the first u32
-        let sig: u32 = (node[3] as u32) << 24
-            | (node[2] as u32) << 16
-            | (node[1] as u32) << 8
-            | (node[0] as u32);
+        let sig: u32 = u32::from_le_bytes([node[0], node[1], node[2], node[3]]);
         if sig == END_RECORD_SIGNATURE {
             er = Some(node);
             break;
@@ -118,9 +115,9 @@ pub fn next_header(
 
     let lfh = get_internal_file_header(&fh_buff)?;
 
-    let mut filename_buf = vec![0; lfh.file_name_length as usize];
-    file.read_exact(&mut filename_buf)?;
-    let filename = std::str::from_utf8(&filename_buf)?.to_string();
+    let mut filename_buf = [0; BUFFER_SIZE];
+    file.read_exact(&mut filename_buf[0..lfh.file_name_length as usize])?;
+    let filename = std::str::from_utf8(&filename_buf[0..lfh.file_name_length as usize])?.to_string();
 
     if lfh.extra_field_length != 0 {
         file.seek(SeekFrom::Current(lfh.extra_field_length as i64))?;
@@ -146,6 +143,7 @@ pub fn next_header(
     Ok((ih, filename, file.stream_position()?))
 }
 
+// todo, have the user provide the buffer
 pub fn data_from_internal(file: &mut File, header: &InternalHeader) -> Result<Vec<u8>, MuError> {
     let dst_len = header.uncompressed_size;
     let src_len = header.compressed_size;
