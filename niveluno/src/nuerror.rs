@@ -1,3 +1,4 @@
+use munzip::MuError;
 use std::ffi::NulError;
 use std::string::FromUtf8Error;
 use thiserror::Error;
@@ -17,10 +18,14 @@ pub enum NUError {
     ShaderProgramCreateError,
     #[error{"Error setting up vertex attribute data"}]
     VertexAttribError,
-    #[error{"Error {0}"}]
+    #[error{"Error with Nul: {0}"}]
     NulError(String),
-    #[error{"{0}"}]
-    Utf8Error(#[from] FromUtf8Error),
+    #[error{"Error with IO: {0}"}]
+    StdIoError(String),
+    #[error{"Error with munzip: {0}"}]
+    MuError(String),
+    #[error{"Utf8 Error: {0}"}]
+    Utf8Error(String),
     #[error{"System time error: {0}"}]
     SystemTimeError(String),
     #[error{"Error building sdl2 window"}]
@@ -42,5 +47,23 @@ impl From<NulError> for NUError {
 impl From<NUError> for String {
     fn from(e: NUError) -> String {
         e.to_string()
+    }
+}
+
+impl From<std::io::Error> for NUError {
+    fn from(e: std::io::Error) -> NUError {
+        NUError::StdIoError(e.to_string())
+    }
+}
+
+impl From<MuError> for NUError {
+    fn from(e: MuError) -> NUError {
+        NUError::MuError(e.to_string())
+    }
+}
+
+impl From<FromUtf8Error> for NUError {
+    fn from(e: FromUtf8Error) -> NUError {
+        NUError::Utf8Error(e.to_string())
     }
 }

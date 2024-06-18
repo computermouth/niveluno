@@ -8,6 +8,7 @@ use sdl2::video::{GLProfile, SwapInterval};
 
 use gl;
 
+mod asset;
 mod audio;
 mod game;
 mod input;
@@ -74,6 +75,7 @@ fn init_nu() -> Result<(), nuerror::NUError> {
     render::init()?;
     audio::init()?;
     input::init()?;
+    asset::init()?;
 
     // todo, do this in somewhere like
     // render::end_frame, if num_verts has changed

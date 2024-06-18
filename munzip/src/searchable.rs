@@ -51,7 +51,6 @@ impl<'a> SearchableArchive<'a> {
         for _ in 0..self.end_rec.num_entries {
             let (header, filename, new_next_gfh) = next_header(self.file, self.next_gfh)?;
             self.next_gfh = new_next_gfh;
-            eprintln!("{filename}");
             self.map.insert(filename, header);
         }
 

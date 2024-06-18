@@ -28,7 +28,7 @@ pub fn read_end_record(zip: &mut File) -> Result<EndRecord, MuError> {
     zip.seek(SeekFrom::Start(file_size - read_bytes))?;
 
     // Read the end of the file into a buffer
-    let mut buf = [0;BUFFER_SIZE];
+    let mut buf = [0; BUFFER_SIZE];
     zip.read_exact(&mut buf[0..read_bytes as usize])?;
 
     let mut er: Option<&[u8]> = None;
@@ -117,7 +117,8 @@ pub fn next_header(
 
     let mut filename_buf = [0; BUFFER_SIZE];
     file.read_exact(&mut filename_buf[0..lfh.file_name_length as usize])?;
-    let filename = std::str::from_utf8(&filename_buf[0..lfh.file_name_length as usize])?.to_string();
+    let filename =
+        std::str::from_utf8(&filename_buf[0..lfh.file_name_length as usize])?.to_string();
 
     if lfh.extra_field_length != 0 {
         file.seek(SeekFrom::Current(lfh.extra_field_length as i64))?;

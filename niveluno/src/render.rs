@@ -729,11 +729,8 @@ pub fn push_light(pos: Vec3, intensity: f32, r: f32, g: f32, b: f32) -> Result<(
     let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
 
     // Calculate the distance to the light, fade it out between 768--1024
-    let fade = math::clamp(
-        math::scale(math::vec3_dist(pos, cam_pos), 768., 1024., 1., 0.),
-        0.,
-        1.,
-    ) * intensity
+    let fade = math::scale(math::vec3_dist(pos, cam_pos), 768., 1024., 1., 0.).clamp(0., 1.)
+        * intensity
         * 10.;
 
     // epsilon thing??

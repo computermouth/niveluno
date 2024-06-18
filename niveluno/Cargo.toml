@@ -7,5 +7,6 @@ edition = "2021"
 [dependencies]
 gl = "0.14.0"
 minipng = "=0.1.1"
+munzip = { version = "0.1.1", path = "../munzip" }
 sdl2 = { version = "0.36.0", features = ["mixer", "ttf"] }
 thiserror = "1.0.58"

@@ -1,6 +1,5 @@
 use std::io::Cursor;
 use std::io::Read;
-use std::io::Seek;
 
 use crate::types::*;
 use rmp::decode;
