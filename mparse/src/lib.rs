@@ -1,7 +1,9 @@
 use std::io::Cursor;
 use std::io::Read;
 
-use crate::types::*;
+pub mod types;
+use types::*;
+
 use rmp::decode;
 use rmp::encode;
 

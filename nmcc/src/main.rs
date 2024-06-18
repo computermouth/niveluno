@@ -3,12 +3,9 @@ use std::vec;
 use gltf;
 use serde::Deserialize;
 use serde_json;
+use mparse::{self, types::*};
 
 mod big_buffer;
-mod mpack;
-mod types;
-
-use types::*;
 
 #[derive(Debug)]
 enum Reference {
@@ -623,7 +620,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 2 {
         eprintln!("usage: {} <file.{{gltf,glb}}>", args[0]);
-        return Err(Box::new(NmccError("Malformed or missing arguments")));
+        return Err(Box::new(MparseError("Malformed or missing arguments")));
     }
 
     let path = &args[1];
@@ -671,7 +668,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ern_data = bb.get_ern_data();
     let kvs_data = bb.get_kvs_data();
 
-    let buf = mpack::marshal(
+    let buf = mparse::marshal(
         f32_data,
         img_data,
         drn_data,
@@ -685,7 +682,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if cfg!(debug_assertions) {
         let (o_f32, o_img, o_drn, o_ern, o_kvs, o_mrd, o_mre, o_mid, o_mie) =
-            mpack::unmarshal(&buf)?;
+            mparse::unmarshal(&buf)?;
 
         assert_eq!(&o_f32, f32_data);
         assert_eq!(&o_img, img_data);

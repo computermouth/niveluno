@@ -1,11 +1,11 @@
 #[derive(Debug)]
-pub struct NmccError<'a>(pub &'a str);
-impl<'a> std::fmt::Display for NmccError<'a> {
+pub struct MparseError<'a>(pub &'a str);
+impl<'a> std::fmt::Display for MparseError<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "NmccError: {:?}", self.0)
+        write!(f, "MparseError: {:?}", self.0)
     }
 }
-impl<'a> std::error::Error for NmccError<'a> {}
+impl<'a> std::error::Error for MparseError<'a> {}
 
 #[derive(Debug, PartialEq)]
 pub struct DecorReference {

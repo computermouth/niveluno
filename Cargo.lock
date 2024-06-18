@@ -213,6 +213,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mparse"
+version = "0.1.0"
+dependencies = [
+ "rmp",
+]
+
+[[package]]
 name = "munzip"
 version = "0.1.2"
 dependencies = [
@@ -235,7 +242,7 @@ name = "nmcc"
 version = "0.1.0"
 dependencies = [
  "gltf",
- "rmp",
+ "mparse",
  "serde",
  "serde_json",
 ]

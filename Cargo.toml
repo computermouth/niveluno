@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
 
-members = ["niveluno", "nmcc", "munzip"]
+members = ["niveluno", "nmcc", "mparse", "munzip"]
