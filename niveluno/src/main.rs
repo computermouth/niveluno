@@ -1,12 +1,11 @@
+use gl;
 use math::Vec3;
-use nuerror::NUError;
+use mparse;
 use render::draw;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mixer::{self, InitFlag};
 use sdl2::video::{GLProfile, SwapInterval};
-
-use gl;
 
 mod asset;
 mod audio;
@@ -16,6 +15,8 @@ mod math;
 mod nuerror;
 mod render;
 mod text;
+
+use nuerror::NUError;
 
 fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext), nuerror::NUError>
 {
@@ -123,6 +124,11 @@ fn main() -> Result<(), String> {
     let mut oldtime = time;
     let mut newtime;
     let mut frames = 0;
+
+    let nmap = asset::get_file("nmap.mp")?
+        .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
+
+    let everything = mparse::unmarshal(&nmap)?;
 
     'running: loop {
         frames += 1;

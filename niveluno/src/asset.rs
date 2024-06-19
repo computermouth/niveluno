@@ -8,7 +8,7 @@ struct AssetGod<'a> {
     pub d_file: File,
     pub default: Option<munzip::SearchableArchive<'a>>,
     // todo, also maybe should be a list or something
-    pub custom: Option<munzip::SearchableArchive<'a>>,
+    // pub custom: Option<munzip::SearchableArchive<'a>>,
 }
 
 impl<'a> AssetGod<'a> {
@@ -52,7 +52,6 @@ pub fn init() -> Result<(), NUError> {
         ASSET_GOD = Some(AssetGod {
             d_file: default_file,
             default: None,
-            custom: None,
         });
     }
 
@@ -60,4 +59,15 @@ pub fn init() -> Result<(), NUError> {
     ag.default = Some(munzip::SearchableArchive::new(&mut ag.d_file)?);
 
     Ok(())
+}
+
+pub fn get_file(filename: &str) -> Result<Option<Vec<u8>>, NUError> {
+    let ag = AssetGod::get()?;
+    let default_archive = ag
+        .default
+        .as_mut()
+        .ok_or_else(|| NUError::MiscError("default archive uninit".to_string()))?;
+    let file = default_archive.by_name(filename)?;
+
+    Ok(file)
 }

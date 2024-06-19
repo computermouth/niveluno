@@ -1,9 +1,9 @@
 use std::vec;
 
 use gltf;
+use mparse::{self, types::*};
 use serde::Deserialize;
 use serde_json;
-use mparse::{self, types::*};
 
 mod big_buffer;
 
