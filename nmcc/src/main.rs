@@ -681,18 +681,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
 
     if cfg!(debug_assertions) {
-        let (o_f32, o_img, o_drn, o_ern, o_kvs, o_mrd, o_mre, o_mid, o_mie) =
-            mparse::unmarshal(&buf)?;
+        let payload = mparse::unmarshal(&buf)?;
 
-        assert_eq!(&o_f32, f32_data);
-        assert_eq!(&o_img, img_data);
-        assert_eq!(&o_drn, drn_data);
-        assert_eq!(&o_ern, ern_data);
-        assert_eq!(&o_kvs, kvs_data);
-        assert_eq!(&o_mrd, &map_ref_decs);
-        assert_eq!(&o_mre, &map_ref_entt);
-        assert_eq!(&o_mid, &map_ins_decs);
-        assert_eq!(&o_mie, &map_ins_entt);
+        assert_eq!(&payload.floats, f32_data);
+        assert_eq!(&payload.img_data, img_data);
+        assert_eq!(&payload.drn_data, drn_data);
+        assert_eq!(&payload.ern_data, ern_data);
+        assert_eq!(&payload.kvs_data, kvs_data);
+        assert_eq!(&payload.map_ref_decs, &map_ref_decs);
+        assert_eq!(&payload.map_ref_ents, &map_ref_entt);
+        assert_eq!(&payload.map_ins_decs, &map_ins_decs);
+        assert_eq!(&payload.map_ins_ents, &map_ins_entt);
     }
 
     std::fs::write("map.mp", buf)?;

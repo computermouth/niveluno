@@ -128,7 +128,8 @@ fn main() -> Result<(), String> {
     let nmap = asset::get_file("nmap.mp")?
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
 
-    let everything = mparse::unmarshal(&nmap)?;
+    let payload = mparse::unmarshal(&nmap).unwrap();
+    _ = payload;
 
     'running: loop {
         frames += 1;

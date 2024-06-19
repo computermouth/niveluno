@@ -171,31 +171,28 @@ fn read_u32_from_marker(cur: &mut Cursor<&Vec<u8>>) -> Result<u32, Box<dyn std::
     }
 }
 
-pub fn unmarshal(
-    buf: &Vec<u8>,
-) -> Result<
-    (
-        Vec<f32>,             // floats
-        Vec<Vec<u8>>,         // img_data
-        Vec<String>,          // drn_data
-        Vec<String>,          // ern_data
-        Vec<String>,          // kvs_data
-        Vec<DecorReference>,  // map_ref_decs
-        Vec<EntityReference>, // map_ref_entts
-        Vec<DecorInstance>,   // map_ins_decs
-        Vec<EntityInstance>,  // map_ins_entts
-    ),
-    Box<dyn std::error::Error>,
-> {
+pub struct Payload {
+    pub floats: Vec<f32>,
+    pub img_data: Vec<Vec<u8>>,
+    pub drn_data: Vec<String>,
+    pub ern_data: Vec<String>,
+    pub kvs_data: Vec<String>,
+    pub map_ref_decs: Vec<DecorReference>,
+    pub map_ref_ents: Vec<EntityReference>,
+    pub map_ins_decs: Vec<DecorInstance>,
+    pub map_ins_ents: Vec<EntityInstance>,
+}
+
+pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
     let mut floats = vec![];
     let mut img_data = vec![];
     let mut drn_data = vec![];
     let mut ern_data = vec![];
     let mut kvs_data = vec![];
     let mut map_ref_decs = vec![];
-    let mut map_ref_entts = vec![];
+    let mut map_ref_ents = vec![];
     let mut map_ins_decs = vec![];
-    let mut map_ins_entts = vec![];
+    let mut map_ins_ents = vec![];
 
     let mut cur = Cursor::new(buf);
 
@@ -325,7 +322,7 @@ pub fn unmarshal(
                     uvs.push(read_u32_from_marker(&mut cur)?);
                 }
             }
-            map_ref_entts.push(EntityReference {
+            map_ref_ents.push(EntityReference {
                 name,
                 texture,
                 vertices,
@@ -376,7 +373,7 @@ pub fn unmarshal(
             let location = read_u32_from_marker(&mut cur)?;
             let rotation = read_u32_from_marker(&mut cur)?;
             let scale = read_u32_from_marker(&mut cur)?;
-            map_ins_entts.push(EntityInstance {
+            map_ins_ents.push(EntityInstance {
                 index,
                 params,
                 location,
@@ -386,15 +383,15 @@ pub fn unmarshal(
         }
     }
 
-    Ok((
+    Ok(Payload {
         floats,
         img_data,
         drn_data,
         ern_data,
         kvs_data,
         map_ref_decs,
-        map_ref_entts,
+        map_ref_ents,
         map_ins_decs,
-        map_ins_entts,
-    ))
+        map_ins_ents,
+    })
 }
