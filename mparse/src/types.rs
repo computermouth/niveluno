@@ -41,3 +41,16 @@ pub struct DecorInstance {
     pub rotation: u32, // u32 -> [f32;4]
     pub scale: u32,    // u32 -> [f32;3]
 }
+
+#[derive(Debug)]
+pub struct Payload {
+    pub floats: Vec<f32>,
+    pub img_data: Vec<Vec<u8>>,
+    pub drn_data: Vec<String>,
+    pub ern_data: Vec<String>,
+    pub kvs_data: Vec<String>,
+    pub map_ref_decs: Vec<DecorReference>,
+    pub map_ref_ents: Vec<EntityReference>,
+    pub map_ins_decs: Vec<DecorInstance>,
+    pub map_ins_ents: Vec<EntityInstance>,
+}

@@ -5,6 +5,12 @@ pub struct Vec3 {
     pub z: f32,
 }
 
+impl From<[f32; 3]> for Vec3 {
+    fn from(f: [f32; 3]) -> Self {
+        Self::new(f[0], f[1], f[2])
+    }
+}
+
 impl Vec3 {
     pub fn new(x: f32, y: f32, z: f32) -> Vec3 {
         Vec3 { x, y, z }

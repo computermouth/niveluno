@@ -446,8 +446,12 @@ pub fn init() -> Result<(), NUError> {
     Ok(())
 }
 
+pub fn get_r_num_verts() -> Result<usize, NUError> {
+    Ok(RenderGod::get()?.r_num_verts)
+}
+
 pub struct PngBin {
-    data: Vec<u8>,
+    pub data: Vec<u8>,
 }
 
 pub fn create_texture(p: PngBin) -> Result<usize, NUError> {
@@ -652,8 +656,10 @@ pub fn submit_buffer() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<(), NUError> {
-    let vindex = RenderGod::get()?.r_num_verts * 8;
+pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<usize, NUError> {
+    let num_verts = RenderGod::get()?.r_num_verts;
+
+    let vindex = num_verts * 8;
 
     let r_buffer = &mut RenderGod::get()?.r_buffer;
 
@@ -668,10 +674,12 @@ pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<(), NUError>
 
     RenderGod::get()?.r_num_verts += 1;
 
-    Ok(())
+    Ok(num_verts)
 }
 
-pub fn push_quad(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, u: f32, v: f32) -> Result<(), NUError> {
+pub fn push_quad(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, u: f32, v: f32) -> Result<usize, NUError> {
+    let num_verts = RenderGod::get()?.r_num_verts;
+
     let n = math::vec3_face_normal(v0, v1, v2);
     push_vert(v0, n, u, 0.)?;
     push_vert(v1, n, 0., 0.)?;
@@ -680,7 +688,7 @@ pub fn push_quad(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, u: f32, v: f32) -> Resu
     push_vert(v2, n, u, v)?;
     push_vert(v1, n, 0., 0.)?;
 
-    Ok(())
+    Ok(num_verts)
 }
 
 pub fn push_block(

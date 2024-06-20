@@ -2,8 +2,6 @@ use gl;
 use math::Vec3;
 use mparse;
 use render::draw;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
 use sdl2::mixer::{self, InitFlag};
 use sdl2::video::{GLProfile, SwapInterval};
 
@@ -11,6 +9,7 @@ mod asset;
 mod audio;
 mod game;
 mod input;
+mod level;
 mod math;
 mod nuerror;
 mod render;
@@ -77,6 +76,7 @@ fn init_nu() -> Result<(), nuerror::NUError> {
     audio::init()?;
     input::init()?;
     asset::init()?;
+    game::init()?;
 
     // todo, do this in somewhere like
     // render::end_frame, if num_verts has changed
@@ -129,7 +129,13 @@ fn main() -> Result<(), String> {
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
 
     let payload = mparse::unmarshal(&nmap).unwrap();
-    _ = payload;
+
+    enum State {
+        Menu,
+        Level,
+    }
+
+    let mut state = State::Menu;
 
     'running: loop {
         frames += 1;
@@ -151,42 +157,55 @@ fn main() -> Result<(), String> {
 
         render::prepare_frame()?;
 
-        for i in 0..10 {
-            let dc = render::DrawCall {
-                pos: Vec3 {
-                    x: i as f32 * -18.,
-                    y: i as f32 * -18.,
-                    z: i as f32 * 36.,
-                },
-                yaw: 0.0,
-                pitch: 0.0,
-                texture: tex as u32,
-                f1: b as i32,
-                f2: b as i32,
-                mix: 0.0,
-                num_verts: 36,
-                unlit: false,
-            };
-            draw(dc)?;
+        match state {
+            State::Menu => {
+                for i in 0..10 {
+                    let dc = render::DrawCall {
+                        pos: Vec3 {
+                            x: i as f32 * -18.,
+                            y: i as f32 * -18.,
+                            z: i as f32 * 36.,
+                        },
+                        yaw: 0.0,
+                        pitch: 0.0,
+                        texture: tex as u32,
+                        f1: b as i32,
+                        f2: b as i32,
+                        mix: 0.0,
+                        num_verts: 36,
+                        unlit: false,
+                    };
+                    draw(dc)?;
+                }
+
+                let ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+                    .as_millis();
+                render::push_light(
+                    Vec3 {
+                        x: 25.,
+                        y: 25.,
+                        z: 25. + 100. * (0.001 * (ms - start_ms) as f32).sin(),
+                    },
+                    15.,
+                    100.,
+                    150.,
+                    50.,
+                )?;
+
+                text::push_surface(&title)?;
+
+                if input::get_keys()?[input::Key::Action as usize] == true {
+                    state = State::Level;
+                    let level = level::load_level(&payload)?;
+                    game::set_level(level)?;
+                }
+            }
+            State::Level => {
+                // game run
+            }
         }
-
-        let ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|e| NUError::SystemTimeError(e.to_string()))?
-            .as_millis();
-        render::push_light(
-            Vec3 {
-                x: 25.,
-                y: 25.,
-                z: 25. + 100. * (0.001 * (ms - start_ms) as f32).sin(),
-            },
-            15.,
-            100.,
-            150.,
-            50.,
-        )?;
-
-        text::push_surface(&title)?;
 
         render::end_frame()?;
         window.gl_swap_window();

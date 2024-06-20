@@ -167,3 +167,7 @@ pub fn get_quit() -> Result<bool, NUError> {
 pub fn get_mouse() -> (f32, f32) {
     (1., 1.)
 }
+
+pub fn get_keys() -> Result<[bool; 8], NUError> {
+    Ok(InputGod::get()?.keys)
+}

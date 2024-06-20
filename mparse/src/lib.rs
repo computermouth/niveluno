@@ -171,18 +171,6 @@ fn read_u32_from_marker(cur: &mut Cursor<&Vec<u8>>) -> Result<u32, Box<dyn std::
     }
 }
 
-pub struct Payload {
-    pub floats: Vec<f32>,
-    pub img_data: Vec<Vec<u8>>,
-    pub drn_data: Vec<String>,
-    pub ern_data: Vec<String>,
-    pub kvs_data: Vec<String>,
-    pub map_ref_decs: Vec<DecorReference>,
-    pub map_ref_ents: Vec<EntityReference>,
-    pub map_ins_decs: Vec<DecorInstance>,
-    pub map_ins_ents: Vec<EntityInstance>,
-}
-
 pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
     let mut floats = vec![];
     let mut img_data = vec![];
