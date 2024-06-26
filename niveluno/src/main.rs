@@ -69,19 +69,12 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
 }
 
 fn init_nu() -> Result<(), nuerror::NUError> {
-    // text has to come before render init
-    // not sure why, todo
     text::init()?;
     render::init()?;
     audio::init()?;
     input::init()?;
     asset::init()?;
     game::init()?;
-
-    // todo, do this in somewhere like
-    // render::end_frame, if num_verts has changed
-    // since last buffer submission
-    render::submit_buffer()?;
 
     Ok(())
 }
@@ -113,10 +106,6 @@ fn main() -> Result<(), String> {
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
     let payload = mparse::unmarshal(&nmap).unwrap();
     let level = level::load_level(&payload)?;
-
-    // todo, run this if r_buffer usage has changed
-    // seems to bork the text overlay if just run on every render::end_frame()
-    render::submit_buffer()?;
 
     let start_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
