@@ -109,7 +109,13 @@ fn main() -> Result<(), String> {
     let tex = render::placeholder_tex_id()?;
     let b = render::push_block(32., 32., 160., 32., 32., 32., tex)?;
 
+    let nmap = asset::get_file("nmap.mp")?
+        .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
+    let payload = mparse::unmarshal(&nmap).unwrap();
+    let level = level::load_level(&payload)?;
+
     // todo, run this if r_buffer usage has changed
+    // seems to bork the text overlay if just run on every render::end_frame()
     render::submit_buffer()?;
 
     let start_ms = std::time::SystemTime::now()
@@ -124,11 +130,6 @@ fn main() -> Result<(), String> {
     let mut oldtime = time;
     let mut newtime;
     let mut frames = 0;
-
-    let nmap = asset::get_file("nmap.mp")?
-        .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
-
-    let payload = mparse::unmarshal(&nmap).unwrap();
 
     enum State {
         Menu,
@@ -159,6 +160,29 @@ fn main() -> Result<(), String> {
 
         match state {
             State::Menu => {
+
+                let ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+                    .as_millis();
+
+                let dc = render::DrawCall {
+                    pos: Vec3 {
+                        x: 0.,
+                        y: 0.,
+                        z: 180.,
+                    },
+                    yaw: 1. * (0.001 * (ms - start_ms) as f32).sin(),
+                    pitch: 1. * (0.001 * (ms - start_ms) as f32).sin(),
+                    texture: level.ref_decor[0].texture_handle as u32,
+                    f1: level.ref_decor[0].frame_handle as i32,
+                    f2: level.ref_decor[0].frame_handle as i32,
+                    mix: 0.0,
+                    num_verts: 6,
+                    unlit: false,
+                };
+                draw(dc)?;
+
                 for i in 0..10 {
                     let dc = render::DrawCall {
                         pos: Vec3 {
@@ -166,8 +190,8 @@ fn main() -> Result<(), String> {
                             y: i as f32 * -18.,
                             z: i as f32 * 36.,
                         },
-                        yaw: 0.0,
-                        pitch: 0.0,
+                        yaw: 1. * (0.003 * (ms - start_ms) as f32).sin(),
+                        pitch: 1. * (0.005 * (ms - start_ms) as f32).sin(),
                         texture: tex as u32,
                         f1: b as i32,
                         f2: b as i32,
@@ -178,10 +202,6 @@ fn main() -> Result<(), String> {
                     draw(dc)?;
                 }
 
-                let ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_err(|e| NUError::SystemTimeError(e.to_string()))?
-                    .as_millis();
                 render::push_light(
                     Vec3 {
                         x: 25.,
@@ -198,11 +218,40 @@ fn main() -> Result<(), String> {
 
                 if input::get_keys()?[input::Key::Action as usize] == true {
                     state = State::Level;
-                    let level = level::load_level(&payload)?;
-                    game::set_level(level)?;
+                    // game::set_level(level)?;
                 }
             }
             State::Level => {
+                render::push_light(
+                    Vec3 {
+                        x: 25.,
+                        y: 25.,
+                        z: 25.,
+                    },
+                    15.,
+                    100.,
+                    150.,
+                    50.,
+                )?;
+
+
+                let dc = render::DrawCall {
+                    pos: Vec3 {
+                        x: 1.,
+                        y: 1.,
+                        z: 1.,
+                    },
+                    yaw: 0.0,
+                    pitch: 0.0,
+                    texture: tex as u32,
+                    f1: level.ref_decor[0].frame_handle as i32,
+                    f2: b as i32,
+                    mix: 0.0,
+                    num_verts: 36,
+                    unlit: true,
+                };
+                draw(dc)?;
+
                 // game run
             }
         }

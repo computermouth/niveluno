@@ -7,11 +7,11 @@ use crate::{
 };
 
 pub struct Level {
-    img_handles: Vec<usize>,
-    map_entities: u32,
-    ref_entities: u32,
-    map_decor: u32,
-    ref_decor: Vec<LoadedDecorReference>,
+    pub img_handles: Vec<usize>,
+    pub map_entities: u32,
+    pub ref_entities: u32,
+    pub map_decor: u32,
+    pub ref_decor: Vec<LoadedDecorReference>,
 }
 
 struct Entity {}
@@ -30,11 +30,11 @@ enum MapInstance {
     Decor(Decor),
 }
 
-struct LoadedDecorReference {
+pub struct LoadedDecorReference {
     // index to decor reference??
-    index: usize,
-    texture_handle: usize,
-    frame_handle: usize,
+    pub index: usize,
+    pub texture_handle: usize,
+    pub frame_handle: usize,
 }
 
 enum LoadedReference {
@@ -144,6 +144,8 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
     //         ],
     //     };
     // }
+
+    eprintln!("rdl: {}", ref_decor.len());
 
     Ok(Level {
         // needs to eat copies of payloads _data fields
