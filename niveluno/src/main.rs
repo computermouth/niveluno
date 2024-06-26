@@ -160,7 +160,6 @@ fn main() -> Result<(), String> {
 
         match state {
             State::Menu => {
-
                 let ms = std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
                     .map_err(|e| NUError::SystemTimeError(e.to_string()))?
@@ -224,16 +223,15 @@ fn main() -> Result<(), String> {
             State::Level => {
                 render::push_light(
                     Vec3 {
-                        x: 25.,
-                        y: 25.,
-                        z: 25.,
+                        x: -25.,
+                        y: -25.,
+                        z: -25.,
                     },
                     15.,
-                    100.,
-                    150.,
-                    50.,
+                    255.,
+                    255.,
+                    255.,
                 )?;
-
 
                 let dc = render::DrawCall {
                     pos: Vec3 {
@@ -245,7 +243,7 @@ fn main() -> Result<(), String> {
                     pitch: 0.0,
                     texture: tex as u32,
                     f1: level.ref_decor[0].frame_handle as i32,
-                    f2: b as i32,
+                    f2: level.ref_decor[0].frame_handle as i32,
                     mix: 0.0,
                     num_verts: 36,
                     unlit: true,

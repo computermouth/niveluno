@@ -527,6 +527,10 @@ pub fn prepare_frame() -> Result<(), NUError> {
 pub fn end_frame() -> Result<(), NUError> {
     let rg: &mut RenderGod = RenderGod::get()?;
 
+    // wohooo works, buuuuut, only do it on r_num_verts change
+    // otherwise, wasteful copy to gpu
+    submit_buffer()?;
+
     unsafe {
         gl::UseProgram(rg.shader_program);
         gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
@@ -644,8 +648,10 @@ pub fn draw(d: DrawCall) -> Result<(), NUError> {
 
 pub fn submit_buffer() -> Result<(), NUError> {
     let rb = &RenderGod::get()?.r_buffer;
+    let vb = &RenderGod::get()?.vertex_buffer;
     let nv = RenderGod::get()?.r_num_verts;
     unsafe {
+        gl::BindBuffer(gl::ARRAY_BUFFER, *vb);
         gl::BufferData(
             gl::ARRAY_BUFFER,
             (nv * 8 * std::mem::size_of::<f32>()) as isize,
