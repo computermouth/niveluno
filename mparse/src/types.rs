@@ -25,7 +25,7 @@ pub struct EntityReference {
 
 #[derive(Debug, PartialEq)]
 pub struct EntityInstance {
-    // names[index] == player, but also reference[index] == __nomodel
+    // if _noref == true {None} -- lookup in params 
     // names[index] == ogre, but also reference[index] == ${ogre_reference}
     pub index: Option<u32>,
     pub params: Vec<u32>, // indexes to [k,v,k,v,k,v] etc

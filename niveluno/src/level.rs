@@ -10,15 +10,22 @@ pub struct Level {
     pub img_handles: Vec<usize>,
     pub map_entities: u32,
     pub ref_entities: u32,
-    pub map_decor: u32,
+    pub map_decor: Vec<Decor>,
     pub ref_decor: Vec<LoadedDecorReference>,
 }
 
-struct Entity {}
+pub struct Entity {
+    // might be no_ref
+    pub ref_id: Option<usize>,
+    pub params: Vec<u32>, // indexes to [k,v,k,v,k,v] etc
+    // todo, go back to indices into big float array
+    pub location: [f32; 3],
+    pub rotation: [f32; 4],
+    pub scale: [f32; 3],
+}
 
-struct Decor {
-    // index to decor reference??
-    index: usize,
+pub struct Decor {
+    pub ref_id: usize,
     // todo, go back to indices into big float array
     pub location: [f32; 3],
     pub rotation: [f32; 4],
@@ -31,10 +38,15 @@ enum MapInstance {
 }
 
 pub struct LoadedDecorReference {
-    // index to decor reference??
     pub index: usize,
     pub texture_handle: usize,
     pub frame_handle: usize,
+}
+
+pub struct LoadedEnttReference {
+    pub index: usize,
+    pub texture_handle: usize,
+    pub frame_handles: Vec<usize>,
 }
 
 enum LoadedReference {
@@ -46,11 +58,13 @@ struct FloatPackInput {
     uvs: Vec<Vec<[f32; 2]>>,
 }
 
-fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<Vec<[f32; 2]>>) -> Result<Vec<usize>, NUError> {
-    if verts.len() != uvs.len() {
-        return Err(NUError::MiscError(
-            "vert len differs from uv len".to_string(),
-        ));
+fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usize>, NUError> {
+    for v in &verts {
+        if v.len() != uvs.len() {
+            return Err(NUError::MiscError(
+                "vert len differs from uv len".to_string(),
+            ));
+        }
     }
 
     let mut frame_handles = vec![];
@@ -58,7 +72,7 @@ fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<Vec<[f32; 2]>>) -> Result<Vec
     let frame_count = verts.len();
     for frame in 0..frame_count {
         frame_handles.push(render::get_r_num_verts()?);
-        for (v, u) in verts[frame].chunks(3).zip(uvs[frame].chunks(3)) {
+        for (v, u) in verts[frame].chunks(3).zip(uvs.chunks(3)) {
             let v0 = v[0].into();
             let v1 = v[1].into();
             let v2 = v[2].into();
@@ -109,7 +123,7 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
         }
 
         // vecs for compatibility with animated models
-        let pf = pack_floats(vec![verts], vec![uvs])?;
+        let pf = pack_floats(vec![verts], uvs)?;
         if pf.len() != 1 {
             return Err(NUError::MiscError("decor is animated".to_string()));
         }
@@ -121,31 +135,69 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
         })
     }
 
-    // // map instances (decoration)
-    // let mut map_decor = vec![];
-    // for di in &payload.map_ins_decs {
-    //     let decor = Decor {
-    //         name: di.index,
-    //         location: [
-    //             payload.floats[(di.location + 0) as usize],
-    //             payload.floats[(di.location + 1) as usize],
-    //             payload.floats[(di.location + 2) as usize],
-    //         ],
-    //         rotation: [
-    //             payload.floats[(di.rotation + 0) as usize],
-    //             payload.floats[(di.rotation + 1) as usize],
-    //             payload.floats[(di.rotation + 2) as usize],
-    //             payload.floats[(di.rotation + 3) as usize],
-    //         ],
-    //         scale: [
-    //             payload.floats[(di.scale + 0) as usize],
-    //             payload.floats[(di.scale + 1) as usize],
-    //             payload.floats[(di.scale + 2) as usize],
-    //         ],
-    //     };
-    // }
+    // map instances (decoration)
+    let mut map_decor = vec![];
+    for di in &payload.map_ins_decs {
+        let decor = Decor {
+            ref_id: di.index as usize,
+            location: [
+                payload.floats[(di.location + 0) as usize],
+                payload.floats[(di.location + 1) as usize],
+                payload.floats[(di.location + 2) as usize],
+            ],
+            rotation: [
+                payload.floats[(di.rotation + 0) as usize],
+                payload.floats[(di.rotation + 1) as usize],
+                payload.floats[(di.rotation + 2) as usize],
+                payload.floats[(di.rotation + 3) as usize],
+            ],
+            scale: [
+                payload.floats[(di.scale + 0) as usize],
+                payload.floats[(di.scale + 1) as usize],
+                payload.floats[(di.scale + 2) as usize],
+            ],
+        };
+        map_decor.push(decor);
+    }
+
+    // entt refs
+    let mut ref_entts = vec![];
+    for re in &payload.map_ref_ents {
+        let mut verts = vec![];
+        for frame in &re.vertices {
+            let mut frame_verts = vec![];
+            for v_index in frame {
+                frame_verts.push([
+                    payload.floats[(v_index + 0) as usize],
+                    payload.floats[(v_index + 1) as usize],
+                    payload.floats[(v_index + 2) as usize],
+                ])
+            }
+            verts.push(frame_verts);
+        }
+
+        let mut uvs = vec![];
+        for u_index in &re.uvs {
+            uvs.push([
+                payload.floats[(u_index + 0) as usize],
+                payload.floats[(u_index + 1) as usize],
+            ])
+        }
+
+        ref_entts.push(LoadedEnttReference {
+            index: re.name as usize,
+            texture_handle: img_handles[re.texture as usize],
+            frame_handles: pack_floats(verts, uvs)?,
+        })
+    }
+
+    // map entities
+    // todo, either re-parse kv's on load
+    // or add map_noref[] to file format :/
 
     eprintln!("rdl: {}", ref_decor.len());
+    eprintln!("mdl: {}", map_decor.len());
+    eprintln!("rel: {}", ref_entts.len());
 
     Ok(Level {
         // needs to eat copies of payloads _data fields
@@ -154,7 +206,7 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
         img_handles,
         map_entities: 0,
         ref_entities: 0,
-        map_decor: 0,
+        map_decor,
         ref_decor,
     })
 }
