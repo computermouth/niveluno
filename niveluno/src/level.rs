@@ -8,15 +8,15 @@ use crate::{
 
 pub struct Level {
     pub img_handles: Vec<usize>,
-    pub map_entities: u32,
-    pub ref_entities: u32,
+    pub map_entities: Vec<Entity>,
+    pub ref_entities: Vec<LoadedEnttReference>,
     pub map_decor: Vec<Decor>,
     pub ref_decor: Vec<LoadedDecorReference>,
 }
 
 pub struct Entity {
-    // might be no_ref
-    pub ref_id: Option<usize>,
+    pub index: usize,
+    pub has_ref: bool,
     pub params: Vec<u32>, // indexes to [k,v,k,v,k,v] etc
     // todo, go back to indices into big float array
     pub location: [f32; 3],
@@ -47,15 +47,6 @@ pub struct LoadedEnttReference {
     pub index: usize,
     pub texture_handle: usize,
     pub frame_handles: Vec<usize>,
-}
-
-enum LoadedReference {
-    Decor(LoadedDecorReference),
-}
-
-struct FloatPackInput {
-    verts: Vec<Vec<[f32; 3]>>,
-    uvs: Vec<Vec<[f32; 2]>>,
 }
 
 fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usize>, NUError> {
@@ -113,6 +104,7 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
                 payload.floats[(v_index + 2) as usize],
             ])
         }
+        // eprintln!("verts: {:?}", verts);
 
         let mut uvs = vec![];
         for u_index in &rd.uvs {
@@ -174,6 +166,7 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
                 ])
             }
             verts.push(frame_verts);
+            eprintln!("verts: {:?}", frame.len());
         }
 
         let mut uvs = vec![];
@@ -192,20 +185,44 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
     }
 
     // map entities
-    // todo, either re-parse kv's on load
-    // or add map_noref[] to file format :/
+    let mut map_entts = vec![];
+    for ei in &payload.map_ins_ents {
+        let entity = Entity {
+            index: ei.index as usize,
+            has_ref: ei.has_ref,
+            params: ei.params.clone(),
+            location: [
+                payload.floats[(ei.location + 0) as usize],
+                payload.floats[(ei.location + 1) as usize],
+                payload.floats[(ei.location + 2) as usize],
+            ],
+            rotation: [
+                payload.floats[(ei.rotation + 0) as usize],
+                payload.floats[(ei.rotation + 1) as usize],
+                payload.floats[(ei.rotation + 2) as usize],
+                payload.floats[(ei.rotation + 3) as usize],
+            ],
+            scale: [
+                payload.floats[(ei.scale + 0) as usize],
+                payload.floats[(ei.scale + 1) as usize],
+                payload.floats[(ei.scale + 2) as usize],
+            ],
+        };
+        map_entts.push(entity);
+    }
 
     eprintln!("rdl: {}", ref_decor.len());
     eprintln!("mdl: {}", map_decor.len());
     eprintln!("rel: {}", ref_entts.len());
+    eprintln!("mel: {}", map_entts.len());
 
     Ok(Level {
         // needs to eat copies of payloads _data fields
         // which need to have corresponding lookup functions
         // in this file (level.rs)
         img_handles,
-        map_entities: 0,
-        ref_entities: 0,
+        map_entities: map_entts,
+        ref_entities: ref_entts,
         map_decor,
         ref_decor,
     })

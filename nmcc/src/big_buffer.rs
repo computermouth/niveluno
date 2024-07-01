@@ -234,6 +234,19 @@ impl BigBuffer {
         Ok(len as u32)
     }
 
+    // norefs don't error on duplicate names
+    pub fn add_noref_name(&mut self, s: &str) -> u32 {
+        if let Some(&index) = self.ern_hmap.get(s) {
+            return index as u32;
+        }
+
+        let len = self.ern_data.len();
+        self.ern_hmap.insert(s.to_string(), len as u32);
+        self.ern_data.push(s.to_string());
+
+        len as u32
+    }
+
     pub fn get_entt_index(&mut self, s: &str) -> Option<&u32> {
         self.ern_hmap.get(s)
     }

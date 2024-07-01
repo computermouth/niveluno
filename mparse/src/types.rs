@@ -25,9 +25,9 @@ pub struct EntityReference {
 
 #[derive(Debug, PartialEq)]
 pub struct EntityInstance {
-    // if _noref == true {None} -- lookup in params 
-    // names[index] == ogre, but also reference[index] == ${ogre_reference}
-    pub index: Option<u32>,
+    pub index: u32,
+    // if has_ref, follow index into references
+    pub has_ref: bool,
     pub params: Vec<u32>, // indexes to [k,v,k,v,k,v] etc
     pub location: u32,    // u32 -> [f32;3]
     pub rotation: u32,    // u32 -> [f32;4]

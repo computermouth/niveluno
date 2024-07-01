@@ -136,15 +136,16 @@ pub fn marshal(
         // map_ins_entt
         encode::write_array_len(&mut buf, map_ins_entt.len() as u32)?;
         for entt in map_ins_entt {
-            encode::write_array_len(&mut buf, 5)?;
-            match entt.index {
-                Some(i) => encode::write_u32(&mut buf, i)?,
-                None => encode::write_nil(&mut buf)?,
-            }
+            encode::write_array_len(&mut buf, 6)?;
+
+            encode::write_u32(&mut buf, entt.index)?;
+            encode::write_bool(&mut buf, entt.has_ref)?;
+
             encode::write_array_len(&mut buf, entt.params.len() as u32)?;
             for i in &entt.params {
                 encode::write_u32(&mut buf, *i)?;
             }
+
             encode::write_u32(&mut buf, entt.location)?;
             encode::write_u32(&mut buf, entt.rotation)?;
             encode::write_u32(&mut buf, entt.scale)?;
@@ -338,21 +339,9 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
         // map_ins_entt
         let entt_len = decode::read_array_len(&mut cur)?;
         for _ in 0..entt_len {
-            assert_eq!(5, decode::read_array_len(&mut cur)?);
-            let pos = cur.position();
-            let index = match decode::read_marker(&mut cur)
-                .map_err(|_| MparseError("failed to read index marker"))?
-            {
-                rmp::Marker::Null => {
-                    cur.set_position(pos);
-                    decode::read_nil(&mut cur)?;
-                    None
-                }
-                _ => {
-                    cur.set_position(pos);
-                    Some(read_u32_from_marker(&mut cur)?)
-                }
-            };
+            assert_eq!(6, decode::read_array_len(&mut cur)?);
+            let index = read_u32_from_marker(&mut cur)?;
+            let has_ref = decode::read_bool(&mut cur)?;
             let plen = decode::read_array_len(&mut cur)?;
             let mut params = vec![];
             for _ in 0..plen {
@@ -363,6 +352,7 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
             let scale = read_u32_from_marker(&mut cur)?;
             map_ins_ents.push(EntityInstance {
                 index,
+                has_ref,
                 params,
                 location,
                 rotation,

@@ -219,13 +219,18 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
             _entity: Some(e),
             ..
         }) => {
-            let mut ei = None;
-            if !kvp.contains(&("_noref".to_string(), "true".to_string())) {
-                ei = Some(*bb.get_entt_index(e).or_else(|| {
+            let mut has_ref = true;
+            if kvp.contains(&("_noref".to_string(), "true".to_string())) {
+                has_ref = false;
+            }
+
+            let ei = match has_ref {
+                true => *bb.get_entt_index(e).or_else(|| {
                     eprintln!("W: couldn't get entt index for {:?} {e}", n.name());
                     None
-                })?);
-            }
+                })?,
+                false => bb.add_noref_name(e),
+            };
 
             let mut p = vec![];
             for (k, v) in kvp {
@@ -235,6 +240,7 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
 
             Some(Instance::Entity(EntityInstance {
                 index: ei,
+                has_ref,
                 params: p,
                 location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.y, c_pos.z])),
                 rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),

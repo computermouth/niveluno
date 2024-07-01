@@ -158,16 +158,16 @@ fn main() -> Result<(), String> {
                     pos: Vec3 {
                         x: 0.,
                         y: 0.,
-                        z: 180.,
+                        z: -45.,
                     },
-                    yaw: 1. * (0.001 * (ms - start_ms) as f32).sin(),
-                    pitch: 1. * (0.001 * (ms - start_ms) as f32).sin(),
-                    texture: level.ref_decor[0].texture_handle as u32,
-                    f1: level.ref_decor[0].frame_handle as i32,
-                    f2: level.ref_decor[0].frame_handle as i32,
-                    mix: 0.0,
-                    num_verts: 6,
-                    unlit: false,
+                    yaw: 1.,
+                    pitch: 0.,
+                    texture: level.ref_entities[0].texture_handle as u32,
+                    f1: level.ref_entities[0].frame_handles[0] as i32,
+                    f2: level.ref_entities[0].frame_handles[2] as i32,
+                    mix: ((1. * (0.001 * (ms - start_ms) as f32).sin()) + 1.0) / 2.,
+                    num_verts: 372,
+                    unlit: true,
                 };
                 draw(dc)?;
 
