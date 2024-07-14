@@ -482,13 +482,14 @@ fn parse_ref_entt(
 
     let primitives = &mut mesh.primitives();
     if primitives.len() == 0 {
-        eprintln!("W: {:?} mesh has no primitives", n.name());
+        eprintln!("W: {:?} mesh has no primitivesout_uvs", n.name());
         return None;
     }
 
     let mut out_pos = vec![];
     let mut out_uvs = vec![];
     let mut out_img = vec![];
+    let mut out_frame_ids = vec![];
 
     for i in 0..primitives.len() {
         let prim = primitives.nth(0).or_else(|| {
@@ -530,6 +531,8 @@ fn parse_ref_entt(
             eprintln!("W: {:?} couldn't collect uvs", n.name());
             None
         })?;
+
+        let extras = mesh.extras();
 
         // push positions to floatbuffer,
         // store indicies
@@ -579,6 +582,17 @@ fn parse_ref_entt(
             )
         }
 
+        let frame_names = get_morph_target_names(extras);
+        let fl = frame_names.len();
+        let ol = out_pos.len();
+        if fl != ol {
+            eprintln!("W: frame name length [{ol}] doesn't match frame count [{ol}]");
+        }
+
+        for n in &frame_names {
+            out_frame_ids.push(bb.add_frame_name(n));
+        }
+
         // push uvs to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
@@ -616,10 +630,33 @@ fn parse_ref_entt(
 
     Some(Reference::Entity(EntityReference {
         name: name_id,
+        frame_names: out_frame_ids,
         vertices: out_pos,
         uvs: out_uvs,
         texture: bb.add_image(out_img),
     }))
+}
+
+fn get_morph_target_names(extras: &Option<Box<serde_json::value::RawValue>>) -> Vec<String> {
+    let mut names = vec!["default".to_string()];
+
+    // Check if the primitive has extras field
+    if let Some(e) = extras {
+        // Parse the extras as JSON\
+        if let Ok(json) = serde_json::from_str::<serde_json::value::Value>(e.get()) {
+            if let Some(target_names) = json.get("targetNames") {
+                if let Some(names_array) = target_names.as_array() {
+                    for name_value in names_array {
+                        if let Some(name) = name_value.as_str() {
+                            names.push(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    names
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -673,6 +710,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let drn_data = bb.get_drn_data();
     let ern_data = bb.get_ern_data();
     let kvs_data = bb.get_kvs_data();
+    let fn_data = bb.get_fn_data();
 
     let buf = mparse::marshal(
         f32_data,
@@ -680,6 +718,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         drn_data,
         ern_data,
         kvs_data,
+        fn_data,
         &map_ref_decs,
         &map_ref_entt,
         &map_ins_decs,
@@ -694,6 +733,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         assert_eq!(&payload.drn_data, drn_data);
         assert_eq!(&payload.ern_data, ern_data);
         assert_eq!(&payload.kvs_data, kvs_data);
+        assert_eq!(&payload.fn_data, fn_data);
         assert_eq!(&payload.map_ref_decs, &map_ref_decs);
         assert_eq!(&payload.map_ref_ents, &map_ref_entt);
         assert_eq!(&payload.map_ins_decs, &map_ins_decs);

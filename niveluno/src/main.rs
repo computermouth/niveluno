@@ -105,7 +105,7 @@ fn main() -> Result<(), String> {
     let nmap = asset::get_file("nmap.mp")?
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
     let payload = mparse::unmarshal(&nmap).unwrap();
-    let level = level::load_level(&payload)?;
+    let level = level::load_level(payload)?;
 
     let start_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

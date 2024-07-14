@@ -18,6 +18,7 @@ pub struct DecorReference {
 #[derive(Debug, PartialEq)]
 pub struct EntityReference {
     pub name: u32,
+    pub frame_names: Vec<u32>,
     pub texture: u32,
     pub vertices: Vec<Vec<u32>>,
     pub uvs: Vec<u32>,
@@ -49,6 +50,7 @@ pub struct Payload {
     pub drn_data: Vec<String>,
     pub ern_data: Vec<String>,
     pub kvs_data: Vec<String>,
+    pub fn_data: Vec<String>,
     pub map_ref_decs: Vec<DecorReference>,
     pub map_ref_ents: Vec<EntityReference>,
     pub map_ins_decs: Vec<DecorInstance>,

@@ -1,17 +1,34 @@
+use core::panic;
+
 use mparse::types::Payload;
 
 use crate::{
-    math,
+    level, math,
     nuerror::NUError,
     render::{self, create_texture, PngBin},
 };
 
+pub struct LevelPayload {
+    pub drn_data: Vec<String>,
+    pub ern_data: Vec<String>,
+    pub kvs_data: Vec<String>,
+    pub fn_data: Vec<String>,
+}
+
 pub struct Level {
+    pub payload: LevelPayload,
     pub img_handles: Vec<usize>,
     pub map_entities: Vec<Entity>,
     pub ref_entities: Vec<LoadedEnttReference>,
     pub map_decor: Vec<Decor>,
     pub ref_decor: Vec<LoadedDecorReference>,
+}
+
+impl Level {
+    fn spawn_entts() {}
+    fn spawn_decor() {}
+    fn spawn_entt_from_name() {}
+    fn spawn_decor_from_name() {}
 }
 
 pub struct Entity {
@@ -86,7 +103,14 @@ fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usiz
 }
 
 // todo, move this?
-pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
+pub fn load_level(payload: Payload) -> Result<Level, NUError> {
+    let level_payload = LevelPayload {
+        drn_data: payload.drn_data,
+        ern_data: payload.ern_data,
+        kvs_data: payload.kvs_data,
+        fn_data: payload.fn_data,
+    };
+
     // images
     let mut img_handles = vec![];
     for i in &payload.img_data {
@@ -166,7 +190,12 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
                 ])
             }
             verts.push(frame_verts);
-            eprintln!("verts: {:?}", frame.len());
+        }
+
+        // todo -- remove
+        let frame_names = &level_payload.fn_data;
+        for i in &re.frame_names {
+            eprintln!("[{}]: {}", i, frame_names[*i as usize]);
         }
 
         let mut uvs = vec![];
@@ -217,6 +246,7 @@ pub fn load_level(payload: &Payload) -> Result<Level, NUError> {
     eprintln!("mel: {}", map_entts.len());
 
     Ok(Level {
+        payload: level_payload,
         // needs to eat copies of payloads _data fields
         // which need to have corresponding lookup functions
         // in this file (level.rs)

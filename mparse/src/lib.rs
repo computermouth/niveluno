@@ -13,6 +13,7 @@ pub fn marshal(
     drn_data: &Vec<String>,
     ern_data: &Vec<String>,
     kvs_data: &Vec<String>,
+    frame_data: &Vec<String>,
     map_ref_decs: &Vec<DecorReference>,
     map_ref_entt: &Vec<EntityReference>,
     map_ins_decs: &Vec<DecorInstance>,
@@ -21,7 +22,7 @@ pub fn marshal(
     let mut buf = vec![];
 
     // top-level array
-    encode::write_array_len(&mut buf, 10)?;
+    encode::write_array_len(&mut buf, 11)?;
 
     // version
     encode::write_u32(&mut buf, 0)?;
@@ -70,6 +71,15 @@ pub fn marshal(
     }
 
     {
+        // frame_data
+        encode::write_array_len(&mut buf, frame_data.len() as u32)?;
+        for frame in frame_data {
+            encode::write_str_len(&mut buf, (frame.len() + 1) as u32)?;
+            encode::write_str(&mut buf, frame)?;
+        }
+    }
+
+    {
         // map_ref_decs
         encode::write_array_len(&mut buf, map_ref_decs.len() as u32)?;
         for dec in map_ref_decs {
@@ -97,8 +107,15 @@ pub fn marshal(
         // map_ref_entt
         encode::write_array_len(&mut buf, map_ref_entt.len() as u32)?;
         for entt in map_ref_entt {
-            encode::write_array_len(&mut buf, 4)?;
+            encode::write_array_len(&mut buf, 5)?;
             encode::write_u32(&mut buf, entt.name)?;
+            {
+                // frame name ids
+                encode::write_array_len(&mut buf, entt.frame_names.len() as u32)?;
+                for i in &entt.frame_names {
+                    encode::write_u32(&mut buf, *i)?;
+                }
+            }
             encode::write_u32(&mut buf, entt.texture)?;
             {
                 // verts
@@ -178,6 +195,7 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
     let mut drn_data = vec![];
     let mut ern_data = vec![];
     let mut kvs_data = vec![];
+    let mut fn_data = vec![];
     let mut map_ref_decs = vec![];
     let mut map_ref_ents = vec![];
     let mut map_ins_decs = vec![];
@@ -187,7 +205,7 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
 
     // top-level array
     let len = decode::read_array_len(&mut cur)?;
-    assert_eq!(10, len);
+    assert_eq!(11, len);
 
     // version
     let version = read_u32_from_marker(&mut cur)?;
@@ -252,6 +270,19 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
     }
 
     {
+        // frame_data
+        let frame_len = decode::read_array_len(&mut cur)?;
+        for _ in 0..frame_len {
+            let slen = decode::read_str_len(&mut cur)?;
+            // remove the null terminator
+            let mut frame_str = vec![0u8; (slen - 1) as usize];
+            decode::read_str(&mut cur, &mut frame_str)
+                .map_err(|_| MparseError("failed to read_str"))?;
+            fn_data.push(std::str::from_utf8(&frame_str)?.to_string());
+        }
+    }
+
+    {
         // map_ref_decs
         let mrd_len = decode::read_array_len(&mut cur)?;
         for _ in 0..mrd_len {
@@ -287,8 +318,16 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
         // map_ref_entt
         let mre_len = decode::read_array_len(&mut cur)?;
         for _ in 0..mre_len {
-            assert_eq!(4, decode::read_array_len(&mut cur)?);
+            assert_eq!(5, decode::read_array_len(&mut cur)?);
             let name = read_u32_from_marker(&mut cur)?;
+            let mut frame_names = vec![];
+            {
+                // frame_names
+                let frame_names_len = decode::read_array_len(&mut cur)?;
+                for _ in 0..frame_names_len {
+                    frame_names.push(read_u32_from_marker(&mut cur)?);
+                }
+            }
             let texture = read_u32_from_marker(&mut cur)?;
             let mut vertices = vec![];
             let mut uvs = vec![];
@@ -313,6 +352,7 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
             }
             map_ref_ents.push(EntityReference {
                 name,
+                frame_names,
                 texture,
                 vertices,
                 uvs,
@@ -367,6 +407,7 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
         drn_data,
         ern_data,
         kvs_data,
+        fn_data,
         map_ref_decs,
         map_ref_ents,
         map_ins_decs,
