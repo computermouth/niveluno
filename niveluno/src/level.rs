@@ -1,13 +1,12 @@
-use core::panic;
-
 use mparse::types::Payload;
 
 use crate::{
-    level, math,
+    math,
     nuerror::NUError,
     render::{self, create_texture, PngBin},
 };
 
+#[derive(Clone,Debug)]
 pub struct LevelPayload {
     pub drn_data: Vec<String>,
     pub ern_data: Vec<String>,
@@ -15,6 +14,7 @@ pub struct LevelPayload {
     pub fn_data: Vec<String>,
 }
 
+#[derive(Clone,Debug)]
 pub struct Level {
     pub payload: LevelPayload,
     pub img_handles: Vec<usize>,
@@ -31,6 +31,7 @@ impl Level {
     fn spawn_decor_from_name() {}
 }
 
+#[derive(Clone,Debug)]
 pub struct Entity {
     pub index: usize,
     pub has_ref: bool,
@@ -41,6 +42,7 @@ pub struct Entity {
     pub scale: [f32; 3],
 }
 
+#[derive(Clone,Debug)]
 pub struct Decor {
     pub ref_id: usize,
     // todo, go back to indices into big float array
@@ -49,17 +51,14 @@ pub struct Decor {
     pub scale: [f32; 3],
 }
 
-enum MapInstance {
-    Entity(Entity),
-    Decor(Decor),
-}
-
+#[derive(Clone,Debug)]
 pub struct LoadedDecorReference {
     pub index: usize,
     pub texture_handle: usize,
     pub frame_handle: usize,
 }
 
+#[derive(Clone,Debug)]
 pub struct LoadedEnttReference {
     pub index: usize,
     pub texture_handle: usize,
@@ -190,12 +189,6 @@ pub fn load_level(payload: Payload) -> Result<Level, NUError> {
                 ])
             }
             verts.push(frame_verts);
-        }
-
-        // todo -- remove
-        let frame_names = &level_payload.fn_data;
-        for i in &re.frame_names {
-            eprintln!("[{}]: {}", i, frame_names[*i as usize]);
         }
 
         let mut uvs = vec![];
