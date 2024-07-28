@@ -7,13 +7,23 @@ use sdl2::video::{GLProfile, SwapInterval};
 
 mod asset;
 mod audio;
-mod game;
 mod input;
 mod level;
 mod math;
 mod nuerror;
 mod render;
 mod text;
+
+// pak module
+mod game;
+// pak/entity??
+mod e_entity;
+mod e_gcyl;
+mod e_light;
+mod e_player;
+// pak/decor??
+mod d_decor;
+mod d_floor;
 
 use nuerror::NUError;
 

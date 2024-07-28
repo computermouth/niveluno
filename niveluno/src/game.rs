@@ -1,19 +1,14 @@
+use crate::e_entity::EntityInstance;
 use crate::NUError;
 
-use crate::level::{self, Entity, Decor};
+use crate::level;
+
+use crate::e_gcyl::Gcyl;
+use crate::e_light::Light;
+use crate::e_player::Player;
 
 struct GameGod {
     pub current_level: Option<level::Level>,
-}
-
-enum MapInstance {
-    Entity(Entity),
-    Decor(Decor),
-}
-
-struct GameInstances {
-    pub entities: Vec<Entity>,
-    pub decors: Vec<Decor>
 }
 
 impl GameGod {
@@ -51,18 +46,28 @@ pub fn set_and_init_level(level: level::Level) -> Result<(), NUError> {
 
     for md in &level.map_decor {
         match level.payload.drn_data[md.ref_id].as_str() {
-            "floor" => {},
-            unknown => { eprintln!("unrecognized decor '{}'", unknown) },
+            "floor" => {}
+            unknown => {
+                eprintln!("unrecognized decor '{}'", unknown)
+            }
         }
     }
 
+    let mut entts = vec![];
     for me in &level.map_entities {
-        match level.payload.ern_data[me.index].as_str() {
-            "player" => {},
-            "light" => {},
-            "trigger_levelchange" => {},
-            "gcyl" => {},
-            unknown => { eprintln!("unrecognized entity '{}'", unknown) },
+        let dyn_entt_inst: Option<Box<dyn EntityInstance>> =
+            match level.payload.ern_data[me.index].as_str() {
+                "gcyl" => Some(Box::new(Gcyl::new(me))),
+                "light" => Some(Box::new(Light::new(me))),
+                "player" => Some(Box::new(Player::new(me))),
+                "trigger_levelchange" => None,
+                unknown => {
+                    eprintln!("unrecognized entity '{}'", unknown);
+                    None
+                }
+            };
+        if dyn_entt_inst.is_some() {
+            entts.push(dyn_entt_inst.unwrap());
         }
     }
 
