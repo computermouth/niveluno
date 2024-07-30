@@ -737,14 +737,14 @@ pub fn push_block(
     Ok(index)
 }
 
-pub fn push_light(pos: Vec3, intensity: f32, r: f32, g: f32, b: f32) -> Result<(), NUError> {
+pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), NUError> {
     let cam_pos = RenderGod::get()?.camera_position;
     let r_num_lights = &mut RenderGod::get()?.r_num_lights;
     let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
 
-    // Calculate the distance to the light, fade it out between 768--1024
-    let fade = math::scale(math::vec3_dist(pos, cam_pos), 768., 1024., 1., 0.).clamp(0., 1.)
-        * intensity
+    // Calculate the distance to the light, fade it out between 24--32
+    let fade = math::scale(math::vec3_dist(pos, cam_pos), 24., 32., 1., 0.).clamp(0., 1.)
+        * intensity as f32
         * 10.;
 
     // epsilon thing??
@@ -762,9 +762,9 @@ pub fn push_light(pos: Vec3, intensity: f32, r: f32, g: f32, b: f32) -> Result<(
     r_light_buffer[lindex + 0] = pos.x;
     r_light_buffer[lindex + 1] = pos.y;
     r_light_buffer[lindex + 2] = pos.z;
-    r_light_buffer[lindex + 3] = r * fade;
-    r_light_buffer[lindex + 4] = g * fade;
-    r_light_buffer[lindex + 5] = b * fade;
+    r_light_buffer[lindex + 3] = r as f32 * fade;
+    r_light_buffer[lindex + 4] = g as f32 * fade;
+    r_light_buffer[lindex + 5] = b as f32 * fade;
 
     *r_num_lights += 1;
 
@@ -775,4 +775,22 @@ pub fn quit() {
     unsafe {
         RENDER_GOD = None;
     }
+}
+
+pub fn set_camera_pos(pos: Vec3) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    rg.camera_position = pos;
+    Ok(())
+}
+
+pub fn set_camera_pitch(f: f32) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    rg.camera_pitch = f;
+    Ok(())
+}
+
+pub fn set_camera_yaw(f: f32) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    rg.camera_yaw = f;
+    Ok(())
 }

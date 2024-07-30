@@ -19,6 +19,7 @@ enum Instance {
     Entity(EntityInstance),
 }
 
+#[derive(Debug)]
 struct Vec3 {
     x: f32,
     y: f32,
@@ -71,6 +72,31 @@ fn json_string_pairs(json_str: &str) -> Vec<(String, String)> {
     }
 
     pairs
+}
+
+fn rotate_on_x(v: Vec3) -> Vec3 {
+    let deg270: f32 = 3.0 * 3.14159 / 2.0;
+
+    let rot_matrix: [[f32; 3]; 3] = [
+        [deg270.cos(), -(deg270.sin()), 0.],
+        [deg270.sin(), deg270.cos(), 0.],
+        [0., 0., 1.],
+    ];
+
+    let f_i = [v.x, v.y, v.z];
+    let mut f_o = [0., 0., 0.];
+
+    for i in 0..3 {
+        for j in 0..3 {
+            f_o[i] += rot_matrix[i][j] * f_i[j];
+        }
+    }
+
+    Vec3 {
+        x: f_o[0],
+        y: f_o[1],
+        z: f_o[2],
+    }
 }
 
 fn get_reference(
@@ -209,7 +235,7 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
 
             Some(Instance::Decor(DecorInstance {
                 index: di,
-                location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.y, c_pos.z])),
+                location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.z, c_pos.y])),
                 rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),
                 scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.y, scale.z])),
             }))
@@ -242,7 +268,7 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
                 index: ei,
                 has_ref,
                 params: p,
-                location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.y, c_pos.z])),
+                location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.z, c_pos.y])),
                 rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),
                 scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.y, scale.z])),
             }))
@@ -421,7 +447,13 @@ fn parse_ref_decor(
             let f2 = positions[indices[i] as usize * 3 + 1];
             let f3 = positions[indices[i] as usize * 3 + 2];
 
-            let index = bb.add_sequence(big_buffer::HashItem::Vert([f1, f2, f3]));
+            let Vec3 { x, y, z } = rotate_on_x(Vec3 {
+                x: f1,
+                y: f2,
+                z: f3,
+            });
+
+            let index = bb.add_sequence(big_buffer::HashItem::Vert([-x, z, y]));
 
             out_pos.push(index);
         }
@@ -457,7 +489,7 @@ fn parse_ref_decor(
     if let Ok(n) = bb.add_decor_name(name) {
         name_id = n;
     } else {
-        eprintln!("W: {:?} has duplicate name '{name}'", n.name());
+        eprintln!("W: decor {:?} has duplicate name '{name}'", n.name());
         return None;
     }
 
@@ -542,7 +574,12 @@ fn parse_ref_entt(
             let f2 = positions[indices[i] as usize * 3 + 1];
             let f3 = positions[indices[i] as usize * 3 + 2];
 
-            let index = bb.add_sequence(big_buffer::HashItem::Vert([f1, f2, f3]));
+            let Vec3 { x, y, z } = rotate_on_x(Vec3 {
+                x: f1,
+                y: f2,
+                z: f3,
+            });
+            let index = bb.add_sequence(big_buffer::HashItem::Vert([-x, z, y]));
 
             base_pos.push(index);
         }
@@ -557,12 +594,25 @@ fn parse_ref_entt(
                         let mut out_morph = vec![];
                         for k in 0..base_pos.len() {
                             if let Some(vert) = bb.get_vert_at(base_pos[k] as usize) {
-                                let f1 = vert[0] + morphs[indices[k] as usize * 3 + 0];
-                                let f2 = vert[1] + morphs[indices[k] as usize * 3 + 1];
-                                let f3 = vert[2] + morphs[indices[k] as usize * 3 + 2];
+                                let f1 = morphs[indices[k] as usize * 3 + 0];
+                                let f2 = morphs[indices[k] as usize * 3 + 1];
+                                let f3 = morphs[indices[k] as usize * 3 + 2];
 
-                                let index =
-                                    bb.add_sequence(big_buffer::HashItem::Vert([f1, f2, f3]));
+                                let Vec3 {
+                                    mut x,
+                                    mut y,
+                                    mut z,
+                                } = rotate_on_x(Vec3 {
+                                    x: f1,
+                                    y: f2,
+                                    z: f3,
+                                });
+
+                                x -= vert[0];
+                                y += vert[2];
+                                z += vert[1];
+
+                                let index = bb.add_sequence(big_buffer::HashItem::Vert([x, z, y]));
                                 out_morph.push(index);
                             } else {
                                 eprintln!(
@@ -624,7 +674,7 @@ fn parse_ref_entt(
     if let Ok(n) = bb.add_entt_name(name) {
         name_id = n;
     } else {
-        eprintln!("W: {:?} has duplicate name '{name}'", n.name());
+        eprintln!("W: entt {:?} has duplicate name '{name}'", n.name());
         return None;
     }
 

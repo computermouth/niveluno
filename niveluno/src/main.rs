@@ -115,9 +115,6 @@ fn main() -> Result<(), String> {
     let nmap = asset::get_file("nmap.mp")?
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
     let payload = mparse::unmarshal(&nmap).unwrap();
-    eprintln!("{:?}", payload.drn_data);
-    eprintln!("{:?}", payload.ern_data);
-    eprintln!("{:?}", payload.kvs_data);
     let level = level::load_level(payload)?;
 
     let start_ms = std::time::SystemTime::now()
@@ -180,39 +177,32 @@ fn main() -> Result<(), String> {
                     f2: level.ref_entities[0].frame_handles[2] as i32,
                     mix: ((1. * (0.001 * (ms - start_ms) as f32).sin()) + 1.0) / 2.,
                     num_verts: 372,
-                    unlit: true,
+                    unlit: false,
                 };
                 draw(dc)?;
 
-                for i in 0..10 {
-                    let dc = render::DrawCall {
-                        pos: Vec3 {
-                            x: i as f32 * -18.,
-                            y: i as f32 * -18.,
-                            z: i as f32 * 36.,
-                        },
-                        yaw: 1. * (0.003 * (ms - start_ms) as f32).sin(),
-                        pitch: 1. * (0.005 * (ms - start_ms) as f32).sin(),
-                        texture: tex as u32,
-                        f1: b as i32,
-                        f2: b as i32,
-                        mix: 0.0,
-                        num_verts: 36,
-                        unlit: false,
-                    };
-                    draw(dc)?;
-                }
+                render::push_light(
+                    Vec3 {
+                        x: -10.,
+                        y: 0.,
+                        z: -60. + 30. * (0.001 * (ms - start_ms) as f32).sin(),
+                    },
+                    5,
+                    0,
+                    200,
+                    200,
+                )?;
 
                 render::push_light(
                     Vec3 {
-                        x: 25.,
-                        y: 25.,
-                        z: 25. + 100. * (0.001 * (ms - start_ms) as f32).sin(),
+                        x: 10.,
+                        y: 0.,
+                        z: -30. - 30. * (0.001 * (ms - start_ms) as f32).sin(),
                     },
-                    15.,
-                    100.,
-                    150.,
-                    50.,
+                    5,
+                    200,
+                    0,
+                    200,
                 )?;
 
                 text::push_surface(&title)?;
@@ -248,18 +238,6 @@ fn main() -> Result<(), String> {
                     };
                     draw(dc)?;
                 }
-
-                render::push_light(
-                    Vec3 {
-                        x: 25.,
-                        y: 25.,
-                        z: 25. + 100. * (0.001 * (ms - start_ms) as f32).sin(),
-                    },
-                    15.,
-                    100.,
-                    150.,
-                    50.,
-                )?;
                 // todo END REMOVE
 
                 game::run()?;

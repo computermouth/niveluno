@@ -24,13 +24,6 @@ pub struct Level {
     pub ref_decor: Vec<LoadedDecorReference>,
 }
 
-impl Level {
-    fn spawn_entts() {}
-    fn spawn_decor() {}
-    fn spawn_entt_from_name() {}
-    fn spawn_decor_from_name() {}
-}
-
 #[derive(Clone, Debug)]
 pub struct Entity {
     pub index: usize,
@@ -56,6 +49,7 @@ pub struct LoadedDecorReference {
     pub index: usize,
     pub texture_handle: usize,
     pub frame_handle: usize,
+    pub num_verts: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -63,6 +57,7 @@ pub struct LoadedEnttReference {
     pub index: usize,
     pub texture_handle: usize,
     pub frame_handles: Vec<usize>,
+    pub num_verts: usize,
 }
 
 fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usize>, NUError> {
@@ -103,6 +98,10 @@ fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usiz
 
 // todo, move this?
 pub fn load_level(payload: Payload) -> Result<Level, NUError> {
+    eprintln!("decor: {:?}", payload.drn_data);
+    eprintln!("entts: {:?}", payload.ern_data);
+    eprintln!("keyvs: {:?}", payload.kvs_data);
+
     let level_payload = LevelPayload {
         drn_data: payload.drn_data,
         ern_data: payload.ern_data,
@@ -127,7 +126,7 @@ pub fn load_level(payload: Payload) -> Result<Level, NUError> {
                 payload.floats[(v_index + 2) as usize],
             ])
         }
-        // eprintln!("verts: {:?}", verts);
+        let vlen = verts.len();
 
         let mut uvs = vec![];
         for u_index in &rd.uvs {
@@ -147,6 +146,7 @@ pub fn load_level(payload: Payload) -> Result<Level, NUError> {
             index: rd.name as usize,
             texture_handle: img_handles[rd.texture as usize],
             frame_handle: pf[0],
+            num_verts: vlen,
         })
     }
 
@@ -190,6 +190,7 @@ pub fn load_level(payload: Payload) -> Result<Level, NUError> {
             }
             verts.push(frame_verts);
         }
+        let vlen = verts[0].len();
 
         let mut uvs = vec![];
         for u_index in &re.uvs {
@@ -203,6 +204,7 @@ pub fn load_level(payload: Payload) -> Result<Level, NUError> {
             index: re.name as usize,
             texture_handle: img_handles[re.texture as usize],
             frame_handles: pack_floats(verts, uvs)?,
+            num_verts: vlen,
         })
     }
 
@@ -232,11 +234,6 @@ pub fn load_level(payload: Payload) -> Result<Level, NUError> {
         };
         map_entts.push(entity);
     }
-
-    eprintln!("rdl: {}", ref_decor.len());
-    eprintln!("mdl: {}", map_decor.len());
-    eprintln!("rel: {}", ref_entts.len());
-    eprintln!("mel: {}", map_entts.len());
 
     Ok(Level {
         payload: level_payload,

@@ -1,5 +1,3 @@
-use crate::level::Entity;
-
 // would rather match on sum type, but calling
 // other_e::func seems hairy. maybe if it took a copy
 // of other_e, modified, bubbled up to a buffer to replace?
@@ -10,7 +8,7 @@ pub trait EntityInstance {
     //     fn collides(&mut self);
     //     fn did_collide(&mut self);
     //     fn did_collide_with_entity(&mut self);
-    //     fn draw_model(&mut self);
+    fn draw_model(&mut self);
     //     fn spawn_particles(&mut self);
     //     fn recv_damage(&mut self);
     //     fn play_sound(&mut self);

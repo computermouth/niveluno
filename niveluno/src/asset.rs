@@ -68,6 +68,6 @@ pub fn get_file(filename: &str) -> Result<Option<Vec<u8>>, NUError> {
         .as_mut()
         .ok_or_else(|| NUError::MiscError("default archive uninit".to_string()))?;
     let file = default_archive.by_name(filename)?;
-
+    eprintln!("loaded '{}'", filename);
     Ok(file)
 }
