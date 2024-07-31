@@ -51,7 +51,7 @@ impl TimedSurface {
     pub fn new(ts: TextSurface, ms: u32) -> TimedSurface {
         TimedSurface {
             ts: ts,
-            end_time: game::get_time() + ms as f32 / 1000.,
+            end_time: game::get_run_time().unwrap() as f32 + ms as f32 / 1000.,
         }
     }
 }
@@ -242,7 +242,7 @@ pub fn end_frame() -> Result<(), NUError> {
     // todo, less dumb, but this reverse is wasteful probably
     // maybe VecDeque, pop-front
     ts.reverse();
-    let game_time = game::get_time();
+    let game_time = game::get_run_time()? as f32;
     let mut remaining = Vec::new();
     while let Some(t) = ts.pop() {
         if t.end_time > game_time {

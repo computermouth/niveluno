@@ -1,4 +1,5 @@
 use crate::e_entity::EntityInstance;
+use crate::game::get_delta_time;
 use crate::level::Entity;
 
 use crate::game;
@@ -12,8 +13,8 @@ pub struct Gcyl {
 
 impl EntityInstance for Gcyl {
     fn update(&mut self) {
-        self.yaw += 0.0001;
-        self.pitch -= 0.0003;
+        self.yaw += 1. * get_delta_time().unwrap() as f32;
+        self.pitch -= 3. * get_delta_time().unwrap() as f32;
     }
 
     fn draw_model(&mut self) {

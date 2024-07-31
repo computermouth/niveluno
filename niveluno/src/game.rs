@@ -15,6 +15,9 @@ struct GameGod {
     pub current_level: Option<level::Level>,
     pub decor_inst: Vec<Box<dyn DecorInstance>>,
     pub entts_inst: Vec<Box<dyn EntityInstance>>,
+    pub start_time_ms: u128,
+    pub current_time_ms: u128,
+    pub delta_time_ms: u128,
 }
 
 impl GameGod {
@@ -34,19 +37,39 @@ pub fn init() -> Result<(), NUError> {
         return Err(NUError::MiscError("GAME_GOD already init".to_string()));
     }
 
+    let current_time_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+        .as_millis();
+
+    // divide-by-zero protection by faking 1 frame since last
+    let delta_time_ms = 16;
+    let start_time_ms = current_time_ms - delta_time_ms;
+
     unsafe {
         GAME_GOD = Some(GameGod {
             current_level: None,
             decor_inst: vec![],
             entts_inst: vec![],
+            start_time_ms,
+            current_time_ms,
+            delta_time_ms,
         });
     }
 
     Ok(())
 }
 
-pub fn get_time() -> f32 {
-    1.0
+pub fn get_run_time() -> Result<f64, NUError> {
+    let gg = GameGod::get()?;
+
+    Ok((gg.current_time_ms - gg.start_time_ms) as f64 / 1000.)
+}
+
+pub fn get_delta_time() -> Result<f64, NUError> {
+    let gg = GameGod::get()?;
+
+    Ok(gg.delta_time_ms as f64 / 1000.)
 }
 
 pub fn set_and_init_level(level: level::Level) -> Result<(), NUError> {
@@ -92,8 +115,24 @@ pub fn set_and_init_level(level: level::Level) -> Result<(), NUError> {
     Ok(())
 }
 
+// todo, move this into run() once menu is packed and loaded
+pub fn update_time() -> Result<(), NUError> {
+    let gg = GameGod::get()?;
+
+    let current_time_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+        .as_millis();
+
+    gg.delta_time_ms = current_time_ms - gg.current_time_ms;
+    gg.current_time_ms = current_time_ms;
+    Ok(())
+}
+
 pub fn run() -> Result<(), NUError> {
     let gg = GameGod::get()?;
+
+    update_time()?;
 
     for decor in &mut gg.decor_inst {
         decor.update();
@@ -127,6 +166,7 @@ pub fn get_ref_decor(id: usize) -> Result<LoadedDecorReference, NUError> {
     }
 
     // it'd be nice if this was a reference
+    // do I have to use Rc?? :(
     Ok(level.ref_decor[id].clone())
 }
 

@@ -1,3 +1,4 @@
+use game::update_time;
 use gl;
 use math::Vec3;
 use mparse;
@@ -117,11 +118,6 @@ fn main() -> Result<(), String> {
     let payload = mparse::unmarshal(&nmap).unwrap();
     let level = level::load_level(payload)?;
 
-    let start_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| NUError::SystemTimeError(e.to_string()))?
-        .as_millis();
-
     let mut time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| NUError::SystemTimeError(e.to_string()))?
@@ -159,10 +155,7 @@ fn main() -> Result<(), String> {
 
         match state {
             State::Menu => {
-                let ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_err(|e| NUError::SystemTimeError(e.to_string()))?
-                    .as_millis();
+                game::update_time()?;
 
                 let dc = render::DrawCall {
                     pos: Vec3 {
@@ -175,7 +168,7 @@ fn main() -> Result<(), String> {
                     texture: level.ref_entities[0].texture_handle as u32,
                     f1: level.ref_entities[0].frame_handles[0] as i32,
                     f2: level.ref_entities[0].frame_handles[2] as i32,
-                    mix: ((1. * (0.001 * (ms - start_ms) as f32).sin()) + 1.0) / 2.,
+                    mix: ((1. * (game::get_run_time()? as f32).sin()) + 1.0) / 2.,
                     num_verts: 372,
                     unlit: false,
                 };
@@ -185,24 +178,24 @@ fn main() -> Result<(), String> {
                     Vec3 {
                         x: -10.,
                         y: 0.,
-                        z: -60. + 30. * (0.001 * (ms - start_ms) as f32).sin(),
+                        z: -60. + 30. * (game::get_run_time()? as f32).sin(),
                     },
                     5,
                     0,
-                    200,
-                    200,
+                    2,
+                    2,
                 )?;
 
                 render::push_light(
                     Vec3 {
                         x: 10.,
                         y: 0.,
-                        z: -30. - 30. * (0.001 * (ms - start_ms) as f32).sin(),
+                        z: -30. - 30. * (game::get_run_time()? as f32).sin(),
                     },
-                    5,
-                    200,
+                    10,
+                    32,
                     0,
-                    200,
+                    2,
                 )?;
 
                 text::push_surface(&title)?;
@@ -214,32 +207,6 @@ fn main() -> Result<(), String> {
                 }
             }
             State::Level => {
-                // todo BEGIN REMOVE
-                let ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_err(|e| NUError::SystemTimeError(e.to_string()))?
-                    .as_millis();
-
-                for i in 0..10 {
-                    let dc = render::DrawCall {
-                        pos: Vec3 {
-                            x: i as f32 * -18.,
-                            y: i as f32 * -18.,
-                            z: i as f32 * 36.,
-                        },
-                        yaw: 1. * (0.003 * (ms - start_ms) as f32).sin(),
-                        pitch: 1. * (0.005 * (ms - start_ms) as f32).sin(),
-                        texture: tex as u32,
-                        f1: b as i32,
-                        f2: b as i32,
-                        mix: 0.0,
-                        num_verts: 36,
-                        unlit: false,
-                    };
-                    draw(dc)?;
-                }
-                // todo END REMOVE
-
                 game::run()?;
             }
         }

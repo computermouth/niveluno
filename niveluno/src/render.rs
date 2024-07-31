@@ -738,6 +738,8 @@ pub fn push_block(
     Ok(index)
 }
 
+// todo, find intensity & rgb upper bounds, maybe use some custom bit-width
+// type, maybe something like: https://docs.rs/ux/latest/ux/
 pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), NUError> {
     let cam_pos = RenderGod::get()?.camera_position;
     let r_num_lights = &mut RenderGod::get()?.r_num_lights;
