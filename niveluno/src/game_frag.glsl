@@ -11,7 +11,7 @@ uniform int light_count;
 
 // Lights [(x,y,z), [r,g,b], ...]
 // todo, dynamic len, render.rs MAX_LIGHT_V3S
-uniform vec3 l[64];
+uniform vec3 lights[64];
 
 // flag to turn off lighting
 varying float f_unlit;
@@ -25,13 +25,13 @@ void main(void){
 	// Calculate all lights
 	vec3 vl = vec3(0,0,0);
 	for(int i=0;i<light_count;i+=2) {
-		vec3 livp = l[i]-vp;
+		vec3 livp = lights[i]-vp;
 		float c_len = length(livp);
 		float c_dot = dot(vn, normalize(livp));
 		if ( c_len > 1024. || c_dot < 0.) { continue; }
 		vl+= c_dot * 
 			(1./pow(c_len,2.)) // Inverse distance squared
-			*l[i+1]; // Light color/intensity
+			*lights[i+1]; // Light color/intensity
 	}
 
 	// Debug: full bright lights

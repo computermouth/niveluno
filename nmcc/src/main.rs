@@ -453,7 +453,7 @@ fn parse_ref_decor(
                 z: f3,
             });
 
-            let index = bb.add_sequence(big_buffer::HashItem::Vert([-x, z, y]));
+            let index = bb.add_sequence(big_buffer::HashItem::Vert([x, z, y]));
 
             out_pos.push(index);
         }
@@ -579,7 +579,7 @@ fn parse_ref_entt(
                 y: f2,
                 z: f3,
             });
-            let index = bb.add_sequence(big_buffer::HashItem::Vert([-x, z, y]));
+            let index = bb.add_sequence(big_buffer::HashItem::Vert([x, z, y]));
 
             base_pos.push(index);
         }
@@ -608,7 +608,7 @@ fn parse_ref_entt(
                                     z: f3,
                                 });
 
-                                x -= vert[0];
+                                x += vert[0];
                                 y += vert[2];
                                 z += vert[1];
 

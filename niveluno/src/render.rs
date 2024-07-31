@@ -71,13 +71,13 @@ struct RenderGod {
     pub camera_yaw: GLfloat,
 
     // uniforms
-    pub u_camera: GLint,
+    pub u_camera_pos: GLint,
     pub u_lights: GLint,
     pub u_light_count: GLint,
     pub u_mouse: GLint,
-    pub u_pos: GLint,
-    pub u_rotation: GLint,
-    pub u_frame_mix: GLint,
+    pub u_model_pos: GLint,
+    pub u_model_rot: GLint,
+    pub u_blend: GLint,
     pub u_unlit: GLint,
 
     // vertex attribute location for mixing
@@ -214,8 +214,7 @@ fn vertex_attribute(
     vertex_size: isize,
     offset: isize,
 ) -> Result<GLint, NUError> {
-    let mut location: GLint = -1;
-    _ = location;
+    let location: GLint;
 
     unsafe {
         location = gl::GetAttribLocation(shader_program, attrib_name.as_ptr() as *const i8);
@@ -277,13 +276,13 @@ pub fn init() -> Result<(), NUError> {
         camera_yaw: 0.,
 
         // uniforms
-        u_camera: 0,
+        u_camera_pos: 0,
         u_lights: 0,
         u_light_count: 0,
         u_mouse: 0,
-        u_pos: 0,
-        u_rotation: 0,
-        u_frame_mix: 0,
+        u_model_pos: 0,
+        u_model_rot: 0,
+        u_blend: 0,
         u_unlit: 0,
 
         // vertex attribute location for mixing
@@ -322,15 +321,17 @@ pub fn init() -> Result<(), NUError> {
     unsafe {
         // todo, map these characters to the reference of these static muts
         // also change these names in the shader
-        rg.u_camera = gl::GetUniformLocation(rg.shader_program, CString::new("c")?.as_ptr());
-        rg.u_lights = gl::GetUniformLocation(rg.shader_program, CString::new("l")?.as_ptr());
+        rg.u_camera_pos =
+            gl::GetUniformLocation(rg.shader_program, CString::new("camera_pos")?.as_ptr());
+        rg.u_lights = gl::GetUniformLocation(rg.shader_program, CString::new("lights")?.as_ptr());
         rg.u_light_count =
             gl::GetUniformLocation(rg.shader_program, CString::new("light_count")?.as_ptr());
-        rg.u_mouse = gl::GetUniformLocation(rg.shader_program, CString::new("m")?.as_ptr());
-        // i think mp and mr are matrix_pos and matrix_rotation
-        rg.u_pos = gl::GetUniformLocation(rg.shader_program, CString::new("mp")?.as_ptr());
-        rg.u_rotation = gl::GetUniformLocation(rg.shader_program, CString::new("mr")?.as_ptr());
-        rg.u_frame_mix = gl::GetUniformLocation(rg.shader_program, CString::new("f")?.as_ptr());
+        rg.u_mouse = gl::GetUniformLocation(rg.shader_program, CString::new("mouse")?.as_ptr());
+        rg.u_model_pos =
+            gl::GetUniformLocation(rg.shader_program, CString::new("model_pos")?.as_ptr());
+        rg.u_model_rot =
+            gl::GetUniformLocation(rg.shader_program, CString::new("model_rot")?.as_ptr());
+        rg.u_blend = gl::GetUniformLocation(rg.shader_program, CString::new("blend")?.as_ptr());
         rg.u_unlit = gl::GetUniformLocation(rg.shader_program, CString::new("unlit")?.as_ptr());
     }
 
@@ -546,7 +547,7 @@ pub fn end_frame() -> Result<(), NUError> {
 
     unsafe {
         gl::Uniform4f(
-            rg.u_camera,
+            rg.u_camera_pos,
             rg.camera_position.x,
             rg.camera_position.y,
             rg.camera_position.z,
@@ -579,9 +580,9 @@ pub fn end_frame() -> Result<(), NUError> {
         }
 
         unsafe {
-            gl::Uniform3f(rg.u_pos, c.pos.x, c.pos.y, c.pos.z);
-            gl::Uniform2f(rg.u_rotation, c.yaw, c.pitch);
-            gl::Uniform1f(rg.u_frame_mix, c.mix);
+            gl::Uniform3f(rg.u_model_pos, c.pos.x, c.pos.y, c.pos.z);
+            gl::Uniform2f(rg.u_model_rot, c.yaw, c.pitch);
+            gl::Uniform1f(rg.u_blend, c.mix);
             gl::Uniform1i(rg.u_unlit, c.unlit as i32);
         }
 
@@ -742,8 +743,9 @@ pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), N
     let r_num_lights = &mut RenderGod::get()?.r_num_lights;
     let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
 
-    // Calculate the distance to the light, fade it out between 24--32
-    let fade = math::scale(math::vec3_dist(pos, cam_pos), 24., 32., 1., 0.).clamp(0., 1.)
+    // todo -- revisit if we're not doing the 32x size stuff
+    // Calculate the distance to the light, fade it out between 768--1024
+    let fade = math::scale(math::vec3_dist(pos, cam_pos), 768., 1024., 1., 0.).clamp(0., 1.)
         * intensity as f32
         * 10.;
 
@@ -775,6 +777,11 @@ pub fn quit() {
     unsafe {
         RENDER_GOD = None;
     }
+}
+
+pub fn get_camera_pos() -> Result<Vec3, NUError> {
+    let rg = RenderGod::get()?;
+    Ok(rg.camera_position)
 }
 
 pub fn set_camera_pos(pos: Vec3) -> Result<(), NUError> {

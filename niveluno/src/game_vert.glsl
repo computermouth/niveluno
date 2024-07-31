@@ -8,24 +8,24 @@ varying vec2 vt;
 attribute vec3 p,n,p2,n2;
 
 // Input UV coords
-attribute vec2 t;		
+attribute vec2 t;
 
 // Camera position (x, y, z) and aspect ratio (w)
-uniform vec4 c; 
+uniform vec4 camera_pos;
 
 // Model position (x, y, z)
-uniform vec3 mp; 
+uniform vec3 model_pos;
 
 // Model rotation (yaw, pitch)
-uniform vec2 mr; 		
+uniform vec2 model_rot;
 
 // Mouse rotation yaw (x), pitch (y)
-uniform vec2 m;
+uniform vec2 mouse;
 
 // Blend factor between the two vertex positions
-uniform float f;
+uniform float blend;
 
-// Flag to turn off lighting in the frag shadeer
+// Flag to turn off lighting in the frag shader
 uniform int unlit;
 varying float f_unlit;
 
@@ -63,14 +63,14 @@ void main(void){
 
 	// Rotation Matrixes for model rotation
 	mat4 
-		mry=ry(mr.x),
-		mrz=rz(mr.y);
+		mry=ry(model_rot.x),
+		mrz=rz(model_rot.y);
 
 	// Mix vertex positions, rotate and add the model position
-	vp=(mry*mrz*vec4(mix(p,p2,f),1.)).xyz+mp;
+	vp=(mry*mrz*vec4(mix(p,p2,blend),1.)).xyz+model_pos;
 
 	// Mix normals
-	vn=(mry*mrz*vec4(mix(n,n2,f),1.)).xyz;
+	vn=(mry*mrz*vec4(mix(n,n2,blend),1.)).xyz;
 
 	// UV coords are handed over to the fragment shader as is
 	vt=t;
@@ -82,10 +82,10 @@ void main(void){
 	gl_Position=
 		mat4(
 			1,0,0,0,
-			0,c.w,0,0,
+			0,camera_pos.w,0,0,
 			0,0,1,1,
 			0,0,-2,0
 		)* // projection
-		rx(-m.y)*ry(-m.x)*
-		vec4(vp-c.xyz,1.);
+		rx(-mouse.y)*ry(-mouse.x)*
+		vec4(vp-camera_pos.xyz,1.);
 }
