@@ -1,4 +1,3 @@
-
 use rand::prelude::*;
 
 use crate::e_entity::EntityInstance;

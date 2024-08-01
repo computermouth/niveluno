@@ -21,8 +21,8 @@ mod game;
 mod e_entity;
 mod e_gcyl;
 mod e_light;
-mod e_player;
 mod e_menu;
+mod e_player;
 // pak/decor??
 mod d_decor;
 mod d_floor;

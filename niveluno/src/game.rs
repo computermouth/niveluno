@@ -6,8 +6,8 @@ use crate::level;
 use crate::e_entity::EntityInstance;
 use crate::e_gcyl::Gcyl;
 use crate::e_light::Light;
-use crate::e_player::Player;
 use crate::e_menu::Menu;
+use crate::e_player::Player;
 
 use crate::d_decor::DecorInstance;
 use crate::d_floor::Floor;

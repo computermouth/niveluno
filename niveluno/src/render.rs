@@ -738,8 +738,35 @@ pub fn push_block(
     Ok(index)
 }
 
-// todo, find intensity & rgb upper bounds, maybe use some custom bit-width
-// type, maybe something like: https://docs.rs/ux/latest/ux/
+// todo, find intensity & rgb upper bounds
+//
+// todo, there are no upper bounds, it's all normalized on the gpu,
+// I don't really even get what the intensity is for here, except that it's
+// not effected by the fade.
+//
+// todo, it's honestly so fucking stupid. intensity can here be 0-255, but then we should
+// do `let fade = math::scale([...]) * (intensity as f32 / 255) * 100`
+//
+// this latter * 100 can actually be put in the shader as
+// (l[i+1] * vec3(100,100,100));
+
+// also here's this shit --
+/*
+    // Calculate light contribution
+    for (int i = 0; i < R_MAX_LIGHT_V3; i += 2) {
+        // Light direction vector
+        vec3 lightDir = normalize(l[i] - vp);
+
+        // Angle to normal
+        float angle = max(dot(vn, lightDir), 0.0);
+
+        // Inverse distance squared attenuation
+        float attenuation = 1.0 / pow(length(l[i] - vp), 2.0);
+
+        // Accumulate light contribution
+        vl += angle * attenuation * l[i + 1];
+    }
+*/
 pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), NUError> {
     let cam_pos = RenderGod::get()?.camera_position;
     let r_num_lights = &mut RenderGod::get()?.r_num_lights;
@@ -747,15 +774,17 @@ pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), N
 
     // todo -- revisit if we're not doing the 32x size stuff
     // Calculate the distance to the light, fade it out between 768--1024
-    let fade = math::scale(math::vec3_dist(pos, cam_pos), 768., 1024., 1., 0.).clamp(0., 1.)
-        * intensity as f32
-        * 10.;
+    let start_fade_dist = 786.;
+    let end_fade_dist = 1024.;
+    let cam_light_dist = math::vec3_dist(pos, cam_pos);
 
-    // epsilon thing??
-    // -MIN_POSITIVE < fade < MIN_POSITIVE ??
-    if fade == 0. {
+    if cam_light_dist >= end_fade_dist {
         return Ok(());
     }
+
+    let fade = math::scale(cam_light_dist, start_fade_dist, end_fade_dist, 1., 0.).clamp(0., 1.)
+        * intensity as f32
+        * 10.; // literally just some bullshit dialed-in number
 
     if *r_num_lights * 2 >= MAX_LIGHT_V3S {
         eprintln!("max lights reached");
