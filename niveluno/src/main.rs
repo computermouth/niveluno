@@ -22,6 +22,7 @@ mod e_entity;
 mod e_gcyl;
 mod e_light;
 mod e_player;
+mod e_menu;
 // pak/decor??
 mod d_decor;
 mod d_floor;
@@ -113,10 +114,13 @@ fn main() -> Result<(), String> {
     let tex = render::placeholder_tex_id()?;
     let b = render::push_block(32., 32., 160., 32., 32., 32., tex)?;
 
-    let nmap = asset::get_file("nmap.mp")?
+    let nmap = asset::get_file("menu.mp")?
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
     let payload = mparse::unmarshal(&nmap).unwrap();
     let level = level::load_level(payload)?;
+
+    // todo -- move
+    game::set_and_init_level(level.clone())?;
 
     let mut time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -131,7 +135,7 @@ fn main() -> Result<(), String> {
         Level,
     }
 
-    let mut state = State::Menu;
+    let mut state = State::Level;
 
     'running: loop {
         frames += 1;
@@ -203,7 +207,6 @@ fn main() -> Result<(), String> {
                 if input::get_keys()?[input::Key::Action as usize] == true {
                     state = State::Level;
                     // stupid fucking clone
-                    game::set_and_init_level(level.clone())?;
                 }
             }
             State::Level => {

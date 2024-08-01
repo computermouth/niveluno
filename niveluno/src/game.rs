@@ -7,6 +7,7 @@ use crate::e_entity::EntityInstance;
 use crate::e_gcyl::Gcyl;
 use crate::e_light::Light;
 use crate::e_player::Player;
+use crate::e_menu::Menu;
 
 use crate::d_decor::DecorInstance;
 use crate::d_floor::Floor;
@@ -97,6 +98,10 @@ pub fn set_and_init_level(level: level::Level) -> Result<(), NUError> {
                 "gcyl" => Some(Box::new(Gcyl::new(me))),
                 "light" => Some(Box::new(Light::new(me))),
                 "player" => Some(Box::new(Player::new(me))),
+                "menu_m" => Some(Box::new(Menu::new(me))),
+                "menu_e" => Some(Box::new(Menu::new(me))),
+                "menu_n" => Some(Box::new(Menu::new(me))),
+                "menu_u" => Some(Box::new(Menu::new(me))),
                 "trigger_levelchange" => None,
                 unknown => {
                     eprintln!("unrecognized entity '{}'", unknown);
