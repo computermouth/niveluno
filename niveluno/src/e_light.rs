@@ -9,7 +9,7 @@ pub struct Light {
 
 impl EntityInstance for Light {
     fn update(&mut self) {
-        render::push_light(self.base.location.into(), 1, 5, 1, 0).unwrap();
+        render::push_light(self.base.location.into(), 1, 1, 1, 1).unwrap();
     }
     fn draw_model(&mut self) {}
 }

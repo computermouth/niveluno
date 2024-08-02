@@ -152,18 +152,23 @@ pub fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, N
         let mut success: GLint = 0;
         gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success);
 
-        if success != 1 {
-            let mut error_log_size: GLint = 0;
-            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut error_log_size);
-            let mut error_log: Vec<u8> = Vec::with_capacity(error_log_size as usize);
+        if success == gl::FALSE.into() {
+            let mut log_length: GLint = 0;
+            gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut log_length);
+
+            let mut log = Vec::with_capacity(log_length as usize);
+            log.set_len((log_length as usize) - 1); // subtract 1 to skip the null terminator
+
             gl::GetShaderInfoLog(
                 shader,
-                error_log_size,
-                &mut error_log_size,
-                error_log.as_mut_ptr() as *mut _,
+                log_length,
+                std::ptr::null_mut(),
+                log.as_mut_ptr() as *mut GLchar,
             );
-            let e = NUError::ShaderCompilationError(String::from_utf8(error_log)?);
-            return Err(e);
+
+            let estr = std::ffi::CStr::from_ptr(log.as_ptr() as *const i8).to_string_lossy().into_owned();
+
+            return Err(NUError::ShaderCompilationError(estr));
         }
     }
 
@@ -187,20 +192,22 @@ pub fn create_program(vert: GLuint, frag: GLuint) -> Result<GLuint, NUError> {
         gl::GetProgramiv(program, gl::LINK_STATUS, &mut success);
 
         if success != 1 {
-            let mut error_log_size: GLint = 0;
-            gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut error_log_size);
-            let mut error_log: Vec<u8> = Vec::with_capacity(error_log_size as usize);
+            let mut log_length: GLint = 0;
+            gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut log_length);
+
+            let mut log = Vec::with_capacity(log_length as usize);
+            log.set_len((log_length as usize) - 1); // subtract 1 to skip the null terminator
+
             gl::GetProgramInfoLog(
                 program,
-                error_log_size,
-                &mut error_log_size,
-                error_log.as_mut_ptr() as *mut _,
+                log_length,
+                std::ptr::null_mut(),
+                log.as_mut_ptr() as *mut GLchar,
             );
 
-            error_log.set_len(error_log_size as usize);
-            let e = NUError::ShaderLinkError(String::from_utf8(error_log)?);
-            eprintln!("{}", e);
-            return Err(e);
+            let estr = std::ffi::CStr::from_ptr(log.as_ptr() as *const i8).to_string_lossy().into_owned();
+
+            return Err(NUError::ShaderCompilationError(estr));
         }
     }
 
