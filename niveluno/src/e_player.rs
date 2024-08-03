@@ -1,9 +1,9 @@
 use crate::e_entity::EntityInstance;
-use crate::level::Entity;
+use crate::map::Entity;
 
 use crate::math::Vec3;
 use crate::render;
-use crate::{game, input};
+use crate::{input, time};
 
 pub struct Player {
     base: Entity,
@@ -19,7 +19,7 @@ impl EntityInstance for Player {
         // self.yaw += 0.001;
         render::set_camera_pitch(self.pitch).unwrap();
         render::set_camera_yaw(self.yaw).unwrap();
-        let delta = game::get_delta_time().unwrap() as f32;
+        let delta = time::get_delta_time().unwrap() as f32;
 
         let keys = input::get_keys().unwrap();
 

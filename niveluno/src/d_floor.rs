@@ -1,7 +1,7 @@
 use crate::d_decor::DecorInstance;
-use crate::level::Decor;
+use crate::map::Decor;
 
-use crate::game;
+use crate::g_game;
 use crate::render;
 
 pub struct Floor {
@@ -15,7 +15,7 @@ impl DecorInstance for Floor {
     }
 
     fn draw_model(&mut self) {
-        let ref_dec = game::get_ref_decor(self.base.ref_id).unwrap();
+        let ref_dec = g_game::get_ref_decor(self.base.ref_id).unwrap();
 
         let dc = render::DrawCall {
             pos: self.base.location.into(),

@@ -8,7 +8,7 @@ use gl::types::*;
 
 use crate::math::{self, Vec3};
 use crate::nuerror::NUError;
-use crate::text;
+use crate::{text, time};
 
 // draw texture res, default window res
 pub const INTERNAL_W: i32 = 320;

@@ -1,22 +1,20 @@
-use game::update_time;
 use gl;
-use math::Vec3;
 use mparse;
-use render::draw;
 use sdl2::mixer::{self, InitFlag};
 use sdl2::video::{GLProfile, SwapInterval};
 
 mod asset;
 mod audio;
 mod input;
-mod level;
+mod map;
 mod math;
 mod nuerror;
 mod render;
 mod text;
+mod time;
 
 // pak module
-mod game;
+mod g_game;
 // pak/entity??
 mod e_entity;
 mod e_gcyl;
@@ -81,12 +79,13 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
 }
 
 fn init_nu() -> Result<(), nuerror::NUError> {
+    time::init()?;
     text::init()?;
     render::init()?;
     audio::init()?;
     input::init()?;
     asset::init()?;
-    game::init()?;
+    g_game::init()?;
 
     Ok(())
 }
@@ -100,13 +99,10 @@ fn main() -> Result<(), String> {
         .event_pump()
         .map_err(|e| nuerror::NUError::SDLError(e))?;
 
-    let tex = render::placeholder_tex_id()?;
-    let b = render::push_block(32., 32., 160., 32., 32., 32., tex)?;
-
     let nmap = asset::get_file("map/menu.mp")?
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
     let payload = mparse::unmarshal(&nmap).unwrap();
-    let level = level::load_level(payload)?;
+    let level = map::load(payload)?;
 
     let lib_mono_bold_bytes = asset::get_file("ttf/LiberationMono-Bold.ttf")?
         .ok_or_else(|| NUError::MiscError("libmonobold not found".to_string()))?;
@@ -154,7 +150,7 @@ fn main() -> Result<(), String> {
     worm.y = 100;
 
     // todo -- move
-    game::set_and_init_level(level.clone())?;
+    g_game::set_and_init_level(level.clone())?;
 
     let mut time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -190,15 +186,16 @@ fn main() -> Result<(), String> {
         }
 
         render::prepare_frame()?;
+        time::update_time()?;
 
         match state {
             State::Menu => {
-                game::run()?;
+                g_game::run()?;
             }
             State::Level => {
                 text::push_surface(&title)?;
                 text::push_surface(&worm)?;
-                game::run()?;
+                g_game::run()?;
             }
         }
 

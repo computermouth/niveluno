@@ -1,8 +1,8 @@
 use crate::e_entity::EntityInstance;
-use crate::game::get_delta_time;
-use crate::level::Entity;
+use crate::map::Entity;
+use crate::time::get_delta_time;
 
-use crate::game;
+use crate::g_game;
 use crate::render;
 
 pub struct Gcyl {
@@ -18,7 +18,7 @@ impl EntityInstance for Gcyl {
     }
 
     fn draw_model(&mut self) {
-        let ref_ent = game::get_ref_entity(self.base.index).unwrap();
+        let ref_ent = g_game::get_ref_entity(self.base.index).unwrap();
 
         let dc = render::DrawCall {
             pos: self.base.location.into(),

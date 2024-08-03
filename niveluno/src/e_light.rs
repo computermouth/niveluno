@@ -1,5 +1,5 @@
 use crate::e_entity::EntityInstance;
-use crate::level::Entity;
+use crate::map::Entity;
 
 use crate::render;
 

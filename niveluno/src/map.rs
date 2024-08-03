@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-pub struct LevelPayload {
+pub struct MapPayload {
     pub drn_data: Vec<String>,
     pub ern_data: Vec<String>,
     pub kvs_data: Vec<String>,
@@ -15,9 +15,8 @@ pub struct LevelPayload {
 }
 
 #[derive(Clone, Debug)]
-pub struct Level {
-    pub payload: LevelPayload,
-    pub img_handles: Vec<usize>,
+pub struct Map {
+    pub payload: MapPayload,
     pub map_entities: Vec<Entity>,
     pub ref_entities: Vec<LoadedEnttReference>,
     pub map_decor: Vec<Decor>,
@@ -110,13 +109,12 @@ fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usiz
     Ok(frame_handles)
 }
 
-// todo, move this?
-pub fn load_level(payload: Payload) -> Result<Level, NUError> {
+pub fn load(payload: Payload) -> Result<Map, NUError> {
     eprintln!("decor: {:?}", payload.drn_data);
     eprintln!("entts: {:?}", payload.ern_data);
     eprintln!("keyvs: {:?}", payload.kvs_data);
 
-    let level_payload = LevelPayload {
+    let level_payload = MapPayload {
         drn_data: payload.drn_data,
         ern_data: payload.ern_data,
         kvs_data: payload.kvs_data,
@@ -249,12 +247,11 @@ pub fn load_level(payload: Payload) -> Result<Level, NUError> {
         map_entts.push(entity);
     }
 
-    Ok(Level {
+    Ok(Map {
         payload: level_payload,
         // needs to eat copies of payloads _data fields
         // which need to have corresponding lookup functions
         // in this file (level.rs)
-        img_handles,
         map_entities: map_entts,
         ref_entities: ref_entts,
         map_decor,
