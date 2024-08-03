@@ -103,15 +103,20 @@ fn main() -> Result<(), String> {
     let tex = render::placeholder_tex_id()?;
     let b = render::push_block(32., 32., 160., 32., 32., 32., tex)?;
 
-    let nmap = asset::get_file("menu.mp")?
+    let nmap = asset::get_file("map/menu.mp")?
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
     let payload = mparse::unmarshal(&nmap).unwrap();
     let level = level::load_level(payload)?;
 
-    let lib_mono_bold_bytes = asset::get_file("LiberationMono-Bold.ttf")?
+    let lib_mono_bold_bytes = asset::get_file("ttf/LiberationMono-Bold.ttf")?
         .ok_or_else(|| NUError::MiscError("libmonobold not found".to_string()))?;
     let lib_mono_bold_font = text::push_font(lib_mono_bold_bytes)?;
     let lib_mono_bold_sized = text::create_sized_font(lib_mono_bold_font, 32)?;
+
+    let nerd_symbols_bytes = asset::get_file("ttf/SymbolsNerdFontMono-Regular.ttf")?
+        .ok_or_else(|| NUError::MiscError("nerd_symbols not found".to_string()))?;
+    let nerd_symbols_font = text::push_font(nerd_symbols_bytes)?;
+    let nerd_symbols_sized = text::create_sized_font(nerd_symbols_font, 24)?;
 
     let title = text::create_surface(text::FontInput {
         text: "TITLE".to_string(),
@@ -131,6 +136,22 @@ fn main() -> Result<(), String> {
         },
         font: lib_mono_bold_sized,
     })?;
+
+    let mut worm = text::create_surface(text::FontInput {
+        text: "󰊠󰘉".to_string(),
+        mode: text::Mode::Solid {
+            color: text::FontColor {
+                r: 167,
+                g: 167,
+                b: 255,
+                a: 255,
+            },
+        },
+        font: nerd_symbols_sized,
+    })?;
+
+    worm.x = 100;
+    worm.y = 100;
 
     // todo -- move
     game::set_and_init_level(level.clone())?;
@@ -176,6 +197,7 @@ fn main() -> Result<(), String> {
             }
             State::Level => {
                 text::push_surface(&title)?;
+                text::push_surface(&worm)?;
                 game::run()?;
             }
         }

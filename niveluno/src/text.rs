@@ -269,6 +269,7 @@ pub fn push_font(font_bytes: Vec<u8>) -> Result<FontHandle, NUError> {
     Ok(FontHandle { h })
 }
 
+#[derive(Copy, Clone)]
 pub struct SizedFontHandle {
     h: usize,
 }
