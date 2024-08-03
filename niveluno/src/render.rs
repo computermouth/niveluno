@@ -166,7 +166,9 @@ pub fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, N
                 log.as_mut_ptr() as *mut GLchar,
             );
 
-            let estr = std::ffi::CStr::from_ptr(log.as_ptr() as *const i8).to_string_lossy().into_owned();
+            let estr = std::ffi::CStr::from_ptr(log.as_ptr() as *const i8)
+                .to_string_lossy()
+                .into_owned();
 
             return Err(NUError::ShaderCompilationError(estr));
         }
@@ -205,7 +207,9 @@ pub fn create_program(vert: GLuint, frag: GLuint) -> Result<GLuint, NUError> {
                 log.as_mut_ptr() as *mut GLchar,
             );
 
-            let estr = std::ffi::CStr::from_ptr(log.as_ptr() as *const i8).to_string_lossy().into_owned();
+            let estr = std::ffi::CStr::from_ptr(log.as_ptr() as *const i8)
+                .to_string_lossy()
+                .into_owned();
 
             return Err(NUError::ShaderCompilationError(estr));
         }

@@ -100,17 +100,6 @@ fn main() -> Result<(), String> {
         .event_pump()
         .map_err(|e| nuerror::NUError::SDLError(e))?;
 
-    let title = text::create_surface(text::FontInput {
-        text: "TITLE".to_string(),
-        color: text::FontColor {
-            r: 255,
-            g: 167,
-            b: 167,
-            a: 255,
-        },
-        size: text::FontSize::LG,
-    })?;
-
     let tex = render::placeholder_tex_id()?;
     let b = render::push_block(32., 32., 160., 32., 32., 32., tex)?;
 
@@ -118,6 +107,30 @@ fn main() -> Result<(), String> {
         .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
     let payload = mparse::unmarshal(&nmap).unwrap();
     let level = level::load_level(payload)?;
+
+    let lib_mono_bold_bytes = asset::get_file("LiberationMono-Bold.ttf")?
+        .ok_or_else(|| NUError::MiscError("libmonobold not found".to_string()))?;
+    let lib_mono_bold_font = text::push_font(lib_mono_bold_bytes)?;
+    let lib_mono_bold_sized = text::create_sized_font(lib_mono_bold_font, 32)?;
+
+    let title = text::create_surface(text::FontInput {
+        text: "TITLE".to_string(),
+        mode: text::Mode::Shaded {
+            color: text::FontColor {
+                r: 255,
+                g: 167,
+                b: 167,
+                a: 255,
+            },
+            background: text::FontColor {
+                r: 32,
+                g: 128,
+                b: 196,
+                a: 255,
+            },
+        },
+        font: lib_mono_bold_sized,
+    })?;
 
     // todo -- move
     game::set_and_init_level(level.clone())?;
@@ -159,57 +172,10 @@ fn main() -> Result<(), String> {
 
         match state {
             State::Menu => {
-                game::update_time()?;
-
-                let dc = render::DrawCall {
-                    pos: Vec3 {
-                        x: 0.,
-                        y: 0.,
-                        z: -45.,
-                    },
-                    yaw: 1.,
-                    pitch: 0.,
-                    texture: level.ref_entities[0].texture_handle as u32,
-                    f1: level.ref_entities[0].frame_handles[0] as i32,
-                    f2: level.ref_entities[0].frame_handles[2] as i32,
-                    mix: ((1. * (game::get_run_time()? as f32).sin()) + 1.0) / 2.,
-                    num_verts: 372,
-                    unlit: false,
-                };
-                draw(dc)?;
-
-                render::push_light(
-                    Vec3 {
-                        x: -10.,
-                        y: 0.,
-                        z: -60. + 30. * (game::get_run_time()? as f32).sin(),
-                    },
-                    5,
-                    0,
-                    2,
-                    2,
-                )?;
-
-                render::push_light(
-                    Vec3 {
-                        x: 10.,
-                        y: 0.,
-                        z: -30. - 30. * (game::get_run_time()? as f32).sin(),
-                    },
-                    10,
-                    32,
-                    0,
-                    2,
-                )?;
-
-                text::push_surface(&title)?;
-
-                if input::get_keys()?[input::Key::Action as usize] == true {
-                    state = State::Level;
-                    // stupid fucking clone
-                }
+                game::run()?;
             }
             State::Level => {
+                text::push_surface(&title)?;
                 game::run()?;
             }
         }

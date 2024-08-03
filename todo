@@ -1,4 +1,3 @@
 audio
 add capability to use matrix/quat for scale+rotation+displacement
 clean up shader variable names
-convert all .glb images to RGB8 with Image library in nmcc

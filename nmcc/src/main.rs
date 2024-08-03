@@ -1,6 +1,7 @@
-use std::vec;
+use std::{io::Cursor, vec};
 
 use gltf;
+use image::ImageReader;
 use mparse::{self, types::*};
 use serde::Deserialize;
 use serde_json;
@@ -359,20 +360,39 @@ fn image_from_prim(prim: &gltf::Primitive, b: &Vec<gltf::buffer::Data>) -> Optio
     let source = bct.texture().source().source();
 
     match source {
-        gltf::image::Source::View { view, mime_type } => {
-            if mime_type != "image/png" {
-                eprintln!("E: texture mimetype not supported {}", mime_type);
+        gltf::image::Source::View { view, .. } => {
+            let buffer = &b[view.buffer().index()];
+            let start = view.offset() as usize;
+            let end = start + view.length() as usize;
+            let data_slice = &buffer[start..end];
+
+            let cursor = Cursor::new(data_slice);
+            let rdr = ImageReader::new(cursor).with_guessed_format();
+            if rdr.is_err() {
+                eprintln!("E: failed to open reader on image");
                 return None;
             }
 
-            let buffer = &b[view.buffer().index()];
+            if let Ok(img) = rdr.unwrap().decode() {
+                // I wish this was rgb8, but tried it, and changed the texture loads
+                // to gl::RGB, and it produced weird artifacts for the RGBA textures??
+                // size difference is negligable when compressed
+                let rgb_img = img.to_rgba8();
 
-            let start = view.offset() as usize;
-            let end = start + view.length() as usize;
+                let mut out_bytes: Vec<u8> = vec![];
+                if rgb_img
+                    .write_to(&mut Cursor::new(&mut out_bytes), image::ImageFormat::Png)
+                    .is_err()
+                {
+                    eprintln!("E: failed to write image");
+                    return None;
+                }
 
-            let data_slice = &buffer[start..end].to_vec();
-
-            Some(data_slice.to_vec())
+                Some(out_bytes)
+            } else {
+                eprintln!("E: failed to decode image");
+                None
+            }
         }
         gltf::image::Source::Uri { .. } => None,
     }

@@ -1,9 +1,9 @@
 use crate::e_entity::EntityInstance;
 use crate::level::Entity;
 
-use crate::{game, input};
 use crate::math::Vec3;
 use crate::render;
+use crate::{game, input};
 
 pub struct Player {
     base: Entity,

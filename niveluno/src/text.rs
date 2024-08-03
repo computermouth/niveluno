@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::CString;
 
 use sdl2::pixels;
@@ -20,16 +21,24 @@ pub struct FontColor {
     pub a: u8,
 }
 
-pub enum FontSize {
-    SM,
-    MD,
-    LG,
+// todo, background color for all?
+pub enum Mode {
+    Solid {
+        color: FontColor,
+    },
+    Shaded {
+        color: FontColor,
+        background: FontColor,
+    },
+    Blended {
+        color: FontColor,
+    },
 }
 
 pub struct FontInput {
     pub text: String,
-    pub color: FontColor,
-    pub size: FontSize,
+    pub mode: Mode,
+    pub font: SizedFontHandle,
 }
 
 // #[derive(Clone)]
@@ -63,9 +72,9 @@ struct TextGod<'a> {
     pub context: Sdl2TtfContext,
     // RefCell<Surface<'a>> ??
     pub overlay_surface: Option<Surface<'a>>,
-    pub font_sm: Option<Font<'a, 'a>>,
-    pub font_md: Option<Font<'a, 'a>>,
-    pub font_lg: Option<Font<'a, 'a>>,
+    // pub font_sm: Option<Font<'a, 'a>>,
+    // pub font_md: Option<Font<'a, 'a>>,
+    // pub font_lg: Option<Font<'a, 'a>>,
     pub timed_surfaces: Vec<TimedSurface>,
     // gl things
     pub overlay_program: GLuint,
@@ -74,6 +83,10 @@ struct TextGod<'a> {
     pub overlay_tex_u: GLint,
     pub overlay_vbo: GLuint,
     pub overlay_texture: GLuint,
+    pub font_data_dict: HashMap<usize, Vec<u8>>,
+    pub font_data_ids: usize,
+    pub font_font_dict: HashMap<usize, Font<'a, 'a>>,
+    pub font_font_ids: usize,
 }
 
 impl<'a> TextGod<'a> {
@@ -107,9 +120,9 @@ pub fn init() -> Result<(), NUError> {
         TEXT_GOD = Some(TextGod {
             context: sdl2::ttf::init().map_err(|e| NUError::SDLError(e.to_string()))?,
             overlay_surface: None,
-            font_sm: None,
-            font_md: None,
-            font_lg: None,
+            // font_sm: None,
+            // font_md: None,
+            // font_lg: None,
             timed_surfaces: vec![],
             overlay_program: 0,
             overlay_position: 0,
@@ -117,6 +130,10 @@ pub fn init() -> Result<(), NUError> {
             overlay_tex_u: 0,
             overlay_vbo: 0,
             overlay_texture: 0,
+            font_data_dict: HashMap::new(),
+            font_data_ids: 0,
+            font_font_dict: HashMap::new(),
+            font_font_ids: 0,
         });
     }
 
@@ -144,26 +161,27 @@ pub fn init() -> Result<(), NUError> {
             },
         )
         .map_err(|e| NUError::SDLError(e))?;
-    // fonts (todo -- loading each font from a different rwops seemed to be necessary in C, not sure in rust)
-    let font_b = include_bytes!("/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf");
-    let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
-    tg.font_sm = Some(
-        tg.context
-            .load_font_from_rwops(font_rwo, 12)
-            .map_err(|e| NUError::SDLError(e))?,
-    );
-    let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
-    tg.font_md = Some(
-        tg.context
-            .load_font_from_rwops(font_rwo, 18)
-            .map_err(|e| NUError::SDLError(e))?,
-    );
-    let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
-    tg.font_lg = Some(
-        tg.context
-            .load_font_from_rwops(font_rwo, 32)
-            .map_err(|e| NUError::SDLError(e))?,
-    );
+
+    // // fonts (todo -- loading each font from a different rwops seemed to be necessary in C, not sure in rust)
+    // let font_b = include_bytes!("/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf");
+    // let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
+    // tg.font_sm = Some(
+    //     tg.context
+    //         .load_font_from_rwops(font_rwo, 12)
+    //         .map_err(|e| NUError::SDLError(e))?,
+    // );
+    // let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
+    // tg.font_md = Some(
+    //     tg.context
+    //         .load_font_from_rwops(font_rwo, 18)
+    //         .map_err(|e| NUError::SDLError(e))?,
+    // );
+    // let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
+    // tg.font_lg = Some(
+    //     tg.context
+    //         .load_font_from_rwops(font_rwo, 32)
+    //         .map_err(|e| NUError::SDLError(e))?,
+    // );
 
     tg.overlay_program = render::create_program(
         render::compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,
@@ -234,6 +252,48 @@ pub fn init() -> Result<(), NUError> {
     }
 
     Ok(())
+}
+
+pub struct FontHandle {
+    h: usize,
+}
+
+pub fn push_font(font_bytes: Vec<u8>) -> Result<FontHandle, NUError> {
+    let tg = TextGod::get()?;
+
+    let h = tg.font_data_ids;
+
+    tg.font_data_dict.insert(h, font_bytes);
+    tg.font_data_ids += 1;
+
+    Ok(FontHandle { h })
+}
+
+pub struct SizedFontHandle {
+    h: usize,
+}
+
+pub fn create_sized_font(fh: FontHandle, size: u16) -> Result<SizedFontHandle, NUError> {
+    let tg = TextGod::get()?;
+
+    let h = tg.font_font_ids;
+
+    let font_data = tg
+        .font_data_dict
+        .get(&fh.h)
+        .ok_or_else(|| NUError::MiscError(format!("Font lookup failed on id {}", fh.h)))?;
+
+    let font_rwo = RWops::from_bytes(font_data).map_err(|e| NUError::SDLError(e))?;
+
+    let f = tg
+        .context
+        .load_font_from_rwops(font_rwo, size)
+        .map_err(|e| NUError::SDLError(e))?;
+
+    tg.font_font_dict.insert(h, f);
+    tg.font_font_ids += 1;
+
+    Ok(SizedFontHandle { h })
 }
 
 pub fn end_frame() -> Result<(), NUError> {
@@ -330,19 +390,35 @@ pub fn end_frame() -> Result<(), NUError> {
 }
 
 pub fn create_surface<'a>(input: FontInput) -> Result<Box<TextSurface>, NUError> {
-    let font = match input.size {
-        FontSize::SM => TextGod::get()?.font_sm.as_ref().unwrap(),
-        FontSize::MD => TextGod::get()?.font_md.as_ref().unwrap(),
-        FontSize::LG => TextGod::get()?.font_lg.as_ref().unwrap(),
+    let tg = TextGod::get()?;
+
+    let font = tg
+        .font_font_dict
+        .get(&input.font.h)
+        .ok_or_else(|| NUError::MiscError(format!("Font not found with id {}", input.font.h)))?;
+
+    let tmp_fg = match input.mode {
+        Mode::Solid { color } => {
+            let fg = sdl2::pixels::Color::RGBA(color.r, color.g, color.b, color.a);
+            font.render(&input.text)
+                .solid(fg)
+                .map_err(|e| NUError::SDLError(e.to_string()))?
+        }
+        Mode::Shaded { color, background } => {
+            let fg = sdl2::pixels::Color::RGBA(color.r, color.g, color.b, color.a);
+            let bg =
+                sdl2::pixels::Color::RGBA(background.r, background.g, background.b, background.a);
+            font.render(&input.text)
+                .shaded(fg, bg)
+                .map_err(|e| NUError::SDLError(e.to_string()))?
+        }
+        Mode::Blended { color } => {
+            let fg = sdl2::pixels::Color::RGBA(color.r, color.g, color.b, color.a);
+            font.render(&input.text)
+                .blended(fg)
+                .map_err(|e| NUError::SDLError(e.to_string()))?
+        }
     };
-
-    let fg = sdl2::pixels::Color::RGBA(input.color.r, input.color.g, input.color.b, input.color.a);
-    let tmp_fg = font
-        .render(&input.text)
-        .solid(fg)
-        .map_err(|e| NUError::SDLError(e.to_string()))?;
-
-    // todo, background??
 
     Ok(Box::new(TextSurface {
         x: 0,
