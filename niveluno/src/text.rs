@@ -47,7 +47,6 @@ pub struct TextSurface {
     pub y: u32,
     pub w: u32,
     pub h: u32,
-    // todo, figure out what type this should be
     pub data: Surface<'static>,
 }
 
@@ -120,9 +119,6 @@ pub fn init() -> Result<(), NUError> {
         TEXT_GOD = Some(TextGod {
             context: sdl2::ttf::init().map_err(|e| NUError::SDLError(e.to_string()))?,
             overlay_surface: None,
-            // font_sm: None,
-            // font_md: None,
-            // font_lg: None,
             timed_surfaces: vec![],
             overlay_program: 0,
             overlay_position: 0,
@@ -343,6 +339,7 @@ pub fn end_frame() -> Result<(), NUError> {
     // program and buffer
     unsafe {
         gl::Disable(gl::CULL_FACE);
+        gl::Disable(gl::DEPTH_TEST);
         gl::UseProgram(overlay_program);
         gl::BindBuffer(gl::ARRAY_BUFFER, overlay_vbo);
     }
@@ -385,6 +382,7 @@ pub fn end_frame() -> Result<(), NUError> {
         gl::Uniform1i(overlay_tex_u as i32, 0);
         gl::DrawArrays(gl::TRIANGLES, 0, 6);
         gl::Enable(gl::CULL_FACE);
+        gl::Enable(gl::DEPTH_TEST);
     }
 
     Ok(())

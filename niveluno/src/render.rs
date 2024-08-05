@@ -539,7 +539,7 @@ pub fn prepare_frame() -> Result<(), NUError> {
 pub fn end_frame() -> Result<(), NUError> {
     let rg: &mut RenderGod = RenderGod::get()?;
 
-    // wohooo works, buuuuut, only do it on r_num_verts change
+    // todo -- works, buuuuut, only do it on r_num_verts change
     // otherwise, wasteful copy to gpu
     submit_buffer()?;
 

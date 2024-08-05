@@ -99,59 +99,6 @@ fn main() -> Result<(), String> {
         .event_pump()
         .map_err(|e| nuerror::NUError::SDLError(e))?;
 
-    let nmap = asset::get_file("map/menu.mp")?
-        .ok_or_else(|| NUError::MiscError("nmap not found".to_string()))?;
-    let payload = mparse::unmarshal(&nmap).unwrap();
-    let level = map::load(payload)?;
-
-    let lib_mono_bold_bytes = asset::get_file("ttf/LiberationMono-Bold.ttf")?
-        .ok_or_else(|| NUError::MiscError("libmonobold not found".to_string()))?;
-    let lib_mono_bold_font = text::push_font(lib_mono_bold_bytes)?;
-    let lib_mono_bold_sized = text::create_sized_font(lib_mono_bold_font, 32)?;
-
-    let nerd_symbols_bytes = asset::get_file("ttf/SymbolsNerdFontMono-Regular.ttf")?
-        .ok_or_else(|| NUError::MiscError("nerd_symbols not found".to_string()))?;
-    let nerd_symbols_font = text::push_font(nerd_symbols_bytes)?;
-    let nerd_symbols_sized = text::create_sized_font(nerd_symbols_font, 24)?;
-
-    let title = text::create_surface(text::FontInput {
-        text: "TITLE".to_string(),
-        mode: text::Mode::Shaded {
-            color: text::FontColor {
-                r: 255,
-                g: 167,
-                b: 167,
-                a: 255,
-            },
-            background: text::FontColor {
-                r: 32,
-                g: 128,
-                b: 196,
-                a: 255,
-            },
-        },
-        font: lib_mono_bold_sized,
-    })?;
-
-    let mut worm = text::create_surface(text::FontInput {
-        text: "󰊠󰘉".to_string(),
-        mode: text::Mode::Solid {
-            color: text::FontColor {
-                r: 167,
-                g: 167,
-                b: 255,
-                a: 255,
-            },
-        },
-        font: nerd_symbols_sized,
-    })?;
-
-    worm.x = 100;
-    worm.y = 100;
-
-    // todo -- move
-    g_game::set_and_init_level(level.clone())?;
-
     let mut time = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| NUError::SystemTimeError(e.to_string()))?
@@ -159,13 +106,6 @@ fn main() -> Result<(), String> {
     let mut oldtime = time;
     let mut newtime;
     let mut frames = 0;
-
-    enum State {
-        Menu,
-        Level,
-    }
-
-    let mut state = State::Level;
 
     'running: loop {
         frames += 1;
@@ -188,16 +128,7 @@ fn main() -> Result<(), String> {
         render::prepare_frame()?;
         time::update_time()?;
 
-        match state {
-            State::Menu => {
-                g_game::run()?;
-            }
-            State::Level => {
-                text::push_surface(&title)?;
-                text::push_surface(&worm)?;
-                g_game::run()?;
-            }
-        }
+        g_game::run()?;
 
         render::end_frame()?;
         window.gl_swap_window();

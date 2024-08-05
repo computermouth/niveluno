@@ -1,7 +1,7 @@
-use crate::map::{LoadedDecorReference, LoadedEnttReference};
-use crate::NUError;
-
-use crate::map;
+use crate::asset;
+use crate::map::{self, LoadedDecorReference, LoadedEnttReference};
+use crate::nuerror::NUError;
+use crate::text;
 
 use crate::e_entity::EntityInstance;
 use crate::e_gcyl::Gcyl;
@@ -16,6 +16,9 @@ struct GameGod {
     pub current_level: Option<map::Map>,
     pub decor_inst: Vec<Box<dyn DecorInstance>>,
     pub entts_inst: Vec<Box<dyn EntityInstance>>,
+    pub top_state: TopState,
+    pub text_font: Option<text::SizedFontHandle>,
+    pub symb_font: Option<text::SizedFontHandle>,
 }
 
 impl GameGod {
@@ -30,6 +33,12 @@ impl GameGod {
 
 static mut GAME_GOD: Option<GameGod> = None;
 
+#[derive(Copy, Clone)]
+pub enum TopState {
+    Menu,
+    Play,
+}
+
 pub fn init() -> Result<(), NUError> {
     if GameGod::get().is_ok() {
         return Err(NUError::MiscError("GAME_GOD already init".to_string()));
@@ -40,10 +49,46 @@ pub fn init() -> Result<(), NUError> {
             current_level: None,
             decor_inst: vec![],
             entts_inst: vec![],
+            top_state: TopState::Menu,
+            text_font: None,
+            symb_font: None,
         });
     }
 
+    let gg = GameGod::get()?;
+
+    let lib_mono_bold_bytes = asset::get_file("ttf/LiberationMono-Bold.ttf")?
+        .ok_or_else(|| NUError::MiscError("libmonobold not found".to_string()))?;
+    let lib_mono_bold_font = text::push_font(lib_mono_bold_bytes)?;
+    gg.text_font = Some(text::create_sized_font(lib_mono_bold_font, 32)?);
+
+    let nerd_symbols_bytes = asset::get_file("ttf/SymbolsNerdFontMono-Regular.ttf")?
+        .ok_or_else(|| NUError::MiscError("nerd_symbols not found".to_string()))?;
+    let nerd_symbols_font = text::push_font(nerd_symbols_bytes)?;
+    gg.symb_font = Some(text::create_sized_font(nerd_symbols_font, 24)?);
+
+    let menu = asset::get_file("map/menu.mp")?
+        .ok_or_else(|| NUError::MiscError("menu map not found".to_string()))?;
+    let payload = mparse::unmarshal(&menu).unwrap();
+    let level = map::load(payload)?;
+    set_and_init_level(level.clone())?;
+
     Ok(())
+}
+
+pub fn get_text_font() -> Result<text::SizedFontHandle, NUError> {
+    let gg = GameGod::get()?;
+    Ok(gg.text_font.unwrap())
+}
+
+pub fn get_symb_font() -> Result<text::SizedFontHandle, NUError> {
+    let gg = GameGod::get()?;
+    Ok(gg.symb_font.unwrap())
+}
+
+pub fn get_state() -> Result<TopState, NUError> {
+    let gg = GameGod::get()?;
+    Ok(gg.top_state)
 }
 
 pub fn set_and_init_level(level: map::Map) -> Result<(), NUError> {
@@ -95,6 +140,11 @@ pub fn set_and_init_level(level: map::Map) -> Result<(), NUError> {
 
 pub fn run() -> Result<(), NUError> {
     let gg = GameGod::get()?;
+
+    match gg.top_state {
+        TopState::Menu => {}
+        TopState::Play => {}
+    }
 
     for decor in &mut gg.decor_inst {
         decor.update();
