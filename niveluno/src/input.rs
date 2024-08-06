@@ -21,8 +21,7 @@ pub enum Key {
 struct InputGod {
     pub mouse_x: f32,
     pub mouse_y: f32,
-    pub last_wheel_event: f32,
-    pub mouse_speed: isize,
+    pub mouse_speed: f32,
     pub mouse_invert: bool,
     pub quit: bool,
     pub keys: [bool; 8],
@@ -49,8 +48,7 @@ pub fn init() -> Result<(), NUError> {
     let ig = InputGod {
         mouse_x: 0.,
         mouse_y: 0.,
-        last_wheel_event: 0.,
-        mouse_speed: 10, // 0-50 // todo, verify
+        mouse_speed: 10., // 0-50 // todo, verify
         mouse_invert: false,
         quit: false,
         keys: [false; 8],
@@ -66,6 +64,9 @@ pub fn init() -> Result<(), NUError> {
 pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPump) -> Result<(), NUError> {
 
     let ig = InputGod::get()?;
+
+    ig.mouse_x = 0.;
+    ig.mouse_y = 0.;
 
     let current_states: Vec<_> = event_pump.keyboard_state().scancodes().collect();
 
@@ -139,8 +140,15 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
                 }
             }
             Event::MouseMotion { xrel, yrel, .. } => {
-                ig.mouse_x += xrel as f32;
-                ig.mouse_y += yrel as f32;
+
+                if mouse.relative_mouse_mode() == true {
+                    let f_invert = match ig.mouse_invert {
+                        true => -1.0,
+                        false => 1.0,
+                    };
+                    ig.mouse_x += xrel as f32 * ig.mouse_speed;
+                    ig.mouse_y += yrel as f32 * ig.mouse_speed * f_invert;
+                }
             }
             Event::Window { win_event, .. } => {
                 match win_event {
@@ -164,8 +172,9 @@ pub fn get_quit() -> Result<bool, NUError> {
     Ok(InputGod::get()?.quit)
 }
 
-pub fn get_mouse() -> (f32, f32) {
-    (1., 1.)
+pub fn get_mouse() -> Result<(f32, f32), NUError> {
+    let ig = InputGod::get()?;
+    Ok((ig.mouse_x, ig.mouse_y))
 }
 
 pub fn get_keys() -> Result<[bool; 8], NUError> {

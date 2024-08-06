@@ -8,7 +8,7 @@ use gl::types::*;
 
 use crate::math::{self, Vec3};
 use crate::nuerror::NUError;
-use crate::{text, time};
+use crate::text;
 
 // draw texture res, default window res
 pub const INTERNAL_W: i32 = 320;
@@ -695,7 +695,14 @@ pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<usize, NUErr
     Ok(num_verts)
 }
 
-pub fn push_quad(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, u: f32, v: f32) -> Result<usize, NUError> {
+pub fn _push_quad(
+    v0: Vec3,
+    v1: Vec3,
+    v2: Vec3,
+    v3: Vec3,
+    u: f32,
+    v: f32,
+) -> Result<usize, NUError> {
     let num_verts = RenderGod::get()?.r_num_verts;
 
     let n = math::vec3_face_normal(v0, v1, v2);
@@ -709,7 +716,7 @@ pub fn push_quad(v0: Vec3, v1: Vec3, v2: Vec3, v3: Vec3, u: f32, v: f32) -> Resu
     Ok(num_verts)
 }
 
-pub fn push_block(
+pub fn _push_block(
     x: f32,
     y: f32,
     z: f32,
@@ -739,12 +746,12 @@ pub fn push_block(
     let v6 = Vec3::new(x, y, z);
     let v7 = Vec3::new(x + sx, y, z);
 
-    push_quad(v0, v1, v2, v3, tx, tz)?; // top
-    push_quad(v4, v5, v6, v7, tx, tz)?; // bottom
-    push_quad(v2, v3, v4, v5, tx, ty)?; // front
-    push_quad(v1, v0, v7, v6, tx, ty)?; // back
-    push_quad(v3, v1, v5, v7, tz, ty)?; // right
-    push_quad(v0, v2, v6, v4, tz, ty)?; // left
+    _push_quad(v0, v1, v2, v3, tx, tz)?; // top
+    _push_quad(v4, v5, v6, v7, tx, tz)?; // bottom
+    _push_quad(v2, v3, v4, v5, tx, ty)?; // front
+    _push_quad(v1, v0, v7, v6, tx, ty)?; // back
+    _push_quad(v3, v1, v5, v7, tz, ty)?; // right
+    _push_quad(v0, v2, v6, v4, tz, ty)?; // left
 
     Ok(index)
 }
@@ -783,19 +790,19 @@ pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), N
     let r_num_lights = &mut RenderGod::get()?.r_num_lights;
     let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
 
-    // todo -- revisit if we're not doing the 32x size stuff
-    // Calculate the distance to the light, fade it out between 768--1024
-    let start_fade_dist = 786.;
-    let end_fade_dist = 1024.;
+    // Calculate the distance to the light, fade it out between 16--32
+    let start_fade_dist = 16.;
+    let end_fade_dist = 32.;
     let cam_light_dist = math::vec3_dist(pos, cam_pos);
 
+    // past max fade distance, skip the push entirely
     if cam_light_dist >= end_fade_dist {
         return Ok(());
     }
 
     let fade = math::scale(cam_light_dist, start_fade_dist, end_fade_dist, 1., 0.).clamp(0., 1.)
         * intensity as f32
-        * 10.; // literally just some bullshit dialed-in number
+        / 255.;
 
     if *r_num_lights * 2 >= MAX_LIGHT_V3S {
         eprintln!("max lights reached");

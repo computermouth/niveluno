@@ -51,12 +51,12 @@ pub struct TextSurface {
 }
 
 pub struct TimedSurface {
-    ts: TextSurface,
+    ts: Box<TextSurface>,
     end_time: f32,
 }
 
 impl TimedSurface {
-    pub fn new(ts: TextSurface, ms: u32) -> TimedSurface {
+    pub fn new(ts: Box<TextSurface>, ms: u32) -> TimedSurface {
         TimedSurface {
             ts: ts,
             end_time: time::get_run_time().unwrap() as f32 + ms as f32 / 1000.,
@@ -157,27 +157,6 @@ pub fn init() -> Result<(), NUError> {
             },
         )
         .map_err(|e| NUError::SDLError(e))?;
-
-    // // fonts (todo -- loading each font from a different rwops seemed to be necessary in C, not sure in rust)
-    // let font_b = include_bytes!("/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf");
-    // let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
-    // tg.font_sm = Some(
-    //     tg.context
-    //         .load_font_from_rwops(font_rwo, 12)
-    //         .map_err(|e| NUError::SDLError(e))?,
-    // );
-    // let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
-    // tg.font_md = Some(
-    //     tg.context
-    //         .load_font_from_rwops(font_rwo, 18)
-    //         .map_err(|e| NUError::SDLError(e))?,
-    // );
-    // let font_rwo = RWops::from_bytes(font_b).map_err(|e| NUError::SDLError(e))?;
-    // tg.font_lg = Some(
-    //     tg.context
-    //         .load_font_from_rwops(font_rwo, 32)
-    //         .map_err(|e| NUError::SDLError(e))?,
-    // );
 
     tg.overlay_program = render::create_program(
         render::compile_shader(gl::VERTEX_SHADER, V_SHADER_STR)?,

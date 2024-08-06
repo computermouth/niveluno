@@ -33,7 +33,7 @@ impl GameGod {
 
 static mut GAME_GOD: Option<GameGod> = None;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum TopState {
     Menu,
     Play,
@@ -91,8 +91,16 @@ pub fn get_state() -> Result<TopState, NUError> {
     Ok(gg.top_state)
 }
 
+pub fn set_state(ts: TopState) -> Result<(), NUError> {
+    let gg = GameGod::get()?;
+    gg.top_state = ts;
+    Ok(())
+}
+
 pub fn set_and_init_level(level: map::Map) -> Result<(), NUError> {
     let gg = GameGod::get()?;
+    gg.current_level = Some(level);
+    let level = gg.current_level.as_ref().unwrap();
 
     let mut decor = vec![];
     for md in &level.map_decor {
@@ -131,7 +139,6 @@ pub fn set_and_init_level(level: map::Map) -> Result<(), NUError> {
         }
     }
 
-    gg.current_level = Some(level);
     gg.decor_inst = decor;
     gg.entts_inst = entts;
 
@@ -163,6 +170,21 @@ pub fn run() -> Result<(), NUError> {
     }
 
     Ok(())
+}
+
+pub fn get_param<'a>(id: usize) -> Result<&'a str, NUError> {
+    let gg = GameGod::get()?;
+
+    let level = &gg.current_level;
+    let level = level
+        .as_ref()
+        .ok_or(NUError::MiscError("level not set".to_string()))?;
+
+    if id >= level.payload.kvs_data.len() {
+        return Err(NUError::MiscError("id exceeds kvs_data len".to_string()));
+    }
+
+    Ok(&level.payload.kvs_data[id])
 }
 
 pub fn get_ref_decor(id: usize) -> Result<LoadedDecorReference, NUError> {

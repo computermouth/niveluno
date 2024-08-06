@@ -3,6 +3,8 @@
 // of other_e, modified, bubbled up to a buffer to replace?
 
 pub trait EntityInstance {
+    // name: String,
+
     fn update(&mut self);
     //     fn update_physics(&mut self);
     //     fn collides(&mut self);

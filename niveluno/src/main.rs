@@ -1,5 +1,4 @@
 use gl;
-use mparse;
 use sdl2::mixer::{self, InitFlag};
 use sdl2::video::{GLProfile, SwapInterval};
 
@@ -85,6 +84,8 @@ fn init_nu() -> Result<(), nuerror::NUError> {
     audio::init()?;
     input::init()?;
     asset::init()?;
+
+    // always last
     g_game::init()?;
 
     Ok(())
