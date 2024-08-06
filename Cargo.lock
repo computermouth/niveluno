@@ -846,6 +846,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "raymath"
+version = "0.1.0"
+
+[[package]]
 name = "rayon"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
