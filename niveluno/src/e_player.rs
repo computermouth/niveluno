@@ -1,4 +1,3 @@
-use crate::asset;
 use crate::e_entity::EntityInstance;
 use crate::g_game;
 use crate::g_game::TopState;
@@ -6,6 +5,7 @@ use crate::map::{self, Entity};
 use crate::math::Vec3;
 use crate::render;
 use crate::text;
+use crate::{asset, math};
 use crate::{input, time};
 
 pub struct Player {
@@ -14,6 +14,10 @@ pub struct Player {
     yaw: f32,
     position: Vec3,
     hud: Box<text::TextSurface>,
+    speed: f32,
+    acceleration: Vec3,
+    on_ground: bool,
+    friction: f32,
 }
 
 impl EntityInstance for Player {
@@ -29,18 +33,37 @@ impl EntityInstance for Player {
         let delta = time::get_delta_time().unwrap() as f32;
 
         let keys = input::get_keys().unwrap();
+        let key_r = keys[input::Key::Right as usize] as i8;
+        let key_l = keys[input::Key::Left as usize] as i8;
+        let key_u = keys[input::Key::Up as usize] as i8;
+        let key_d = keys[input::Key::Down as usize] as i8;
 
-        if keys[input::Key::Up as usize] == true {
-            self.position.z += 2. * delta;
-        } else if keys[input::Key::Down as usize] == true {
-            self.position.z -= 2. * delta;
-        }
+        // let speed_factor = match self.on_ground {
+        //     true => 1.0,
+        //     false => 0.3,
+        // };
 
-        if keys[input::Key::Left as usize] == true {
-            self.position.x -= 2. * delta;
-        } else if keys[input::Key::Right as usize] == true {
-            self.position.x += 2. * delta;
-        }
+        // let friction = match self.on_ground {
+        //     true => 10.,
+        //     false => 2.5,
+        // };
+
+        // self.acceleration = math::vec3_mulf(
+        //     math::vec3_rotate_y( Vec3 {
+        //         x: (key_r - key_l) as f32,
+        //         y: 0.,
+        //         z: (key_u - key_d) as f32,
+        //     }, self.yaw),
+        //     self.speed * speed_factor);
+
+        self.position = math::vec3_add(
+            self.position,
+            Vec3 {
+                x: time::get_delta_time().unwrap() as f32 * (key_r - key_l) as f32,
+                y: 0.,
+                z: time::get_delta_time().unwrap() as f32 * (key_u - key_d) as f32,
+            },
+        );
 
         if keys[input::Key::Jump as usize] == true && g_game::get_state().unwrap() == TopState::Menu
         {
@@ -87,6 +110,14 @@ impl Player {
             pitch: 0.,
             yaw: 0.,
             position: entt.location.into(),
+            speed: 36.,
+            acceleration: Vec3 {
+                x: 0.,
+                y: 0.,
+                z: 0.,
+            },
+            on_ground: true,
+            friction: 0.3,
             hud: match g_game::get_state().unwrap() {
                 TopState::Menu => text::create_surface(text::FontInput {
                     text: "MAIN MENU".to_string(),
