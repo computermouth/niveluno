@@ -10,5 +10,6 @@ minipng = "=0.1.1"
 mparse = { version = "0.1.0", path = "../mparse" }
 munzip = { version = "0.1.1", path = "../munzip" }
 rand = "0.8.5"
+raymath = { version = "0.1.0", path = "../raymath" }
 sdl2 = { version = "0.36.0", features = ["mixer", "ttf"] }
 thiserror = "1.0.58"

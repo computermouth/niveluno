@@ -593,6 +593,7 @@ dependencies = [
  "mparse",
  "munzip",
  "rand",
+ "raymath",
  "sdl2",
  "thiserror",
 ]

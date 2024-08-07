@@ -1,7 +1,7 @@
 use mparse::types::Payload;
 
 use crate::{
-    math::{self, Vec3},
+    math::{self, Vector3},
     nuerror::NUError,
     render::{self, create_texture, PngBin},
 };
@@ -76,17 +76,17 @@ fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usiz
         for (v, u) in verts[frame].chunks(3).zip(uvs.chunks(3)) {
             // todo -- are these necessary?
             // looks like we're already flipping x in nmcc
-            let v0 = Vec3 {
+            let v0 = Vector3 {
                 x: v[0][0],
                 y: v[0][1],
                 z: v[0][2],
             };
-            let v1 = Vec3 {
+            let v1 = Vector3 {
                 x: v[1][0],
                 y: v[1][1],
                 z: v[1][2],
             };
-            let v2 = Vec3 {
+            let v2 = Vector3 {
                 x: v[2][0],
                 y: v[2][1],
                 z: v[2][2],

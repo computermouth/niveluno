@@ -1,21 +1,21 @@
+use crate::asset;
 use crate::e_entity::EntityInstance;
 use crate::g_game;
 use crate::g_game::TopState;
 use crate::map::{self, Entity};
-use crate::math::Vec3;
+use crate::math::Vector3;
 use crate::render;
 use crate::text;
-use crate::{asset, math};
 use crate::{input, time};
 
 pub struct Player {
     base: Entity,
     pitch: f32,
     yaw: f32,
-    position: Vec3,
+    position: Vector3,
     hud: Box<text::TextSurface>,
     speed: f32,
-    acceleration: Vec3,
+    acceleration: Vector3,
     on_ground: bool,
     friction: f32,
 }
@@ -56,14 +56,11 @@ impl EntityInstance for Player {
         //     }, self.yaw),
         //     self.speed * speed_factor);
 
-        self.position = math::vec3_add(
-            self.position,
-            Vec3 {
-                x: time::get_delta_time().unwrap() as f32 * (key_r - key_l) as f32,
-                y: 0.,
-                z: time::get_delta_time().unwrap() as f32 * (key_u - key_d) as f32,
-            },
-        );
+        self.position += Vector3 {
+            x: time::get_delta_time().unwrap() as f32 * (key_r - key_l) as f32,
+            y: 0.,
+            z: time::get_delta_time().unwrap() as f32 * (key_u - key_d) as f32,
+        };
 
         if keys[input::Key::Jump as usize] == true && g_game::get_state().unwrap() == TopState::Menu
         {
@@ -111,7 +108,7 @@ impl Player {
             yaw: 0.,
             position: entt.location.into(),
             speed: 36.,
-            acceleration: Vec3 {
+            acceleration: Vector3 {
                 x: 0.,
                 y: 0.,
                 z: 0.,

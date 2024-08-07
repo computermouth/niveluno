@@ -6,7 +6,7 @@ use minipng;
 use gl;
 use gl::types::*;
 
-use crate::math::{self, Vec3};
+use crate::math::{self, Vector3};
 use crate::nuerror::NUError;
 use crate::text;
 
@@ -31,7 +31,7 @@ pub const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
 // only need to set it once for all geometry
 #[derive(Clone, Copy)]
 pub struct DrawCall {
-    pub pos: Vec3,
+    pub pos: Vector3,
     pub yaw: f32,
     pub pitch: f32,
     pub texture: GLuint,
@@ -66,7 +66,7 @@ struct RenderGod {
     pub vertex_buffer: GLuint,
 
     // camera bits
-    pub camera_position: Vec3,
+    pub camera_position: Vector3,
     pub camera_pitch: GLfloat,
     pub camera_yaw: GLfloat,
 
@@ -278,7 +278,7 @@ pub fn init() -> Result<(), NUError> {
         vertex_buffer: 0,
 
         // camera bits
-        camera_position: Vec3 {
+        camera_position: Vector3 {
             x: 0.,
             y: 0.,
             z: -50.,
@@ -674,7 +674,7 @@ pub fn submit_buffer() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<usize, NUError> {
+pub fn push_vert(pos: Vector3, normal: Vector3, u: f32, v: f32) -> Result<usize, NUError> {
     let num_verts = RenderGod::get()?.r_num_verts;
 
     let vindex = num_verts * 8;
@@ -696,10 +696,10 @@ pub fn push_vert(pos: Vec3, normal: Vec3, u: f32, v: f32) -> Result<usize, NUErr
 }
 
 pub fn _push_quad(
-    v0: Vec3,
-    v1: Vec3,
-    v2: Vec3,
-    v3: Vec3,
+    v0: Vector3,
+    v1: Vector3,
+    v2: Vector3,
+    v3: Vector3,
     u: f32,
     v: f32,
 ) -> Result<usize, NUError> {
@@ -735,16 +735,16 @@ pub fn _push_block(
     let tz = sz / tex_w as f32;
 
     // top
-    let v0 = Vec3::new(x, y + sy, z);
-    let v1 = Vec3::new(x + sx, y + sy, z);
-    let v2 = Vec3::new(x, y + sy, z + sz);
-    let v3 = Vec3::new(x + sx, y + sy, z + sz);
+    let v0 = Vector3::new(x, y + sy, z);
+    let v1 = Vector3::new(x + sx, y + sy, z);
+    let v2 = Vector3::new(x, y + sy, z + sz);
+    let v3 = Vector3::new(x + sx, y + sy, z + sz);
 
     // bottom
-    let v4 = Vec3::new(x, y, z + sz);
-    let v5 = Vec3::new(x + sx, y, z + sz);
-    let v6 = Vec3::new(x, y, z);
-    let v7 = Vec3::new(x + sx, y, z);
+    let v4 = Vector3::new(x, y, z + sz);
+    let v5 = Vector3::new(x + sx, y, z + sz);
+    let v6 = Vector3::new(x, y, z);
+    let v7 = Vector3::new(x + sx, y, z);
 
     _push_quad(v0, v1, v2, v3, tx, tz)?; // top
     _push_quad(v4, v5, v6, v7, tx, tz)?; // bottom
@@ -785,7 +785,7 @@ pub fn _push_block(
         vl += angle * attenuation * l[i + 1];
     }
 */
-pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), NUError> {
+pub fn push_light(pos: Vector3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), NUError> {
     let cam_pos = RenderGod::get()?.camera_position;
     let r_num_lights = &mut RenderGod::get()?.r_num_lights;
     let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
@@ -793,7 +793,7 @@ pub fn push_light(pos: Vec3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), N
     // Calculate the distance to the light, fade it out between 16--32
     let start_fade_dist = 16.;
     let end_fade_dist = 32.;
-    let cam_light_dist = math::vec3_dist(pos, cam_pos);
+    let cam_light_dist = pos.distance_to(cam_pos);
 
     // past max fade distance, skip the push entirely
     if cam_light_dist >= end_fade_dist {
@@ -828,12 +828,12 @@ pub fn quit() {
     }
 }
 
-pub fn get_camera_pos() -> Result<Vec3, NUError> {
+pub fn get_camera_pos() -> Result<Vector3, NUError> {
     let rg = RenderGod::get()?;
     Ok(rg.camera_position)
 }
 
-pub fn set_camera_pos(pos: Vec3) -> Result<(), NUError> {
+pub fn set_camera_pos(pos: Vector3) -> Result<(), NUError> {
     let rg = RenderGod::get()?;
     rg.camera_position = pos;
     Ok(())

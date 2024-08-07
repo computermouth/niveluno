@@ -1,4 +1,4 @@
-/* 
+/*
 This file was shamelessly copied from raylib-rs: https://github.com/deltaphc/raylib-rs/blob/master/raylib/src/core/math.rs
 
 Some features were removed: serde, raylib's ffi types, nalgebra compatibility. Tempted to remove the operator overloading.
@@ -40,13 +40,13 @@ pub fn lerp(v0: f32, v1: f32, amount: f32) -> f32 {
 /// A convenience function for angle translation from degrees to radians.
 #[inline]
 pub fn deg_to_rad(degrees: f32) -> f32 {
-    degrees * std::f32::consts::PI/180.0
+    degrees * std::f32::consts::PI / 180.0
 }
 
 /// A convenience function for angle translation from radians to degrees.
 #[inline]
 pub fn rad_to_deg(radians: f32) -> f32 {
-    radians * 180.0/std::f32::consts::PI
+    radians * 180.0 / std::f32::consts::PI
 }
 
 impl Vector2 {
@@ -159,6 +159,13 @@ impl Vector2 {
             x: self.x.clamp(num.start, num.end),
             y: self.y.clamp(num.start, num.end),
         }
+    }
+}
+
+impl From<[f32; 2]> for Vector2 {
+    #[inline]
+    fn from(xy: [f32; 2]) -> Vector2 {
+        Vector2 { x: xy[0], y: xy[1] }
     }
 }
 
@@ -555,6 +562,17 @@ impl Vector3 {
             x: self.x.clamp(num.start, num.end),
             y: self.y.clamp(num.start, num.end),
             z: self.z.clamp(num.start, num.end),
+        }
+    }
+}
+
+impl From<[f32; 3]> for Vector3 {
+    #[inline]
+    fn from(xy: [f32; 3]) -> Vector3 {
+        Vector3 {
+            x: xy[0],
+            y: xy[1],
+            z: xy[2],
         }
     }
 }
