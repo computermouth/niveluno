@@ -22,6 +22,7 @@ pub struct FontColor {
 }
 
 // todo, background color for all?
+#[allow(dead_code)]
 pub enum Mode {
     Solid {
         color: FontColor,

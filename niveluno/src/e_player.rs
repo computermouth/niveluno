@@ -1,4 +1,5 @@
-use crate::asset;
+use raymath::{Matrix, Quaternion};
+
 use crate::e_entity::EntityInstance;
 use crate::g_game;
 use crate::g_game::TopState;
@@ -6,6 +7,7 @@ use crate::map::{self, Entity};
 use crate::math::Vector3;
 use crate::render;
 use crate::text;
+use crate::{asset, e_entity};
 use crate::{input, time};
 
 pub struct Player {
@@ -16,6 +18,7 @@ pub struct Player {
     hud: Box<text::TextSurface>,
     speed: f32,
     acceleration: Vector3,
+    velocity: Vector3,
     on_ground: bool,
     friction: f32,
 }
@@ -38,29 +41,41 @@ impl EntityInstance for Player {
         let key_u = keys[input::Key::Up as usize] as i8;
         let key_d = keys[input::Key::Down as usize] as i8;
 
-        // let speed_factor = match self.on_ground {
-        //     true => 1.0,
-        //     false => 0.3,
-        // };
-
-        // let friction = match self.on_ground {
-        //     true => 10.,
-        //     false => 2.5,
-        // };
-
-        // self.acceleration = math::vec3_mulf(
-        //     math::vec3_rotate_y( Vec3 {
-        //         x: (key_r - key_l) as f32,
-        //         y: 0.,
-        //         z: (key_u - key_d) as f32,
-        //     }, self.yaw),
-        //     self.speed * speed_factor);
-
-        self.position += Vector3 {
-            x: time::get_delta_time().unwrap() as f32 * (key_r - key_l) as f32,
-            y: 0.,
-            z: time::get_delta_time().unwrap() as f32 * (key_u - key_d) as f32,
+        let speed_factor = match self.on_ground {
+            true => 1.0,
+            false => 0.3,
         };
+
+        let friction = match self.on_ground {
+            true => 10.,
+            false => 2.5,
+        };
+
+        // let y_mat = Matrix::rotate_y(self.yaw);
+
+        self.acceleration = Vector3 {
+            x: (key_r - key_l) as f32,
+            y: 0.,
+            z: (key_u - key_d) as f32,
+        }
+        .rotate_by(Quaternion {
+            x: 0.,
+            y: (self.yaw / 2.).sin(),
+            z: 0.,
+            w: (self.yaw / 2.).cos(),
+        }) * (self.speed * speed_factor);
+
+        e_entity::update_physics(
+            &mut self.acceleration,
+            &mut self.velocity,
+            &mut self.position,
+        );
+
+        // self.position += Vector3 {
+        //     x: time::get_delta_time().unwrap() as f32 * (key_r - key_l) as f32,
+        //     y: 0.,
+        //     z: time::get_delta_time().unwrap() as f32 * (key_u - key_d) as f32,
+        // };
 
         if keys[input::Key::Jump as usize] == true && g_game::get_state().unwrap() == TopState::Menu
         {
@@ -109,6 +124,11 @@ impl Player {
             position: entt.location.into(),
             speed: 36.,
             acceleration: Vector3 {
+                x: 0.,
+                y: 0.,
+                z: 0.,
+            },
+            velocity: Vector3 {
                 x: 0.,
                 y: 0.,
                 z: 0.,
