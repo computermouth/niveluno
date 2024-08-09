@@ -83,7 +83,7 @@ impl EntityInstance for Player {
             let payload = mparse::unmarshal(&nmap).unwrap();
             let level = map::load(payload).unwrap();
             g_game::set_state(TopState::Play).unwrap();
-            g_game::set_and_init_level(level.clone()).unwrap();
+            g_game::stage_level(level.clone()).unwrap();
         } else {
             render::set_camera_pos(self.position).unwrap();
 

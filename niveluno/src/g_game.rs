@@ -14,6 +14,7 @@ use crate::d_floor::Floor;
 
 struct GameGod {
     pub current_level: Option<map::Map>,
+    pub next_level: Option<map::Map>,
     pub decor_inst: Vec<Box<dyn DecorInstance>>,
     pub entts_inst: Vec<Box<dyn EntityInstance>>,
     pub top_state: TopState,
@@ -47,6 +48,7 @@ pub fn init() -> Result<(), NUError> {
     unsafe {
         GAME_GOD = Some(GameGod {
             current_level: None,
+            next_level: None,
             decor_inst: vec![],
             entts_inst: vec![],
             top_state: TopState::Menu,
@@ -71,7 +73,7 @@ pub fn init() -> Result<(), NUError> {
         .ok_or_else(|| NUError::MiscError("menu map not found".to_string()))?;
     let payload = mparse::unmarshal(&menu).unwrap();
     let level = map::load(payload)?;
-    set_and_init_level(level.clone())?;
+    stage_level(level.clone())?;
 
     Ok(())
 }
@@ -97,10 +99,14 @@ pub fn set_state(ts: TopState) -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn set_and_init_level(level: map::Map) -> Result<(), NUError> {
+pub fn stage_level(level: map::Map) -> Result<(), NUError> {
     let gg = GameGod::get()?;
-    gg.current_level = Some(level);
-    let level = gg.current_level.as_ref().unwrap();
+    gg.next_level = Some(level);
+    Ok(())
+}
+
+pub fn init_level(level: &map::Map) -> Result<(), NUError> {
+    let gg = GameGod::get()?;
 
     let mut decor = vec![];
     for md in &level.map_decor {
@@ -148,9 +154,9 @@ pub fn set_and_init_level(level: map::Map) -> Result<(), NUError> {
 pub fn run() -> Result<(), NUError> {
     let gg = GameGod::get()?;
 
-    match gg.top_state {
-        TopState::Menu => {}
-        TopState::Play => {}
+    if gg.next_level.is_some() {
+        gg.current_level = gg.next_level.take();
+        init_level(gg.current_level.as_ref().unwrap())?;
     }
 
     for decor in &mut gg.decor_inst {
