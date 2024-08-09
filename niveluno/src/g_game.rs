@@ -154,6 +154,7 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
 pub fn run() -> Result<(), NUError> {
     let gg = GameGod::get()?;
 
+    // only swap in/out entities outside of the update loop
     if gg.next_level.is_some() {
         gg.current_level = gg.next_level.take();
         init_level(gg.current_level.as_ref().unwrap())?;

@@ -51,19 +51,26 @@ impl EntityInstance for Player {
             false => 2.5,
         };
 
-        // let y_mat = Matrix::rotate_y(self.yaw);
+        let y_mat = Matrix::rotate_y(self.yaw);
 
         self.acceleration = Vector3 {
             x: (key_r - key_l) as f32,
             y: 0.,
             z: (key_u - key_d) as f32,
-        }
-        .rotate_by(Quaternion {
-            x: 0.,
-            y: (self.yaw / 2.).sin(),
-            z: 0.,
-            w: (self.yaw / 2.).cos(),
-        }) * (self.speed * speed_factor);
+        }.transform_with(y_mat)
+        * (self.speed * speed_factor);
+
+        // self.acceleration = Vector3 {
+        //     x: (key_r - key_l) as f32,
+        //     y: 0.,
+        //     z: (key_u - key_d) as f32,
+        // }
+        // .rotate_by(Quaternion {
+        //     x: 0.,
+        //     y: (self.yaw / 2.).sin(),
+        //     z: 0.,
+        //     w: (self.yaw / 2.).cos(),
+        // }) * (self.speed * speed_factor);
 
         e_entity::update_physics(
             &mut self.acceleration,
