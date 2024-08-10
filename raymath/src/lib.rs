@@ -62,14 +62,12 @@ pub struct Float16 {
 
 /// Calculate linear interpolation between two floats
 pub fn lerp(start: f32, end: f32, amount: f32) -> f32 {
-    let result: f32 = start + amount * (end - start);
-    result
+    start + amount * (end - start)
 }
 
 /// Normalize input value within input range
 pub fn normalize(value: f32, start: f32, end: f32) -> f32 {
-    let result: f32 = (value - start) / (end - start);
-    result
+    (value - start) / (end - start)
 }
 
 /// Remap input value within input range to output range
@@ -80,16 +78,12 @@ pub fn remap(
     output_start: f32,
     output_end: f32,
 ) -> f32 {
-    let result: f32 = (value - input_start) / (input_end - input_start)
-        * (output_end - output_start)
-        + output_start;
-    result
+    (value - input_start) / (input_end - input_start) * (output_end - output_start) + output_start
 }
 
 /// Wrap input value from min to max
 pub fn wrap(value: f32, min: f32, max: f32) -> f32 {
-    let result: f32 = value - (max - min) * ((value - min) / (max - min)).floor();
-    result
+    value - (max - min) * (((value - min) / (max - min)).floor())
 }
 
 /// Check whether two given floats are almost equal
@@ -151,19 +145,17 @@ pub fn vector2_subtract_value(v: Vector2, sub: f32) -> Vector2 {
 
 /// Calculate vector length
 pub fn vector2_length(v: Vector2) -> f32 {
-    (v.x * v.x + v.y * v.y).sqrt()
+    ((v.x * v.x) + (v.y * v.y)).sqrt()
 }
 
 /// Calculate vector square length
 pub fn vector2_length_sqr(v: Vector2) -> f32 {
-    let result: f32 = v.x * v.x + v.y * v.y;
-    result
+    (v.x * v.x) + (v.y * v.y)
 }
 
 /// Calculate distance between two vectors
 pub fn vector2_dot_product(v1: Vector2, v2: Vector2) -> f32 {
-    let result: f32 = v1.x * v2.x + v1.y * v2.y;
-    result
+    v1.x * v2.x + v1.y * v2.y
 }
 
 /// Calculate distance between two vectors
@@ -173,18 +165,21 @@ pub fn vector2_distance(v1: Vector2, v2: Vector2) -> f32 {
 
 /// Calculate square distance between two vectors
 pub fn vector2_distance_sqr(v1: Vector2, v2: Vector2) -> f32 {
-    let result: f32 = (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y);
-    result
+    (v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)
 }
 
 /// Calculate angle between two vectors
 /// NOTE: Angle is calculated from origin point (0, 0)
 pub fn vector2_angle(v1: Vector2, v2: Vector2) -> f32 {
-    let dot: f32 = v1.x * v2.x + v1.y * v2.y;
-    let det: f32 = v1.x * v2.y - v1.y * v2.x;
+    let dot = v1.x * v2.x + v1.y * v2.y;
+    let det = v1.x * v2.y - v1.y * v2.x;
 
     det.atan2(dot)
 }
+
+// =======================================================
+// HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
+// =======================================================
 
 /// Calculate angle defined by a two vectors line
 /// NOTE: Parameters need to be normalized
@@ -344,7 +339,7 @@ pub fn vector2_equals(p: Vector2, q: Vector2) -> bool {
 }
 
 /// Compute the direction of a refracted ray
-/// 
+///
 /// v: normalized direction of the incoming ray
 /// n: normalized normal vector of the interface of two optical media
 /// r: ratio of the refractive index of the medium from where the ray comes
@@ -592,7 +587,7 @@ pub fn vector3_reject(v1: Vector3, v2: Vector3) -> Vector3 {
 }
 
 /// Orthonormalize provided vectors
-/// 
+///
 /// Makes vectors normalized and orthogonal to each other
 /// Gram-Schmidt function implementation
 pub fn vector3_ortho_normalize(v1: &mut Vector3, v2: &mut Vector3) {
@@ -605,7 +600,7 @@ pub fn vector3_ortho_normalize(v1: &mut Vector3, v2: &mut Vector3) {
     v1.x *= ilength;
     v1.y *= ilength;
     v1.z *= ilength;
-    
+
     let mut vn1 = Vector3 {
         x: v1.y * v2.z - v1.z * v2.y,
         y: v1.z * v2.x - v1.x * v2.z,
@@ -660,7 +655,7 @@ pub fn vector3_rotate_by_quaternion(v: Vector3, q: Quaternion) -> Vector3 {
 }
 
 /// Rotates a vector around an axis
-/// 
+///
 /// Using Euler-Rodrigues Formula
 /// Ref.: https://en.wikipedia.org/w/index.php?title=Euler%E2%80%93Rodrigues_formula
 pub fn vector3_rotate_by_axis_angle(v: Vector3, mut axis: Vector3, mut angle: f32) -> Vector3 {
@@ -740,7 +735,7 @@ pub fn vector3_lerp(v1: Vector3, v2: Vector3, amount: f32) -> Vector3 {
     result
 }
 /// Calculate cubic hermite interpolation between two vectors and their tangents
-/// 
+///
 /// as described in the GLTF 2.0 specification: https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#interpolation-cubic
 pub fn vector3_cubic_hermite(
     v1: Vector3,
@@ -808,7 +803,7 @@ pub fn vector3_max(v1: Vector3, v2: Vector3) -> Vector3 {
 }
 
 /// Compute barycenter coordinates (u, v, w) for point p with respect to triangle (a, b, c)
-/// 
+///
 /// NOTE: Assumes P is on the plane of the triangle
 pub fn vector3_barycenter(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> Vector3 {
     let mut result = Vector3 {
@@ -844,7 +839,7 @@ pub fn vector3_barycenter(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> Vec
 }
 
 /// Projects a Vector3 from screen space into object space
-/// 
+///
 /// NOTE: We are avoiding calling other raymath functions despite available
 pub fn vector3_unproject(source: Vector3, projection: Matrix, view: Matrix) -> Vector3 {
     let mut result = Vector3 {
@@ -1060,7 +1055,7 @@ pub fn vector3_equals(p: Vector3, q: Vector3) -> bool {
 }
 
 /// Compute the direction of a refracted ray
-/// 
+///
 /// v: normalized direction of the incoming ray
 /// n: normalized normal vector of the interface of two optical media
 /// r: ratio of the refractive index of the medium from where the ray comes

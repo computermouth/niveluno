@@ -57,8 +57,9 @@ impl EntityInstance for Player {
             x: (key_r - key_l) as f32,
             y: 0.,
             z: (key_u - key_d) as f32,
-        }.transform_with(y_mat)
-        * (self.speed * speed_factor);
+        }
+        .transform_with(y_mat)
+            * (self.speed * speed_factor);
 
         // self.acceleration = Vector3 {
         //     x: (key_r - key_l) as f32,
