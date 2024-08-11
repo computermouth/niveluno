@@ -20,6 +20,19 @@ pub struct Vector3 {
     pub y: f32,
     pub z: f32,
 }
+
+impl From<[f32; 3]> for Vector3 {
+    fn from(f: [f32; 3]) -> Self {
+        Self::new(f[0], f[1], f[2])
+    }
+}
+
+impl Vector3 {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self { x, y, z }
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct Vector4 {
     pub x: f32,
@@ -160,7 +173,7 @@ pub fn vector2_dot_product(v1: Vector2, v2: Vector2) -> f32 {
 
 /// Calculate distance between two vectors
 pub fn vector2_distance(v1: Vector2, v2: Vector2) -> f32 {
-    ((v1.x - v2.x) * (v1.x - v2.x) + (v1.y - v2.y) * (v1.y - v2.y)).sqrt()
+    vector2_distance_sqr(v1, v2).sqrt()
 }
 
 /// Calculate square distance between two vectors
@@ -185,6 +198,7 @@ pub fn vector2_angle(v1: Vector2, v2: Vector2) -> f32 {
 /// NOTE: Parameters need to be normalized
 /// Current implementation should be aligned with glm::angle
 pub fn vector2_line_angle(start: Vector2, end: Vector2) -> f32 {
+    // TODO(10/9/2023): Currently angles move clockwise, determine if this is wanted behavior
     -((end.y - start.y).atan2(end.x - start.x))
 }
 
@@ -222,7 +236,7 @@ pub fn vector2_normalize(v: Vector2) -> Vector2 {
     let mut result = Vector2 { x: 0., y: 0. };
     let length: f32 = (v.x * v.x + v.y * v.y).sqrt();
     if length > 0. {
-        let ilength: f32 = 1.0f32 / length;
+        let ilength = 1.0 / length;
         result.x = v.x * ilength;
         result.y = v.y * ilength;
     }
@@ -232,9 +246,9 @@ pub fn vector2_normalize(v: Vector2) -> Vector2 {
 /// Transforms a Vector2 by a given Matrix
 pub fn vector2_transform(v: Vector2, mat: Matrix) -> Vector2 {
     let mut result = Vector2 { x: 0., y: 0. };
-    let x: f32 = v.x;
-    let y: f32 = v.y;
-    let z: f32 = 0.;
+    let x = v.x;
+    let y = v.y;
+    let z = 0.;
     result.x = mat.m0 * x + mat.m4 * y + mat.m8 * z + mat.m12;
     result.y = mat.m1 * x + mat.m5 * y + mat.m9 * z + mat.m13;
     result
@@ -242,16 +256,16 @@ pub fn vector2_transform(v: Vector2, mat: Matrix) -> Vector2 {
 
 /// Calculate linear interpolation between two vectors
 pub fn vector2_lerp(v1: Vector2, v2: Vector2, amount: f32) -> Vector2 {
-    let mut result = Vector2 { x: 0., y: 0. };
-    result.x = v1.x + amount * (v2.x - v1.x);
-    result.y = v1.y + amount * (v2.y - v1.y);
-    result
+    Vector2 {
+        x: lerp(v1.x, v2.x, amount),
+        y: lerp(v1.y, v2.y, amount),
+    }
 }
 
 /// Calculate reflected vector to normal
 pub fn vector2_reflect(v: Vector2, normal: Vector2) -> Vector2 {
     let mut result = Vector2 { x: 0., y: 0. };
-    let dot_product: f32 = v.x * normal.x + v.y * normal.y;
+    let dot_product = vector2_dot_product(v, normal);
     result.x = v.x - 2.0f32 * normal.x * dot_product;
     result.y = v.y - 2.0f32 * normal.y * dot_product;
     result
@@ -276,8 +290,8 @@ pub fn vector2_max(v1: Vector2, v2: Vector2) -> Vector2 {
 /// Rotate vector by angle
 pub fn vector2_rotate(v: Vector2, angle: f32) -> Vector2 {
     let mut result = Vector2 { x: 0., y: 0. };
-    let cosres: f32 = angle.cos();
-    let sinres: f32 = angle.sin();
+    let cosres = angle.cos();
+    let sinres = angle.sin();
     result.x = v.x * cosres - v.y * sinres;
     result.y = v.x * sinres + v.y * cosres;
     result
@@ -286,9 +300,9 @@ pub fn vector2_rotate(v: Vector2, angle: f32) -> Vector2 {
 /// Move Vector towards target
 pub fn vector2_move_towards(v: Vector2, target: Vector2, max_distance: f32) -> Vector2 {
     let mut result = Vector2 { x: 0., y: 0. };
-    let dx: f32 = target.x - v.x;
-    let dy: f32 = target.y - v.y;
-    let value: f32 = dx * dx + dy * dy;
+    let dx = target.x - v.x;
+    let dy = target.y - v.y;
+    let value = dx * dx + dy * dy;
     if value == 0. || max_distance >= 0. && value <= max_distance * max_distance {
         return target;
     }
@@ -301,26 +315,26 @@ pub fn vector2_move_towards(v: Vector2, target: Vector2, max_distance: f32) -> V
 /// Invert the given vector
 pub fn vector2_invert(v: Vector2) -> Vector2 {
     Vector2 {
-        x: 1.0f32 / v.x,
-        y: 1.0f32 / v.y,
+        x: 1.0 / v.x,
+        y: 1.0 / v.y,
     }
 }
 
 /// Clamp the components of the vector between min and max values specified by the given vectors
 pub fn vector2_clamp(v: Vector2, min: Vector2, max: Vector2) -> Vector2 {
     let mut result = Vector2 { x: 0., y: 0. };
-    result.x = max.x.min(min.x.max(v.x));
-    result.y = max.y.min(min.y.max(v.y));
+    result.x = v.x.clamp(min.x, max.x);
+    result.y = v.y.clamp(min.y, max.y);
     result
 }
 
 /// Clamp the magnitude of the vector between two min and max values
 pub fn vector2_clamp_value(v: Vector2, min: f32, max: f32) -> Vector2 {
     let mut result: Vector2 = v;
-    let mut length: f32 = v.x * v.x + v.y * v.y;
+    let mut length = v.x * v.x + v.y * v.y;
     if length > 0.0 {
         length = length.sqrt();
-        let mut scale: f32 = 1.;
+        let mut scale = 1.;
         if length < min {
             scale = min / length;
         } else if length > max {
@@ -334,8 +348,7 @@ pub fn vector2_clamp_value(v: Vector2, min: f32, max: f32) -> Vector2 {
 
 /// Check whether two given vectors are almost equal
 pub fn vector2_equals(p: Vector2, q: Vector2) -> bool {
-    (p.x - q.x).abs() <= f32::EPSILON * 1.0f32.max(p.x.abs().max(q.x.abs()))
-        && (p.y - q.y).abs() <= f32::EPSILON * 1.0f32.max(p.y.abs().max(q.y.abs()))
+    float_equals(p.x, q.x) && float_equals(p.y, q.y)
 }
 
 /// Compute the direction of a refracted ray
@@ -346,7 +359,7 @@ pub fn vector2_equals(p: Vector2, q: Vector2) -> bool {
 ///    to the refractive index of the medium on the other side of the surface
 pub fn vector2_refract(mut v: Vector2, n: Vector2, r: f32) -> Vector2 {
     let mut result = Vector2 { x: 0., y: 0. };
-    let dot: f32 = v.x * n.x + v.y * n.y;
+    let dot: f32 = vector2_dot_product(v, n);
     let mut d: f32 = 1.0f32 - r * r * (1.0f32 - dot * dot);
     if d >= 0.0f32 {
         d = d.sqrt();
@@ -364,18 +377,18 @@ pub fn vector2_refract(mut v: Vector2, n: Vector2, r: f32) -> Vector2 {
 /// Vector with components value 0.0f
 pub fn vector3_zero() -> Vector3 {
     Vector3 {
-        x: 0.0f32,
-        y: 0.0f32,
-        z: 0.0f32,
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
     }
 }
 
 /// Vector with components value 1.0f
 pub fn vector3_one() -> Vector3 {
     Vector3 {
-        x: 1.0f32,
-        y: 1.0f32,
-        z: 1.0f32,
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
     }
 }
 
@@ -451,26 +464,26 @@ pub fn vector3_perpendicular(v: Vector3) -> Vector3 {
     };
     let mut min: f32 = v.x.abs();
     let mut cardinal_axis = Vector3 {
-        x: 1.0f32,
-        y: 0.0f32,
-        z: 0.0f32,
+        x: 1.0,
+        y: 0.0,
+        z: 0.0,
     };
     if v.y.abs() < min {
         min = v.y.abs();
         let tmp = Vector3 {
-            x: 0.0f32,
-            y: 1.0f32,
-            z: 0.0f32,
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
         };
         cardinal_axis = tmp;
     }
     if v.z.abs() < min {
-        let tmp_0 = Vector3 {
-            x: 0.0f32,
-            y: 0.0f32,
-            z: 1.0f32,
+        let tmp = Vector3 {
+            x: 0.0,
+            y: 0.0,
+            z: 1.0,
         };
-        cardinal_axis = tmp_0;
+        cardinal_axis = tmp;
     }
     result.x = v.y * cardinal_axis.z - v.z * cardinal_axis.y;
     result.y = v.z * cardinal_axis.x - v.x * cardinal_axis.z;
@@ -495,11 +508,7 @@ pub fn vector3_dot_product(v1: Vector3, v2: Vector3) -> f32 {
 
 /// Calculate distance between two vectors
 pub fn vector3_distance(v1: Vector3, v2: Vector3) -> f32 {
-    let dx: f32 = v2.x - v1.x;
-    let dy: f32 = v2.y - v1.y;
-    let dz: f32 = v2.z - v1.z;
-
-    (dx * dx + dy * dy + dz * dz).sqrt()
+    vector3_distance_sqr(v1, v2).sqrt()
 }
 
 /// Calculate square distance between two vectors
@@ -513,13 +522,9 @@ pub fn vector3_distance_sqr(v1: Vector3, v2: Vector3) -> f32 {
 
 /// Calculate angle between two vectors
 pub fn vector3_angle(v1: Vector3, v2: Vector3) -> f32 {
-    let cross = Vector3 {
-        x: v1.y * v2.z - v1.z * v2.y,
-        y: v1.z * v2.x - v1.x * v2.z,
-        z: v1.x * v2.y - v1.y * v2.x,
-    };
-    let len: f32 = (cross.x * cross.x + cross.y * cross.y + cross.z * cross.z).sqrt();
-    let dot: f32 = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
+    let cross = vector3_cross_product(v1, v2);
+    let len = vector3_length(cross);
+    let dot: f32 = vector3_dot_product(v1, v2);
     len.atan2(dot)
 }
 
@@ -544,30 +549,20 @@ pub fn vector3_divide(v1: Vector3, v2: Vector3) -> Vector3 {
 /// Normalize provided vector
 pub fn vector3_normalize(v: Vector3) -> Vector3 {
     let mut result: Vector3 = v;
-    let length: f32 = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
+    let length = vector3_length(v);
     if length != 0.0f32 {
         let ilength: f32 = 1.0f32 / length;
-        result.x *= ilength;
-        result.y *= ilength;
-        result.z *= ilength;
+        result = vector3_scale(result, ilength);
     }
     result
 }
 
 ///Calculate the projection of the vector v1 on to v2
 pub fn vector3_project(v1: Vector3, v2: Vector3) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
     let v1dv2: f32 = v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
     let v2dv2: f32 = v2.x * v2.x + v2.y * v2.y + v2.z * v2.z;
     let mag: f32 = v1dv2 / v2dv2;
-    result.x = v2.x * mag;
-    result.y = v2.y * mag;
-    result.z = v2.z * mag;
-    result
+    vector3_scale(v2, mag)
 }
 
 ///Calculate the rejection of the vector v1 on to v2
@@ -590,66 +585,34 @@ pub fn vector3_reject(v1: Vector3, v2: Vector3) -> Vector3 {
 ///
 /// Makes vectors normalized and orthogonal to each other
 /// Gram-Schmidt function implementation
-pub fn vector3_ortho_normalize(v1: &mut Vector3, v2: &mut Vector3) {
-    let mut v: Vector3 = *v1;
-    let mut length = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
-    if length == 0.0f32 {
-        length = 1.0f32;
-    }
-    let mut ilength = 1.0f32 / length;
-    v1.x *= ilength;
-    v1.y *= ilength;
-    v1.z *= ilength;
+pub fn vector3_ortho_normalize(v1: Vector3, v2: Vector3) -> (Vector3, Vector3) {
+    let v1_out = vector3_normalize(v1);
+    let vn = vector3_normalize(vector3_cross_product(v1_out, v2));
+    let v2_out = vector3_cross_product(vn, v1_out);
 
-    let mut vn1 = Vector3 {
-        x: v1.y * v2.z - v1.z * v2.y,
-        y: v1.z * v2.x - v1.x * v2.z,
-        z: v1.x * v2.y - v1.y * v2.x,
-    };
-    v = vn1;
-    length = (v.x * v.x + v.y * v.y + v.z * v.z).sqrt();
-    if length == 0.0f32 {
-        length = 1.0f32;
-    }
-    ilength = 1.0f32 / length;
-    vn1.x *= ilength;
-    vn1.y *= ilength;
-    vn1.z *= ilength;
-    let vn2 = Vector3 {
-        x: vn1.y * v1.z - vn1.z * v1.y,
-        y: vn1.z * v1.x - vn1.x * v1.z,
-        z: vn1.x * v1.y - vn1.y * v1.x,
-    };
-    *v2 = vn2;
+    (v1_out, v2_out)
 }
 
 /// Transforms a Vector3 by a given Matrix
 pub fn vector3_transform(v: Vector3, mat: Matrix) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
-    let x: f32 = v.x;
-    let y: f32 = v.y;
-    let z: f32 = v.z;
-    result.x = mat.m0 * x + mat.m4 * y + mat.m8 * z + mat.m12;
-    result.y = mat.m1 * x + mat.m5 * y + mat.m9 * z + mat.m13;
-    result.z = mat.m2 * x + mat.m6 * y + mat.m10 * z + mat.m14;
-    result
+    Vector3 {
+        x: mat.m0 * v.x + mat.m4 * v.y + mat.m8 * v.z + mat.m12,
+        y: mat.m1 * v.x + mat.m5 * v.y + mat.m9 * v.z + mat.m13,
+        z: mat.m2 * v.x + mat.m6 * v.y + mat.m10 * v.z + mat.m14,
+    }
 }
 
 /// Transform a vector by quaternion rotation
 pub fn vector3_rotate_by_quaternion(v: Vector3, q: Quaternion) -> Vector3 {
     Vector3 {
         x: v.x * (q.x * q.x + q.w * q.w - q.y * q.y - q.z * q.z)
-            + v.y * (2. * q.x * q.y - 2. * q.w * q.z)
-            + v.z * (2. * q.x * q.z + 2. * q.w * q.y),
-        y: v.x * (2. * q.w * q.z + 2. * q.x * q.y)
+            + v.y * (2.0 * q.x * q.y - 2.0 * q.w * q.z)
+            + v.z * (2.0 * q.x * q.z + 2.0 * q.w * q.y),
+        y: v.x * (2.0 * q.w * q.z + 2.0 * q.x * q.y)
             + v.y * (q.w * q.w - q.x * q.x + q.y * q.y - q.z * q.z)
-            + v.z * (-2. * q.w * q.x + 2. * q.y * q.z),
-        z: v.x * (-2. * q.w * q.y + 2. * q.x * q.z)
-            + v.y * (2. * q.w * q.x + 2. * q.y * q.z)
+            + v.z * (-2.0 * q.w * q.x + 2.0 * q.y * q.z),
+        z: v.x * (-2.0 * q.w * q.y + 2.0 * q.x * q.z)
+            + v.y * (2.0 * q.w * q.x + 2.0 * q.y * q.z)
             + v.z * (q.w * q.w - q.x * q.x - q.y * q.y + q.z * q.z),
     }
 }
@@ -658,47 +621,23 @@ pub fn vector3_rotate_by_quaternion(v: Vector3, q: Quaternion) -> Vector3 {
 ///
 /// Using Euler-Rodrigues Formula
 /// Ref.: https://en.wikipedia.org/w/index.php?title=Euler%E2%80%93Rodrigues_formula
-pub fn vector3_rotate_by_axis_angle(v: Vector3, mut axis: Vector3, mut angle: f32) -> Vector3 {
-    let mut result: Vector3 = v;
-    let mut length: f32 = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
-    if length == 0.0f32 {
-        length = 1.0f32;
-    }
-    let ilength: f32 = 1.0f32 / length;
-    axis.x *= ilength;
-    axis.y *= ilength;
-    axis.z *= ilength;
-    angle /= 2.0f32;
-    let mut a: f32 = angle.sin();
-    let b: f32 = axis.x * a;
-    let c: f32 = axis.y * a;
-    let d: f32 = axis.z * a;
-    a = angle.cos();
-    let w = Vector3 { x: b, y: c, z: d };
-    let mut wv = Vector3 {
-        x: w.y * v.z - w.z * v.y,
-        y: w.z * v.x - w.x * v.z,
-        z: w.x * v.y - w.y * v.x,
-    };
-    let mut wwv = Vector3 {
-        x: w.y * wv.z - w.z * wv.y,
-        y: w.z * wv.x - w.x * wv.z,
-        z: w.x * wv.y - w.y * wv.x,
-    };
-    a *= 2.;
-    wv.x *= a;
-    wv.y *= a;
-    wv.z *= a;
-    wwv.x *= 2.;
-    wwv.y *= 2.;
-    wwv.z *= 2.;
-    result.x += wv.x;
-    result.y += wv.y;
-    result.z += wv.z;
-    result.x += wwv.x;
-    result.y += wwv.y;
-    result.z += wwv.z;
-    result
+pub fn vector3_rotate_by_axis_angle(v: Vector3, axis: Vector3, angle: f32) -> Vector3 {
+    let n_axis = vector3_normalize(axis);
+    let h_angle = angle / 2.;
+
+    let mut a: f32 = h_angle.sin();
+
+    let w = vector3_scale(n_axis, a);
+
+    a = h_angle.cos();
+
+    let wv = vector3_cross_product(w, v);
+    let wwv = vector3_cross_product(w, wv);
+
+    let wv = vector3_scale(wv, 2. * a);
+    let wwv = vector3_scale(wwv, 2.);
+
+    vector3_add(vector3_add(v, wv), wwv)
 }
 
 /// Move Vector towards target
@@ -724,15 +663,11 @@ pub fn vector3_move_towards(v: Vector3, target: Vector3, max_distance: f32) -> V
 
 /// Calculate linear interpolation between two vectors
 pub fn vector3_lerp(v1: Vector3, v2: Vector3, amount: f32) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
-    result.x = v1.x + amount * (v2.x - v1.x);
-    result.y = v1.y + amount * (v2.y - v1.y);
-    result.z = v1.z + amount * (v2.z - v1.z);
-    result
+    Vector3 {
+        x: lerp(v1.x, v2.x, amount),
+        y: lerp(v1.y, v2.y, amount),
+        z: lerp(v1.z, v2.z, amount),
+    }
 }
 /// Calculate cubic hermite interpolation between two vectors and their tangents
 ///
@@ -764,78 +699,53 @@ pub fn vector3_cubic_hermite(
 
 /// Calculate reflected vector to normal
 pub fn vector3_reflect(v: Vector3, normal: Vector3) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
-    let dot_product: f32 = v.x * normal.x + v.y * normal.y + v.z * normal.z;
-    result.x = v.x - 2.0f32 * normal.x * dot_product;
-    result.y = v.y - 2.0f32 * normal.y * dot_product;
-    result.z = v.z - 2.0f32 * normal.z * dot_product;
-    result
+    let dot_product = vector3_dot_product(v, normal);
+    Vector3 {
+        x: v.x - (2.0 * normal.x) * dot_product,
+        y: v.y - (2.0 * normal.y) * dot_product,
+        z: v.z - (2.0 * normal.z) * dot_product,
+    }
 }
 
 /// Get min value for each pair of components
 pub fn vector3_min(v1: Vector3, v2: Vector3) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
-    result.x = v1.x.min(v2.x);
-    result.y = v1.y.min(v2.y);
-    result.z = v1.z.min(v2.z);
-    result
+    Vector3 {
+        x: v1.x.min(v2.x),
+        y: v1.y.min(v2.y),
+        z: v1.z.min(v2.z),
+    }
 }
 
 /// Get max value for each pair of components
 pub fn vector3_max(v1: Vector3, v2: Vector3) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
-    result.x = v1.x.max(v2.x);
-    result.y = v1.y.max(v2.y);
-    result.z = v1.z.max(v2.z);
-    result
+    Vector3 {
+        x: v1.x.max(v2.x),
+        y: v1.y.max(v2.y),
+        z: v1.z.max(v2.z),
+    }
 }
 
 /// Compute barycenter coordinates (u, v, w) for point p with respect to triangle (a, b, c)
 ///
 /// NOTE: Assumes P is on the plane of the triangle
 pub fn vector3_barycenter(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
-    let v0 = Vector3 {
-        x: b.x - a.x,
-        y: b.y - a.y,
-        z: b.z - a.z,
-    };
-    let v1 = Vector3 {
-        x: c.x - a.x,
-        y: c.y - a.y,
-        z: c.z - a.z,
-    };
-    let v2 = Vector3 {
-        x: p.x - a.x,
-        y: p.y - a.y,
-        z: p.z - a.z,
-    };
-    let d00: f32 = v0.x * v0.x + v0.y * v0.y + v0.z * v0.z;
-    let d01: f32 = v0.x * v1.x + v0.y * v1.y + v0.z * v1.z;
-    let d11: f32 = v1.x * v1.x + v1.y * v1.y + v1.z * v1.z;
-    let d20: f32 = v2.x * v0.x + v2.y * v0.y + v2.z * v0.z;
-    let d21: f32 = v2.x * v1.x + v2.y * v1.y + v2.z * v1.z;
-    let denom: f32 = d00 * d11 - d01 * d01;
-    result.y = (d11 * d20 - d01 * d21) / denom;
-    result.z = (d00 * d21 - d01 * d20) / denom;
-    result.x = 1.0f32 - (result.z + result.y);
-    result
+    let v0 = vector3_subtract(b, a);
+    let v1 = vector3_subtract(c, a);
+    let v2 = vector3_subtract(p, a);
+    let d00 = vector3_dot_product(v0, v0);
+    let d01 = vector3_dot_product(v0, v1);
+    let d11 = vector3_dot_product(v1, v1);
+    let d20 = vector3_dot_product(v2, v0);
+    let d21 = vector3_dot_product(v2, v1);
+    let denom = d00 * d11 - d01 * d01;
+
+    let y = (d11 * d20 - d01 * d21) / denom;
+    let z = (d00 * d21 - d01 * d20) / denom;
+    Vector3 {
+        x: 1.0 - (z + y),
+        y,
+        z,
+    }
 }
 
 /// Projects a Vector3 from screen space into object space
@@ -847,72 +757,7 @@ pub fn vector3_unproject(source: Vector3, projection: Matrix, view: Matrix) -> V
         y: 0.,
         z: 0.,
     };
-    let mat_view_proj = Matrix {
-        m0: view.m0 * projection.m0
-            + view.m1 * projection.m4
-            + view.m2 * projection.m8
-            + view.m3 * projection.m12,
-        m4: view.m0 * projection.m1
-            + view.m1 * projection.m5
-            + view.m2 * projection.m9
-            + view.m3 * projection.m13,
-        m8: view.m0 * projection.m2
-            + view.m1 * projection.m6
-            + view.m2 * projection.m10
-            + view.m3 * projection.m14,
-        m12: view.m0 * projection.m3
-            + view.m1 * projection.m7
-            + view.m2 * projection.m11
-            + view.m3 * projection.m15,
-        m1: view.m4 * projection.m0
-            + view.m5 * projection.m4
-            + view.m6 * projection.m8
-            + view.m7 * projection.m12,
-        m5: view.m4 * projection.m1
-            + view.m5 * projection.m5
-            + view.m6 * projection.m9
-            + view.m7 * projection.m13,
-        m9: view.m4 * projection.m2
-            + view.m5 * projection.m6
-            + view.m6 * projection.m10
-            + view.m7 * projection.m14,
-        m13: view.m4 * projection.m3
-            + view.m5 * projection.m7
-            + view.m6 * projection.m11
-            + view.m7 * projection.m15,
-        m2: view.m8 * projection.m0
-            + view.m9 * projection.m4
-            + view.m10 * projection.m8
-            + view.m11 * projection.m12,
-        m6: view.m8 * projection.m1
-            + view.m9 * projection.m5
-            + view.m10 * projection.m9
-            + view.m11 * projection.m13,
-        m10: view.m8 * projection.m2
-            + view.m9 * projection.m6
-            + view.m10 * projection.m10
-            + view.m11 * projection.m14,
-        m14: view.m8 * projection.m3
-            + view.m9 * projection.m7
-            + view.m10 * projection.m11
-            + view.m11 * projection.m15,
-        m3: view.m12 * projection.m0
-            + view.m13 * projection.m4
-            + view.m14 * projection.m8
-            + view.m15 * projection.m12,
-        m7: view.m12 * projection.m1
-            + view.m13 * projection.m5
-            + view.m14 * projection.m9
-            + view.m15 * projection.m13,
-        m11: view.m12 * projection.m2
-            + view.m13 * projection.m6
-            + view.m14 * projection.m10
-            + view.m15 * projection.m14,
-        m15: view.m12 * projection.m3
-            + view.m13 * projection.m7
-            + view.m14 * projection.m11
-            + view.m15 * projection.m15,
-    };
+    let mat_view_proj = matrix_multiply(view, projection);
     let a00: f32 = mat_view_proj.m0;
     let a01: f32 = mat_view_proj.m1;
     let a02: f32 = mat_view_proj.m2;
@@ -967,24 +812,7 @@ pub fn vector3_unproject(source: Vector3, projection: Matrix, view: Matrix) -> V
         z: source.z,
         w: 1.0f32,
     };
-    let qtransformed = Quaternion {
-        x: mat_view_proj_inv.m0 * quat.x
-            + mat_view_proj_inv.m4 * quat.y
-            + mat_view_proj_inv.m8 * quat.z
-            + mat_view_proj_inv.m12 * quat.w,
-        y: mat_view_proj_inv.m1 * quat.x
-            + mat_view_proj_inv.m5 * quat.y
-            + mat_view_proj_inv.m9 * quat.z
-            + mat_view_proj_inv.m13 * quat.w,
-        z: mat_view_proj_inv.m2 * quat.x
-            + mat_view_proj_inv.m6 * quat.y
-            + mat_view_proj_inv.m10 * quat.z
-            + mat_view_proj_inv.m14 * quat.w,
-        w: mat_view_proj_inv.m3 * quat.x
-            + mat_view_proj_inv.m7 * quat.y
-            + mat_view_proj_inv.m11 * quat.z
-            + mat_view_proj_inv.m15 * quat.w,
-    };
+    let qtransformed = quaternion_transform(quat, mat_view_proj_inv);
     result.x = qtransformed.x / qtransformed.w;
     result.y = qtransformed.y / qtransformed.w;
     result.z = qtransformed.z / qtransformed.w;
@@ -998,11 +826,7 @@ pub fn vector3_to_float(v: Vector3) -> [f32; 3] {
 
 /// Get Vector3 as float array
 pub fn vector3_to_float_v(v: Vector3) -> Float3 {
-    let mut buffer = Float3 { v: [0., 0., 0.] };
-    buffer.v[0] = v.x;
-    buffer.v[1] = v.y;
-    buffer.v[2] = v.z;
-    buffer
+    Float3 { v: [v.x, v.y, v.z] }
 }
 
 /// Invert the given vector
@@ -1017,15 +841,11 @@ pub fn vector3_invert(v: Vector3) -> Vector3 {
 /// Clamp the components of the vector between
 /// min and max values specified by the given vectors
 pub fn vector3_clamp(v: Vector3, min: Vector3, max: Vector3) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
-    result.x = max.x.min(min.x.max(v.x));
-    result.y = max.y.min(min.y.max(v.y));
-    result.z = max.z.min(min.z.max(v.z));
-    result
+    Vector3 {
+        x: v.x.clamp(min.x, max.x),
+        y: v.y.clamp(min.y, max.y),
+        z: v.z.clamp(min.z, max.z),
+    }
 }
 
 /// Clamp the magnitude of the vector between two values
@@ -1049,9 +869,7 @@ pub fn vector3_clamp_value(v: Vector3, min: f32, max: f32) -> Vector3 {
 
 /// Check whether two given vectors are almost equal
 pub fn vector3_equals(p: Vector3, q: Vector3) -> bool {
-    (p.x - q.x).abs() <= f32::EPSILON * 1.0f32.max((p.x).abs().max((q.x).abs()))
-        && (p.y - q.y).abs() <= f32::EPSILON * 1.0f32.max((p.y).abs().max((q.y).abs()))
-        && (p.z - q.z).abs() <= f32::EPSILON * 1.0f32.max((p.z).abs().max((q.z).abs()))
+    float_equals(p.x, q.x) && float_equals(p.y, q.y) && float_equals(p.z, q.z)
 }
 
 /// Compute the direction of a refracted ray
@@ -1066,8 +884,8 @@ pub fn vector3_refract(mut v: Vector3, n: Vector3, r: f32) -> Vector3 {
         y: 0.,
         z: 0.,
     };
-    let dot: f32 = v.x * n.x + v.y * n.y + v.z * n.z;
-    let mut d: f32 = 1.0f32 - r * r * (1.0f32 - dot * dot);
+    let dot = vector3_dot_product(v, n);
+    let mut d: f32 = 1.0 - r * r * (1.0 - dot * dot);
     if d >= 0.0f32 {
         d = d.sqrt();
         v.x = r * v.x - (r * dot + d) * n.x;
@@ -1084,19 +902,19 @@ pub fn vector3_refract(mut v: Vector3, n: Vector3, r: f32) -> Vector3 {
 
 pub fn vector4_zero() -> Vector4 {
     Vector4 {
-        x: 0.0f32,
-        y: 0.0f32,
-        z: 0.0f32,
-        w: 0.0f32,
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 0.0,
     }
 }
 
 pub fn vector4_one() -> Vector4 {
     Vector4 {
-        x: 1.0f32,
-        y: 1.0f32,
-        z: 1.0f32,
-        w: 1.0f32,
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        w: 1.0,
     }
 }
 
@@ -1137,7 +955,7 @@ pub fn vector4_subtract_value(v: Vector4, add: f32) -> Vector4 {
 }
 
 pub fn vector4_length(v: Vector4) -> f32 {
-    (v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w).sqrt()
+    vector4_length_sqr(v).sqrt()
 }
 
 pub fn vector4_length_sqr(v: Vector4) -> f32 {
@@ -1206,21 +1024,18 @@ pub fn vector4_divide(v1: Vector4, v2: Vector4) -> Vector4 {
 
 /// Normalize provided vector
 pub fn vector4_normalize(v: Vector4) -> Vector4 {
-    let mut result = Vector4 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
-    let length: f32 = (v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w).sqrt();
-    if length > 0. {
-        let ilength: f32 = 1.0f32 / length;
-        result.x = v.x * ilength;
-        result.y = v.y * ilength;
-        result.z = v.z * ilength;
-        result.w = v.w * ilength;
+    let mut length: f32 = vector4_length(v);
+    if length == 0.0 {
+        length = 1.0;
     }
-    result
+    let ilength = 1.0 / length;
+
+    Quaternion {
+        x: v.x * ilength,
+        y: v.y * ilength,
+        z: v.z * ilength,
+        w: v.w * ilength,
+    }
 }
 
 /// Get min value for each pair of components
@@ -1235,42 +1050,26 @@ pub fn vector4_min(v1: Vector4, v2: Vector4) -> Vector4 {
 
 /// Get max value for each pair of components
 pub fn vector4_max(v1: Vector4, v2: Vector4) -> Vector4 {
-    let mut result = Vector4 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
-    result.x = v1.x.max(v2.x);
-    result.y = v1.y.max(v2.y);
-    result.z = v1.z.max(v2.z);
-    result.w = v1.w.max(v2.w);
-    result
+    Vector4 {
+        x: v1.x.max(v2.x),
+        y: v1.y.max(v2.y),
+        z: v1.z.max(v2.z),
+        w: v1.w.max(v2.w),
+    }
 }
 
 /// Calculate linear interpolation between two vectors
 pub fn vector4_lerp(v1: Vector4, v2: Vector4, amount: f32) -> Vector4 {
-    let mut result = Vector4 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
-    result.x = v1.x + amount * (v2.x - v1.x);
-    result.y = v1.y + amount * (v2.y - v1.y);
-    result.z = v1.z + amount * (v2.z - v1.z);
-    result.w = v1.w + amount * (v2.w - v1.w);
-    result
+    Vector4 {
+        x: lerp(v1.x, v2.x, amount),
+        y: lerp(v1.y, v2.y, amount),
+        z: lerp(v1.z, v2.z, amount),
+        w: lerp(v1.w, v2.w, amount),
+    }
 }
 
 /// Move Vector towards target
 pub fn vector4_move_towards(v: Vector4, target: Vector4, max_distance: f32) -> Vector4 {
-    let mut result = Vector4 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
     let dx: f32 = target.x - v.x;
     let dy: f32 = target.y - v.y;
     let dz: f32 = target.z - v.z;
@@ -1280,29 +1079,30 @@ pub fn vector4_move_towards(v: Vector4, target: Vector4, max_distance: f32) -> V
         return target;
     }
     let dist: f32 = value.sqrt();
-    result.x = v.x + dx / dist * max_distance;
-    result.y = v.y + dy / dist * max_distance;
-    result.z = v.z + dz / dist * max_distance;
-    result.w = v.w + dw / dist * max_distance;
-    result
+    Vector4 {
+        x: v.x + dx / dist * max_distance,
+        y: v.y + dy / dist * max_distance,
+        z: v.z + dz / dist * max_distance,
+        w: v.w + dw / dist * max_distance,
+    }
 }
 
 /// Invert the given vector
 pub fn vector4_invert(v: Vector4) -> Vector4 {
     Vector4 {
-        x: 1.0f32 / v.x,
-        y: 1.0f32 / v.y,
-        z: 1.0f32 / v.z,
-        w: 1.0f32 / v.w,
+        x: 1.0 / v.x,
+        y: 1.0 / v.y,
+        z: 1.0 / v.z,
+        w: 1.0 / v.w,
     }
 }
 
 /// Check whether two given vectors are almost equal
 pub fn vector4_equals(p: Vector4, q: Vector4) -> bool {
-    (p.x - q.x).abs() <= f32::EPSILON * 1.0f32.max((p.x).abs().max((q.x).abs()))
-        && (p.y - q.y).abs() <= f32::EPSILON * 1.0f32.max((p.y).abs().max((q.y).abs()))
-        && (p.z - q.z).abs() <= f32::EPSILON * 1.0f32.max((p.z).abs().max((q.z).abs()))
-        && (p.w - q.w).abs() <= f32::EPSILON * 1.0f32.max((p.w).abs().max((q.w).abs()))
+    float_equals(p.x, q.x)
+        && float_equals(p.y, q.y)
+        && float_equals(p.z, q.z)
+        && float_equals(p.w, q.w)
 }
 
 //----------------------------------------------------------------------------------
@@ -1381,24 +1181,6 @@ pub fn matrix_transpose(mat: Matrix) -> Matrix {
 
 /// Invert provided matrix
 pub fn matrix_invert(mat: Matrix) -> Matrix {
-    let mut result = Matrix {
-        m0: 0.,
-        m4: 0.,
-        m8: 0.,
-        m12: 0.,
-        m1: 0.,
-        m5: 0.,
-        m9: 0.,
-        m13: 0.,
-        m2: 0.,
-        m6: 0.,
-        m10: 0.,
-        m14: 0.,
-        m3: 0.,
-        m7: 0.,
-        m11: 0.,
-        m15: 0.,
-    };
     let a00: f32 = mat.m0;
     let a01: f32 = mat.m1;
     let a02: f32 = mat.m2;
@@ -1429,23 +1211,24 @@ pub fn matrix_invert(mat: Matrix) -> Matrix {
     let b11: f32 = a22 * a33 - a23 * a32;
     let inv_det: f32 =
         1.0f32 / (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06);
-    result.m0 = (a11 * b11 - a12 * b10 + a13 * b09) * inv_det;
-    result.m1 = (-a01 * b11 + a02 * b10 - a03 * b09) * inv_det;
-    result.m2 = (a31 * b05 - a32 * b04 + a33 * b03) * inv_det;
-    result.m3 = (-a21 * b05 + a22 * b04 - a23 * b03) * inv_det;
-    result.m4 = (-a10 * b11 + a12 * b08 - a13 * b07) * inv_det;
-    result.m5 = (a00 * b11 - a02 * b08 + a03 * b07) * inv_det;
-    result.m6 = (-a30 * b05 + a32 * b02 - a33 * b01) * inv_det;
-    result.m7 = (a20 * b05 - a22 * b02 + a23 * b01) * inv_det;
-    result.m8 = (a10 * b10 - a11 * b08 + a13 * b06) * inv_det;
-    result.m9 = (-a00 * b10 + a01 * b08 - a03 * b06) * inv_det;
-    result.m10 = (a30 * b04 - a31 * b02 + a33 * b00) * inv_det;
-    result.m11 = (-a20 * b04 + a21 * b02 - a23 * b00) * inv_det;
-    result.m12 = (-a10 * b09 + a11 * b07 - a12 * b06) * inv_det;
-    result.m13 = (a00 * b09 - a01 * b07 + a02 * b06) * inv_det;
-    result.m14 = (-a30 * b03 + a31 * b01 - a32 * b00) * inv_det;
-    result.m15 = (a20 * b03 - a21 * b01 + a22 * b00) * inv_det;
-    result
+    Matrix {
+        m0: ((a11 * b11) - (a12 * b10) + (a13 * b09)) * inv_det,
+        m1: ((-a01 * b11) + (a02 * b10) - (a03 * b09)) * inv_det,
+        m2: ((a31 * b05) - (a32 * b04) + (a33 * b03)) * inv_det,
+        m3: ((-a21 * b05) + (a22 * b04) - (a23 * b03)) * inv_det,
+        m4: ((-a10 * b11) + (a12 * b08) - (a13 * b07)) * inv_det,
+        m5: ((a00 * b11) - (a02 * b08) + (a03 * b07)) * inv_det,
+        m6: ((-a30 * b05) + (a32 * b02) - (a33 * b01)) * inv_det,
+        m7: ((a20 * b05) - (a22 * b02) + (a23 * b01)) * inv_det,
+        m8: ((a10 * b10) - (a11 * b08) + (a13 * b06)) * inv_det,
+        m9: ((-a00 * b10) + (a01 * b08) - (a03 * b06)) * inv_det,
+        m10: ((a30 * b04) - (a31 * b02) + (a33 * b00)) * inv_det,
+        m11: ((-a20 * b04) + (a21 * b02) - (a23 * b00)) * inv_det,
+        m12: ((-a10 * b09) + (a11 * b07) - (a12 * b06)) * inv_det,
+        m13: ((a00 * b09) - (a01 * b07) + (a02 * b06)) * inv_det,
+        m14: ((-a30 * b03) + (a31 * b01) - (a32 * b00)) * inv_det,
+        m15: ((a20 * b03) - (a21 * b01) + (a22 * b00)) * inv_det,
+    }
 }
 
 /// Get identity matrix
@@ -1621,24 +1404,7 @@ pub fn matrix_rotate(axis: Vector3, angle: f32) -> Matrix {
 /// Get x-rotation matrix
 /// NOTE: Angle must be provided in radians
 pub fn matrix_rotate_x(angle: f32) -> Matrix {
-    let mut result = Matrix {
-        m0: 1.0f32,
-        m4: 0.0f32,
-        m8: 0.0f32,
-        m12: 0.0f32,
-        m1: 0.0f32,
-        m5: 1.0f32,
-        m9: 0.0f32,
-        m13: 0.0f32,
-        m2: 0.0f32,
-        m6: 0.0f32,
-        m10: 1.0f32,
-        m14: 0.0f32,
-        m3: 0.0f32,
-        m7: 0.0f32,
-        m11: 0.0f32,
-        m15: 1.0f32,
-    };
+    let mut result = matrix_identity();
     let cosres: f32 = angle.cos();
     let sinres: f32 = angle.sin();
     result.m5 = cosres;
@@ -1651,24 +1417,7 @@ pub fn matrix_rotate_x(angle: f32) -> Matrix {
 /// Get y-rotation matrix
 /// NOTE: Angle must be provided in radians
 pub fn matrix_rotate_y(angle: f32) -> Matrix {
-    let mut result = Matrix {
-        m0: 1.0f32,
-        m4: 0.0f32,
-        m8: 0.0f32,
-        m12: 0.0f32,
-        m1: 0.0f32,
-        m5: 1.0f32,
-        m9: 0.0f32,
-        m13: 0.0f32,
-        m2: 0.0f32,
-        m6: 0.0f32,
-        m10: 1.0f32,
-        m14: 0.0f32,
-        m3: 0.0f32,
-        m7: 0.0f32,
-        m11: 0.0f32,
-        m15: 1.0f32,
-    };
+    let mut result = matrix_identity();
     let cosres: f32 = angle.cos();
     let sinres: f32 = angle.sin();
     result.m0 = cosres;
@@ -1681,24 +1430,7 @@ pub fn matrix_rotate_y(angle: f32) -> Matrix {
 /// Get z-rotation matrix
 /// NOTE: Angle must be provided in radians
 pub fn matrix_rotate_z(angle: f32) -> Matrix {
-    let mut result = Matrix {
-        m0: 1.0f32,
-        m4: 0.0f32,
-        m8: 0.0f32,
-        m12: 0.0f32,
-        m1: 0.0f32,
-        m5: 1.0f32,
-        m9: 0.0f32,
-        m13: 0.0f32,
-        m2: 0.0f32,
-        m6: 0.0f32,
-        m10: 1.0f32,
-        m14: 0.0f32,
-        m3: 0.0f32,
-        m7: 0.0f32,
-        m11: 0.0f32,
-        m15: 1.0f32,
-    };
+    let mut result = matrix_identity();
     let cosres: f32 = angle.cos();
     let sinres: f32 = angle.sin();
     result.m0 = cosres;
@@ -1711,39 +1443,27 @@ pub fn matrix_rotate_z(angle: f32) -> Matrix {
 /// Get xyz-rotation matrix
 /// NOTE: Angle must be provided in radians
 pub fn matrix_rotate_xyz(angle: Vector3) -> Matrix {
-    let mut result = Matrix {
-        m0: 1.0f32,
-        m4: 0.0f32,
-        m8: 0.0f32,
-        m12: 0.0f32,
-        m1: 0.0f32,
-        m5: 1.0f32,
-        m9: 0.0f32,
-        m13: 0.0f32,
-        m2: 0.0f32,
-        m6: 0.0f32,
-        m10: 1.0f32,
-        m14: 0.0f32,
-        m3: 0.0f32,
-        m7: 0.0f32,
-        m11: 0.0f32,
-        m15: 1.0f32,
-    };
+    let mut result = matrix_identity();
+
     let cosz: f32 = (-angle.z).cos();
     let sinz: f32 = (-angle.z).sin();
     let cosy: f32 = (-angle.y).cos();
     let siny: f32 = (-angle.y).sin();
     let cosx: f32 = (-angle.x).cos();
     let sinx: f32 = (-angle.x).sin();
+
     result.m0 = cosz * cosy;
     result.m1 = cosz * siny * sinx - sinz * cosx;
     result.m2 = cosz * siny * cosx + sinz * sinx;
+
     result.m4 = sinz * cosy;
     result.m5 = sinz * siny * sinx + cosz * cosx;
     result.m6 = sinz * siny * cosx - cosz * sinx;
+
     result.m8 = -siny;
     result.m9 = cosy * sinx;
     result.m10 = cosy * cosx;
+
     result
 }
 
@@ -2099,28 +1819,19 @@ pub fn quaternion_length(q: Quaternion) -> f32 {
 
 /// Normalize provided quaternion
 pub fn quaternion_normalize(q: Quaternion) -> Quaternion {
-    let mut result = Quaternion {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
-    let mut length: f32 = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
+    let mut length: f32 = vector4_length(q);
     if length == 0.0f32 {
         length = 1.0f32;
     }
     let ilength: f32 = 1.0f32 / length;
-    result.x = q.x * ilength;
-    result.y = q.y * ilength;
-    result.z = q.z * ilength;
-    result.w = q.w * ilength;
-    result
+
+    vector4_scale(q, ilength)
 }
 
 /// Invert provided quaternion
 pub fn quaternion_invert(q: Quaternion) -> Quaternion {
     let mut result: Quaternion = q;
-    let length_sq: f32 = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+    let length_sq: f32 = vector4_length_sqr(q);
     if length_sq != 0.0f32 {
         let inv_length: f32 = 1.0f32 / length_sq;
         result.x *= -inv_length;
@@ -2186,67 +1897,40 @@ pub fn quaternion_lerp(q1: Quaternion, q2: Quaternion, amount: f32) -> Quaternio
 
 /// Calculate slerp-optimized interpolation between two quaternions
 pub fn quaternion_nlerp(q1: Quaternion, q2: Quaternion, amount: f32) -> Quaternion {
-    let mut result = Quaternion {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
-    result.x = q1.x + amount * (q2.x - q1.x);
-    result.y = q1.y + amount * (q2.y - q1.y);
-    result.z = q1.z + amount * (q2.z - q1.z);
-    result.w = q1.w + amount * (q2.w - q1.w);
-    let q: Quaternion = result;
-    let mut length: f32 = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
-    if length == 0.0f32 {
-        length = 1.0f32;
-    }
-    let ilength: f32 = 1.0f32 / length;
-    result.x = q.x * ilength;
-    result.y = q.y * ilength;
-    result.z = q.z * ilength;
-    result.w = q.w * ilength;
-    result
+    quaternion_normalize(quaternion_lerp(q1, q2, amount))
 }
 
 /// Calculates spherical linear interpolation between two quaternions
-pub fn quaternion_slerp(q1: Quaternion, mut q2: Quaternion, amount: f32) -> Quaternion {
-    let mut result = Quaternion {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
-    let mut cos_half_theta: f32 = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
-    if cos_half_theta < 0. {
-        q2.x = -q2.x;
-        q2.y = -q2.y;
-        q2.z = -q2.z;
-        q2.w = -q2.w;
-        cos_half_theta = -cos_half_theta;
-    }
-    if cos_half_theta.abs() >= 1.0f32 {
-        result = q1;
-    } else if cos_half_theta > 0.95f32 {
-        result = quaternion_nlerp(q1, q2, amount);
+pub fn quaternion_slerp(q1: Quaternion, q2: Quaternion, amount: f32) -> Quaternion {
+    let cos_half_theta = q1.x * q2.x + q1.y * q2.y + q1.z * q2.z + q1.w * q2.w;
+
+    if cos_half_theta.abs() >= 1.0 {
+        q1
+    } else if cos_half_theta > 0.95 {
+        quaternion_nlerp(q1, q2, amount)
     } else {
-        let half_theta: f32 = cos_half_theta.acos();
-        let sin_half_theta: f32 = (1.0f32 - cos_half_theta * cos_half_theta).sqrt();
-        if sin_half_theta.abs() < f32::EPSILON {
-            result.x = q1.x * 0.5f32 + q2.x * 0.5f32;
-            result.y = q1.y * 0.5f32 + q2.y * 0.5f32;
-            result.z = q1.z * 0.5f32 + q2.z * 0.5f32;
-            result.w = q1.w * 0.5f32 + q2.w * 0.5f32;
+        let half_theta = cos_half_theta.acos();
+        let sin_half_theta = (1.0 - cos_half_theta * cos_half_theta).sqrt();
+
+        if sin_half_theta.abs() < 0.001 {
+            Quaternion {
+                x: (q1.x * 0.5 + q2.x * 0.5),
+                y: (q1.y * 0.5 + q2.y * 0.5),
+                z: (q1.z * 0.5 + q2.z * 0.5),
+                w: (q1.w * 0.5 + q2.w * 0.5),
+            }
         } else {
-            let ratio_a: f32 = ((1. - amount) * half_theta).sin() / sin_half_theta;
-            let ratio_b: f32 = (amount * half_theta).sin() / sin_half_theta;
-            result.x = q1.x * ratio_a + q2.x * ratio_b;
-            result.y = q1.y * ratio_a + q2.y * ratio_b;
-            result.z = q1.z * ratio_a + q2.z * ratio_b;
-            result.w = q1.w * ratio_a + q2.w * ratio_b;
+            let ratio_a = ((1.0 - amount) * half_theta).sin() / sin_half_theta;
+            let ratio_b = (amount * half_theta).sin() / sin_half_theta;
+
+            Quaternion {
+                x: (q1.x * ratio_a + q2.x * ratio_b),
+                y: (q1.y * ratio_a + q2.y * ratio_b),
+                z: (q1.z * ratio_a + q2.z * ratio_b),
+                w: (q1.w * ratio_a + q2.w * ratio_b),
+            }
         }
     }
-    result
 }
 
 /// Calculate quaternion cubic spline interpolation using Cubic Hermite Spline algorithm
@@ -2279,33 +1963,13 @@ pub fn quaternion_cubic_hermite_spline(
 
 /// Calculate quaternion based on the rotation from one vector to another
 pub fn quaternion_from_vector3_to_vector3(from: Vector3, to: Vector3) -> Quaternion {
-    let mut result = Quaternion {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-        w: 0.,
-    };
-    let cos2_theta: f32 = from.x * to.x + from.y * to.y + from.z * to.z;
-    let cross = Vector3 {
-        x: from.y * to.z - from.z * to.y,
-        y: from.z * to.x - from.x * to.z,
-        z: from.x * to.y - from.y * to.x,
-    };
-    result.x = cross.x;
-    result.y = cross.y;
-    result.z = cross.z;
-    result.w = 1.0f32 + cos2_theta;
-    let q: Quaternion = result;
-    let mut length: f32 = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
-    if length == 0.0f32 {
-        length = 1.0f32;
-    }
-    let ilength: f32 = 1.0f32 / length;
-    result.x = q.x * ilength;
-    result.y = q.y * ilength;
-    result.z = q.z * ilength;
-    result.w = q.w * ilength;
-    result
+    let cross = vector3_cross_product(from, to);
+    vector4_normalize(Quaternion {
+        x: cross.x,
+        y: cross.y,
+        z: cross.z,
+        w: 1.0 + vector3_dot_product(from, to),
+    })
 }
 
 /// Get a quaternion for a given rotation matrix
@@ -2368,24 +2032,7 @@ pub fn quaternion_from_matrix(mat: Matrix) -> Quaternion {
 
 /// Get a matrix for a given quaternion
 pub fn quaternion_to_matrix(q: Quaternion) -> Matrix {
-    let mut result = Matrix {
-        m0: 1.0f32,
-        m4: 0.0f32,
-        m8: 0.0f32,
-        m12: 0.0f32,
-        m1: 0.0f32,
-        m5: 1.0f32,
-        m9: 0.0f32,
-        m13: 0.0f32,
-        m2: 0.0f32,
-        m6: 0.0f32,
-        m10: 1.0f32,
-        m14: 0.0f32,
-        m3: 0.0f32,
-        m7: 0.0f32,
-        m11: 0.0f32,
-        m15: 1.0f32,
-    };
+    let mut result = matrix_identity();
     let a2: f32 = q.x * q.x;
     let b2: f32 = q.y * q.y;
     let c2: f32 = q.z * q.z;
@@ -2419,30 +2066,17 @@ pub fn quaternion_from_axis_angle(mut axis: Vector3, mut angle: f32) -> Quaterni
     let axis_length: f32 = (axis.x * axis.x + axis.y * axis.y + axis.z * axis.z).sqrt();
     if axis_length != 0.0f32 {
         angle *= 0.5f32;
-        let mut length = axis_length;
-        if length == 0.0f32 {
-            length = 1.0f32;
-        }
-        let mut ilength = 1.0f32 / length;
-        axis.x *= ilength;
-        axis.y *= ilength;
-        axis.z *= ilength;
+
+        let axis = vector3_normalize(axis);
+
         let sinres: f32 = angle.sin();
         let cosres: f32 = angle.cos();
         result.x = axis.x * sinres;
         result.y = axis.y * sinres;
         result.z = axis.z * sinres;
         result.w = cosres;
-        let q: Quaternion = result;
-        length = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
-        if length == 0.0f32 {
-            length = 1.0f32;
-        }
-        ilength = 1.0f32 / length;
-        result.x = q.x * ilength;
-        result.y = q.y * ilength;
-        result.z = q.z * ilength;
-        result.w = q.w * ilength;
+
+        result = quaternion_normalize(result);
     }
     result
 }
@@ -2450,15 +2084,7 @@ pub fn quaternion_from_axis_angle(mut axis: Vector3, mut angle: f32) -> Quaterni
 /// Get the rotation angle and axis for a given quaternion
 pub fn quaternion_to_axis_angle(mut q: Quaternion, out_axis: &mut Vector3, out_angle: &mut f32) {
     if q.w.abs() > 1.0f32 {
-        let mut length: f32 = (q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w).sqrt();
-        if length == 0.0f32 {
-            length = 1.0f32;
-        }
-        let ilength: f32 = 1.0f32 / length;
-        q.x *= ilength;
-        q.y *= ilength;
-        q.z *= ilength;
-        q.w *= ilength;
+        q = quaternion_normalize(q);
     }
     let mut res_axis = Vector3 {
         x: 0.0f32,
@@ -2509,13 +2135,19 @@ pub fn quaternion_to_euler(q: Quaternion) -> Vector3 {
         y: 0.,
         z: 0.,
     };
+
+    // Roll (x-axis rotation)
     let x0: f32 = 2.0f32 * (q.w * q.x + q.y * q.z);
     let x1: f32 = 1.0f32 - 2.0f32 * (q.x * q.x + q.y * q.y);
     result.x = x0.atan2(x1);
+
+    // Pitch (y-axis rotation)
     let mut y0: f32 = 2.0f32 * (q.w * q.y - q.z * q.x);
     y0 = if y0 > 1.0f32 { 1.0f32 } else { y0 };
     y0 = if y0 < -1.0f32 { -1.0f32 } else { y0 };
     result.y = y0.asin();
+
+    // Yaw (z-axis rotation)
     let z0: f32 = 2.0f32 * (q.w * q.z + q.x * q.y);
     let z1: f32 = 1.0f32 - 2.0f32 * (q.y * q.y + q.z * q.z);
     result.z = z0.atan2(z1);
@@ -2534,14 +2166,7 @@ pub fn quaternion_transform(q: Quaternion, mat: Matrix) -> Quaternion {
 
 /// Check whether two given quaternions are almost equal
 pub fn quaternion_equals(p: Quaternion, q: Quaternion) -> bool {
-    (p.x - q.x).abs() <= f32::EPSILON * 1.0f32.max((p.x).abs().max((q.x).abs()))
-        && (p.y - q.y).abs() <= f32::EPSILON * 1.0f32.max((p.y).abs().max((q.y).abs()))
-        && (p.z - q.z).abs() <= f32::EPSILON * 1.0f32.max((p.z).abs().max((q.z).abs()))
-        && (p.w - q.w).abs() <= f32::EPSILON * 1.0f32.max((p.w).abs().max((q.w).abs()))
-        || (p.x + q.x).abs() <= f32::EPSILON * 1.0f32.max((p.x).abs().max((q.x).abs()))
-            && (p.y + q.y).abs() <= f32::EPSILON * 1.0f32.max((p.y).abs().max((q.y).abs()))
-            && (p.z + q.z).abs() <= f32::EPSILON * 1.0f32.max((p.z).abs().max((q.z).abs()))
-            && (p.w + q.w).abs() <= f32::EPSILON * 1.0f32.max((p.w).abs().max((q.w).abs()))
+    vector4_equals(p, q)
 }
 
 /// Decompose a transformation matrix into its rotational, translational and scaling components

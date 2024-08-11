@@ -2,7 +2,7 @@
 // other_e::func seems hairy. maybe if it took a copy
 // of other_e, modified, bubbled up to a buffer to replace?
 
-use raymath::Vector3;
+use raymath::{vector3_add, vector3_multiply, vector3_scale, vector3_subtract, Vector3};
 
 use crate::time;
 
@@ -36,16 +36,18 @@ pub fn update_physics(acceleration: &mut Vector3, velocity: &mut Vector3, positi
 
     // Integrate acceleration & friction into velocity
     let df = 1.0f32.min(FRICTION * delta_time);
-    let af = *acceleration * delta_time;
-    let vf = *velocity
-        * Vector3 {
+    let af = vector3_scale(*acceleration, delta_time);
+    let vf = vector3_multiply(
+        *velocity,
+        Vector3 {
             x: df,
             y: 0.,
             z: df,
-        };
-    *velocity += af - vf;
+        },
+    );
+    *velocity = vector3_add(*velocity, vector3_subtract(af, vf));
 
-    let move_dist = *velocity * delta_time;
+    let move_dist = vector3_scale(*velocity, delta_time);
     // todo, cast ray, handle collision
-    *position += move_dist;
+    *position = vector3_add(*position, move_dist);
 }

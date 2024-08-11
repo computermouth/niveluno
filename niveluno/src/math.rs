@@ -5,10 +5,10 @@ pub fn scale(v: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f3
 }
 
 pub fn vec3_face_normal(v0: Vector3, v1: Vector3, v2: Vector3) -> Vector3 {
-    let lh = v0 - v1;
-    let rh = v2 - v1;
+    let lh = vector3_subtract(v0, v1);
+    let rh = vector3_subtract(v2, v1);
 
-    let cross = lh.cross(rh);
+    let cross = vector3_cross_product(lh, rh);
 
-    cross.normalized()
+    vector3_normalize(cross)
 }

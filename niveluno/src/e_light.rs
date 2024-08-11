@@ -1,3 +1,5 @@
+use raymath::{vector3_add, vector3_multiply, vector3_scale};
+
 use crate::math::Vector3;
 
 use crate::e_entity::EntityInstance;
@@ -54,7 +56,10 @@ impl EntityInstance for Light {
         let time_factor = (time::get_run_time().unwrap() + shift).sin() as f32;
 
         // Calculate the new position with different speeds and intervals
-        self.position += (axis * 0.1) * time_factor;
+        self.position = vector3_add(
+            self.position,
+            vector3_scale(vector3_scale(axis, 0.1), time_factor),
+        );
 
         render::push_light(self.position, self.intensity, self.r, self.g, self.b).unwrap();
     }

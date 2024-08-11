@@ -1,4 +1,6 @@
-use raymath::{Matrix, Quaternion};
+use raymath::{
+    matrix_rotate_y, vector3_multiply, vector3_scale, vector3_transform, Matrix, Quaternion,
+};
 
 use crate::e_entity::EntityInstance;
 use crate::g_game;
@@ -51,15 +53,18 @@ impl EntityInstance for Player {
             false => 2.5,
         };
 
-        let y_mat = Matrix::rotate_y(self.yaw);
+        let y_mat = matrix_rotate_y(self.yaw);
 
-        self.acceleration = Vector3 {
-            x: (key_r - key_l) as f32,
-            y: 0.,
-            z: (key_u - key_d) as f32,
-        }
-        .transform_with(y_mat)
-            * (self.speed * speed_factor);
+        self.acceleration = vector3_transform(
+            Vector3 {
+                x: (key_r - key_l) as f32,
+                y: 0.,
+                z: (key_u - key_d) as f32,
+            },
+            y_mat,
+        );
+
+        self.acceleration = vector3_scale(self.acceleration, self.speed * speed_factor);
 
         // self.acceleration = Vector3 {
         //     x: (key_r - key_l) as f32,

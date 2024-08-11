@@ -5,6 +5,7 @@ use minipng;
 
 use gl;
 use gl::types::*;
+use raymath::vector3_distance;
 
 use crate::math::{self, Vector3};
 use crate::nuerror::NUError;
@@ -793,7 +794,7 @@ pub fn push_light(pos: Vector3, intensity: u8, r: u8, g: u8, b: u8) -> Result<()
     // Calculate the distance to the light, fade it out between 16--32
     let start_fade_dist = 16.;
     let end_fade_dist = 32.;
-    let cam_light_dist = pos.distance_to(cam_pos);
+    let cam_light_dist = vector3_distance(pos, cam_pos);
 
     // past max fade distance, skip the push entirely
     if cam_light_dist >= end_fade_dist {
