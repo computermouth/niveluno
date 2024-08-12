@@ -15,13 +15,6 @@ pub struct Vector2 {
     pub y: f32,
 }
 
-// todo -- deleteme
-impl From<[f32; 3]> for Vector2 {
-    fn from(f: [f32; 3]) -> Self {
-        Vector2{x: f[0], y: f[1]}
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector3 {
     pub x: f32,
@@ -29,9 +22,44 @@ pub struct Vector3 {
     pub z: f32,
 }
 
+// todo -- deleteme
+impl From<[f32; 3]> for Vector2 {
+    fn from(f: [f32; 3]) -> Self {
+        Vector2{x: f[0], y: f[1]}
+    }
+}
+
 impl From<[f32; 3]> for Vector3 {
     fn from(f: [f32; 3]) -> Self {
         Self::new(f[0], f[1], f[2])
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 5]> for Vector3 {
+    fn from(f: [f32; 5]) -> Self {
+        Vector3{x: f[0], y: f[1], z: f[2]}
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 16]> for Vector3 {
+    fn from(f: [f32; 16]) -> Self {
+        Vector3{x: f[0], y: f[1], z: f[2]}
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 5]> for Quaternion {
+    fn from(f: [f32; 5]) -> Self {
+        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 16]> for Quaternion {
+    fn from(f: [f32; 16]) -> Self {
+        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
     }
 }
 
@@ -41,7 +69,7 @@ impl Vector3 {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector4 {
     pub x: f32,
     pub y: f32,
@@ -50,7 +78,7 @@ pub struct Vector4 {
 }
 
 pub type Quaternion = Vector4;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Matrix {
     pub m0: f32,
     pub m4: f32,
@@ -783,63 +811,10 @@ pub fn vector3_barycenter(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> Vec
 }
 
 /// Projects a Vector3 from screen space into object space
-///
-/// NOTE: We are avoiding calling other raymath functions despite available
 pub fn vector3_unproject(source: Vector3, projection: Matrix, view: Matrix) -> Vector3 {
-    let mut result = Vector3 {
-        x: 0.,
-        y: 0.,
-        z: 0.,
-    };
     let mat_view_proj = matrix_multiply(view, projection);
-    let a00: f32 = mat_view_proj.m0;
-    let a01: f32 = mat_view_proj.m1;
-    let a02: f32 = mat_view_proj.m2;
-    let a03: f32 = mat_view_proj.m3;
-    let a10: f32 = mat_view_proj.m4;
-    let a11: f32 = mat_view_proj.m5;
-    let a12: f32 = mat_view_proj.m6;
-    let a13: f32 = mat_view_proj.m7;
-    let a20: f32 = mat_view_proj.m8;
-    let a21: f32 = mat_view_proj.m9;
-    let a22: f32 = mat_view_proj.m10;
-    let a23: f32 = mat_view_proj.m11;
-    let a30: f32 = mat_view_proj.m12;
-    let a31: f32 = mat_view_proj.m13;
-    let a32: f32 = mat_view_proj.m14;
-    let a33: f32 = mat_view_proj.m15;
-    let b00: f32 = a00 * a11 - a01 * a10;
-    let b01: f32 = a00 * a12 - a02 * a10;
-    let b02: f32 = a00 * a13 - a03 * a10;
-    let b03: f32 = a01 * a12 - a02 * a11;
-    let b04: f32 = a01 * a13 - a03 * a11;
-    let b05: f32 = a02 * a13 - a03 * a12;
-    let b06: f32 = a20 * a31 - a21 * a30;
-    let b07: f32 = a20 * a32 - a22 * a30;
-    let b08: f32 = a20 * a33 - a23 * a30;
-    let b09: f32 = a21 * a32 - a22 * a31;
-    let b10: f32 = a21 * a33 - a23 * a31;
-    let b11: f32 = a22 * a33 - a23 * a32;
-    let inv_det: f32 =
-        1.0f32 / (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06);
-    let mat_view_proj_inv = Matrix {
-        m0: (a11 * b11 - a12 * b10 + a13 * b09) * inv_det,
-        m4: (-a01 * b11 + a02 * b10 - a03 * b09) * inv_det,
-        m8: (a31 * b05 - a32 * b04 + a33 * b03) * inv_det,
-        m12: (-a21 * b05 + a22 * b04 - a23 * b03) * inv_det,
-        m1: (-a10 * b11 + a12 * b08 - a13 * b07) * inv_det,
-        m5: (a00 * b11 - a02 * b08 + a03 * b07) * inv_det,
-        m9: (-a30 * b05 + a32 * b02 - a33 * b01) * inv_det,
-        m13: (a20 * b05 - a22 * b02 + a23 * b01) * inv_det,
-        m2: (a10 * b10 - a11 * b08 + a13 * b06) * inv_det,
-        m6: (-a00 * b10 + a01 * b08 - a03 * b06) * inv_det,
-        m10: (a30 * b04 - a31 * b02 + a33 * b00) * inv_det,
-        m14: (-a20 * b04 + a21 * b02 - a23 * b00) * inv_det,
-        m3: (-a10 * b09 + a11 * b07 - a12 * b06) * inv_det,
-        m7: (a00 * b09 - a01 * b07 + a02 * b06) * inv_det,
-        m11: (-a30 * b03 + a31 * b01 - a32 * b00) * inv_det,
-        m15: (a20 * b03 - a21 * b01 + a22 * b00) * inv_det,
-    };
+    let mat_view_proj_inv = matrix_invert(mat_view_proj);
+
     let quat = Quaternion {
         x: source.x,
         y: source.y,
@@ -847,10 +822,11 @@ pub fn vector3_unproject(source: Vector3, projection: Matrix, view: Matrix) -> V
         w: 1.0f32,
     };
     let qtransformed = quaternion_transform(quat, mat_view_proj_inv);
-    result.x = qtransformed.x / qtransformed.w;
-    result.y = qtransformed.y / qtransformed.w;
-    result.z = qtransformed.z / qtransformed.w;
-    result
+    Vector3 {
+        x: qtransformed.x/qtransformed.w,
+        y: qtransformed.y/qtransformed.w,
+        z: qtransformed.z/qtransformed.w,
+    }
 }
 
 /// Get Vector3 as float array
@@ -2090,7 +2066,7 @@ pub fn quaternion_to_matrix(q: Quaternion) -> Matrix {
 
 /// Get rotation quaternion for an angle and axis
 /// NOTE: Angle must be provided in radians
-pub fn quaternion_from_axis_angle(mut axis: Vector3, mut angle: f32) -> Quaternion {
+pub fn quaternion_from_axis_angle(axis: Vector3, mut angle: f32) -> Quaternion {
     let mut result = Quaternion {
         x: 0.0f32,
         y: 0.0f32,
@@ -2116,26 +2092,24 @@ pub fn quaternion_from_axis_angle(mut axis: Vector3, mut angle: f32) -> Quaterni
 }
 
 /// Get the rotation angle and axis for a given quaternion
-pub fn quaternion_to_axis_angle(mut q: Quaternion, out_axis: &mut Vector3, out_angle: &mut f32) {
+pub fn quaternion_to_axis_angle(mut q: Quaternion) -> (Vector3, f32) {
     if q.w.abs() > 1.0f32 {
         q = quaternion_normalize(q);
     }
-    let mut res_axis = Vector3 {
-        x: 0.0f32,
-        y: 0.0f32,
-        z: 0.0f32,
-    };
-    let res_angle: f32 = 2.0f32 * q.w.acos();
-    let den: f32 = (1.0f32 - q.w * q.w).sqrt();
+    let mut res_axis = vector3_zero();
+    let res_angle = 2.0*(q.w.acos());
+    let den: f32 = (1. - q.w*q.w).sqrt();
     if den > f32::EPSILON {
-        res_axis.x = q.x / den;
-        res_axis.y = q.y / den;
-        res_axis.z = q.z / den;
+        res_axis.x = q.x/den;
+        res_axis.y = q.y/den;
+        res_axis.z = q.z/den;
     } else {
-        res_axis.x = 1.0f32;
+        // This occurs when the angle is zero.
+        // Not a problem: just set an arbitrary normalized axis.
+        res_axis.x = 1.0;
     }
-    *out_axis = res_axis;
-    *out_angle = res_angle;
+
+    (res_axis, res_angle)
 }
 
 /// Get the quaternion equivalent to Euler angles
@@ -2205,52 +2179,49 @@ pub fn quaternion_equals(p: Quaternion, q: Quaternion) -> bool {
 
 /// Decompose a transformation matrix into its rotational, translational and scaling components
 pub fn matrix_decompose(
-    mat: Matrix,
-    translation: &mut Vector3,
-    rotation: &mut Quaternion,
-    scale: &mut Vector3,
-) {
-    translation.x = mat.m12;
-    translation.y = mat.m13;
-    translation.z = mat.m14;
+    mat: Matrix
+) -> (Vector3, Quaternion, Vector3) {
+    let translation = Vector3 {
+        x: mat.m12,
+        y: mat.m13,
+        z: mat.m14,
+    };
 
-    let a: f32 = mat.m0;
-    let b: f32 = mat.m4;
-    let c: f32 = mat.m8;
-    let d: f32 = mat.m1;
-    let e: f32 = mat.m5;
-    let f: f32 = mat.m9;
-    let g: f32 = mat.m2;
-    let h: f32 = mat.m6;
-    let i: f32 = mat.m10;
+    let a = mat.m0;
+    let b = mat.m4;
+    let c = mat.m8;
+    let d = mat.m1;
+    let e = mat.m5;
+    let f = mat.m9;
+    let g = mat.m2;
+    let h = mat.m6;
+    let i = mat.m10;
+    let det_a = e*i - f*h;
+    let det_b = f*g - d*i;
+    let det_c = d*h - e*g;
 
-    let det_a: f32 = e * i - f * h;
-    let det_b: f32 = f * g - d * i;
-    let det_c: f32 = d * h - e * g;
     let det: f32 = a * det_a + b * det_b + c * det_c;
-
     let abc = Vector3 { x: a, y: b, z: c };
     let def = Vector3 { x: d, y: e, z: f };
     let ghi = Vector3 { x: g, y: h, z: i };
-    let scalex: f32 = vector3_length(abc);
-    let scaley: f32 = vector3_length(def);
-    let scalez: f32 = vector3_length(ghi);
-    let mut s = Vector3 {
-        x: scalex,
-        y: scaley,
-        z: scalez,
+
+    let mut scale = Vector3 { 
+        x: vector3_length(abc),
+        y: vector3_length(def),
+        z: vector3_length(ghi)
     };
     if det < 0. {
-        s = vector3_negate(s);
+        scale = vector3_negate(scale);
     }
-    *scale = s;
+
     let mut clone: Matrix = mat;
-    if float_equals(det, 0.) {
-        clone.m0 /= s.x;
-        clone.m5 /= s.y;
-        clone.m10 /= s.z;
-        *rotation = quaternion_from_matrix(clone);
-    } else {
-        *rotation = quaternion_identity();
-    };
+    let mut rotation = quaternion_identity();
+    if !float_equals(det, 0.) {
+        clone.m0 /= scale.x;
+        clone.m5 /= scale.y;
+        clone.m10 /= scale.z;
+        rotation = quaternion_from_matrix(clone);
+    }
+
+    (translation, rotation, scale)
 }
