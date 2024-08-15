@@ -585,7 +585,7 @@ pub fn end_frame() -> Result<(), NUError> {
     let mut vo: GLint = 0;
     let mut last_texture: u32 = u32::MAX - 1;
 
-    let gt = (time::get_run_time()?.sin() + 3.0 / 2.) as f32;
+    let gt = ((time::get_run_time()?.sin() + 1.0) / 2. + 1.) as f32;
 
     let len = rg.draw_calls.len();
     for i in 0..len {
