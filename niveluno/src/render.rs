@@ -76,8 +76,10 @@ struct RenderGod {
     pub u_lights: GLint,
     pub u_light_count: GLint,
     pub u_mouse: GLint,
-    pub u_model_pos: GLint,
-    pub u_model_rot: GLint,
+    pub u_model_mat_v1: GLint,
+    pub u_model_mat_v2: GLint,
+    pub u_model_mat_v3: GLint,
+    pub u_model_mat_v4: GLint,
     pub u_blend: GLint,
     pub u_unlit: GLint,
 
@@ -292,8 +294,10 @@ pub fn init() -> Result<(), NUError> {
         u_lights: 0,
         u_light_count: 0,
         u_mouse: 0,
-        u_model_pos: 0,
-        u_model_rot: 0,
+        u_model_mat_v1: 0,
+        u_model_mat_v2: 0,
+        u_model_mat_v3: 0,
+        u_model_mat_v4: 0,
         u_blend: 0,
         u_unlit: 0,
 
@@ -339,10 +343,14 @@ pub fn init() -> Result<(), NUError> {
         rg.u_light_count =
             gl::GetUniformLocation(rg.shader_program, CString::new("light_count")?.as_ptr());
         rg.u_mouse = gl::GetUniformLocation(rg.shader_program, CString::new("mouse")?.as_ptr());
-        rg.u_model_pos =
-            gl::GetUniformLocation(rg.shader_program, CString::new("model_pos")?.as_ptr());
-        rg.u_model_rot =
-            gl::GetUniformLocation(rg.shader_program, CString::new("model_rot")?.as_ptr());
+        rg.u_model_mat_v1 =
+            gl::GetUniformLocation(rg.shader_program, CString::new("model_mat_v1")?.as_ptr());
+        rg.u_model_mat_v2 =
+            gl::GetUniformLocation(rg.shader_program, CString::new("model_mat_v2")?.as_ptr());
+        rg.u_model_mat_v3 =
+            gl::GetUniformLocation(rg.shader_program, CString::new("model_mat_v3")?.as_ptr());
+        rg.u_model_mat_v4 =
+            gl::GetUniformLocation(rg.shader_program, CString::new("model_mat_v4")?.as_ptr());
         rg.u_blend = gl::GetUniformLocation(rg.shader_program, CString::new("blend")?.as_ptr());
         rg.u_unlit = gl::GetUniformLocation(rg.shader_program, CString::new("unlit")?.as_ptr());
     }
@@ -578,8 +586,6 @@ pub fn end_frame() -> Result<(), NUError> {
     let mut last_texture: u32 = u32::MAX - 1;
 
     let len = rg.draw_calls.len();
-    // draw_call_t * draw_calls = vector_begin(r_draw_calls);
-    // meta_tex_t * meta_texts = vector_begin(r_textures);
     for i in 0..len {
         // todo, raw index
         let c = rg.draw_calls[i];
@@ -591,9 +597,44 @@ pub fn end_frame() -> Result<(), NUError> {
             }
         }
 
+        // scale, rotate, translate
+        let mat_y = raymath::matrix_rotate_y(c.yaw);
+        let mat_p = raymath::matrix_rotate_z(c.pitch);
+        let mat_rot = raymath::matrix_multiply(mat_p, mat_y);
+        let mat_t = raymath::matrix_translate(c.pos.x, c.pos.y, c.pos.z);
+
+        let model_mat = raymath::matrix_multiply(mat_rot, mat_t);
+        let model_f16: [f32; 16] = model_mat.into();
+
         unsafe {
-            gl::Uniform3f(rg.u_model_pos, c.pos.x, c.pos.y, c.pos.z);
-            gl::Uniform2f(rg.u_model_rot, c.yaw, c.pitch);
+            gl::Uniform4f(
+                rg.u_model_mat_v1,
+                model_f16[0x0],
+                model_f16[0x1],
+                model_f16[0x2],
+                model_f16[0x3],
+            );
+            gl::Uniform4f(
+                rg.u_model_mat_v2,
+                model_f16[0x4],
+                model_f16[0x5],
+                model_f16[0x6],
+                model_f16[0x7],
+            );
+            gl::Uniform4f(
+                rg.u_model_mat_v3,
+                model_f16[0x8],
+                model_f16[0x9],
+                model_f16[0xA],
+                model_f16[0xB],
+            );
+            gl::Uniform4f(
+                rg.u_model_mat_v4,
+                model_f16[0xC],
+                model_f16[0xD],
+                model_f16[0xE],
+                model_f16[0xF],
+            );
             gl::Uniform1f(rg.u_blend, c.mix);
             gl::Uniform1i(rg.u_unlit, c.unlit as i32);
         }

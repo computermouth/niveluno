@@ -22,50 +22,24 @@ pub struct Vector3 {
     pub z: f32,
 }
 
-// todo -- deleteme
-impl From<[f32; 3]> for Vector2 {
-    fn from(f: [f32; 3]) -> Self {
-        Vector2{x: f[0], y: f[1]}
-    }
-}
-
 impl From<[f32; 3]> for Vector3 {
     fn from(f: [f32; 3]) -> Self {
         Self::new(f[0], f[1], f[2])
     }
 }
 
-// todo -- deleteme
-impl From<[f32; 5]> for Vector3 {
-    fn from(f: [f32; 5]) -> Self {
-        Vector3{x: f[0], y: f[1], z: f[2]}
-    }
-}
-
-// todo -- deleteme
-impl From<[f32; 16]> for Vector3 {
-    fn from(f: [f32; 16]) -> Self {
-        Vector3{x: f[0], y: f[1], z: f[2]}
-    }
-}
-
-// todo -- deleteme
-impl From<[f32; 5]> for Quaternion {
-    fn from(f: [f32; 5]) -> Self {
-        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
-    }
-}
-
-// todo -- deleteme
-impl From<[f32; 16]> for Quaternion {
-    fn from(f: [f32; 16]) -> Self {
-        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
-    }
-}
-
 impl Vector3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
+    }
+}
+
+impl From<Matrix> for [f32; 16] {
+    fn from(m: Matrix) -> Self {
+        [
+            m.m0, m.m1, m.m2, m.m3, m.m4, m.m5, m.m6, m.m7, m.m8, m.m9, m.m10, m.m11, m.m12, m.m13,
+            m.m14, m.m15,
+        ]
     }
 }
 
@@ -81,26 +55,26 @@ pub type Quaternion = Vector4;
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Matrix {
     pub m0: f32,
-    pub m4: f32,
-    pub m8: f32,
-    pub m12: f32,
     pub m1: f32,
-    pub m5: f32,
-    pub m9: f32,
-    pub m13: f32,
     pub m2: f32,
-    pub m6: f32,
-    pub m10: f32,
-    pub m14: f32,
     pub m3: f32,
+    pub m4: f32,
+    pub m5: f32,
+    pub m6: f32,
     pub m7: f32,
+    pub m8: f32,
+    pub m9: f32,
+    pub m10: f32,
     pub m11: f32,
+    pub m12: f32,
+    pub m13: f32,
+    pub m14: f32,
     pub m15: f32,
 }
 
 impl From<[f32; 16]> for Matrix {
     fn from(f: [f32; 16]) -> Self {
-        Matrix{
+        Matrix {
             m0: f[0],
             m1: f[1],
             m2: f[2],
@@ -823,9 +797,9 @@ pub fn vector3_unproject(source: Vector3, projection: Matrix, view: Matrix) -> V
     };
     let qtransformed = quaternion_transform(quat, mat_view_proj_inv);
     Vector3 {
-        x: qtransformed.x/qtransformed.w,
-        y: qtransformed.y/qtransformed.w,
-        z: qtransformed.z/qtransformed.w,
+        x: qtransformed.x / qtransformed.w,
+        y: qtransformed.y / qtransformed.w,
+        z: qtransformed.z / qtransformed.w,
     }
 }
 
@@ -2097,12 +2071,12 @@ pub fn quaternion_to_axis_angle(mut q: Quaternion) -> (Vector3, f32) {
         q = quaternion_normalize(q);
     }
     let mut res_axis = vector3_zero();
-    let res_angle = 2.0*(q.w.acos());
-    let den: f32 = (1. - q.w*q.w).sqrt();
+    let res_angle = 2.0 * (q.w.acos());
+    let den: f32 = (1. - q.w * q.w).sqrt();
     if den > f32::EPSILON {
-        res_axis.x = q.x/den;
-        res_axis.y = q.y/den;
-        res_axis.z = q.z/den;
+        res_axis.x = q.x / den;
+        res_axis.y = q.y / den;
+        res_axis.z = q.z / den;
     } else {
         // This occurs when the angle is zero.
         // Not a problem: just set an arbitrary normalized axis.
@@ -2178,9 +2152,7 @@ pub fn quaternion_equals(p: Quaternion, q: Quaternion) -> bool {
 }
 
 /// Decompose a transformation matrix into its rotational, translational and scaling components
-pub fn matrix_decompose(
-    mat: Matrix
-) -> (Vector3, Quaternion, Vector3) {
+pub fn matrix_decompose(mat: Matrix) -> (Vector3, Quaternion, Vector3) {
     let translation = Vector3 {
         x: mat.m12,
         y: mat.m13,
@@ -2196,19 +2168,19 @@ pub fn matrix_decompose(
     let g = mat.m2;
     let h = mat.m6;
     let i = mat.m10;
-    let det_a = e*i - f*h;
-    let det_b = f*g - d*i;
-    let det_c = d*h - e*g;
+    let det_a = e * i - f * h;
+    let det_b = f * g - d * i;
+    let det_c = d * h - e * g;
 
     let det: f32 = a * det_a + b * det_b + c * det_c;
     let abc = Vector3 { x: a, y: b, z: c };
     let def = Vector3 { x: d, y: e, z: f };
     let ghi = Vector3 { x: g, y: h, z: i };
 
-    let mut scale = Vector3 { 
+    let mut scale = Vector3 {
         x: vector3_length(abc),
         y: vector3_length(def),
-        z: vector3_length(ghi)
+        z: vector3_length(ghi),
     };
     if det < 0. {
         scale = vector3_negate(scale);

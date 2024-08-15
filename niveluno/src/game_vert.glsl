@@ -15,11 +15,11 @@ in vec2 t;
 // Camera position (x, y, z) and aspect ratio (w)
 uniform vec4 camera_pos;
 
-// Model position (x, y, z)
-uniform vec3 model_pos;
-
-// Model rotation (yaw, pitch)
-uniform vec2 model_rot;
+// Model scale, rotation, translation(pos) v4 -> matrix
+uniform vec4 model_mat_v1;
+uniform vec4 model_mat_v2;
+uniform vec4 model_mat_v3;
+uniform vec4 model_mat_v4;
 
 // Mouse rotation yaw (x), pitch (y)
 uniform vec2 mouse;
@@ -60,18 +60,50 @@ mat4 rz(float r) {
     );
 }
 
+struct mat_comp {
+    mat3 rotation;
+    vec3 translation;
+    vec3 scale;
+};
+
+mat_comp decomp_mat(mat4 matrix) {
+    mat_comp components;
+
+    components.translation = vec3(matrix[3].xyz);
+
+    components.scale = vec3(
+        length(matrix[0].xyz),
+        length(matrix[1].xyz),
+        length(matrix[2].xyz)
+    );
+
+    components.rotation = mat3(
+        matrix[0].xyz / components.scale.x,
+        matrix[1].xyz / components.scale.y,
+        matrix[2].xyz / components.scale.z
+    );
+
+    return components;
+}
+
 void main(void) {
     f_unlit = float(unlit);
 
-    // Rotation Matrices for model rotation
-    mat4 mry = ry(model_rot.x);
-    mat4 mrz = rz(model_rot.y);
+    // scale, rotation, translation matrix
+    mat4 model_mat = mat4 (
+        model_mat_v1,
+        model_mat_v2,
+        model_mat_v3,
+        model_mat_v4
+    );
 
-    // Mix vertex positions, rotate and add the model position
-    vp = (mry * mrz * vec4(mix(p, p2, blend), 1.0)).xyz + model_pos;
+    mat_comp model = decomp_mat(model_mat);
+ 
+    // Mix vertex positions, rotate using mat3, and add the translation
+    vp = model.rotation * mix(p, p2, blend) + model.translation;
 
     // Mix normals
-    vn = (mry * mrz * vec4(mix(n, n2, blend), 1.0)).xyz;
+    vn = model.rotation * mix(n, n2, blend);
 
     // UV coords are handed over to the fragment shader as is
     vt = t;
