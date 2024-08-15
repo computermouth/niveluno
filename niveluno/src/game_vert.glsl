@@ -100,7 +100,7 @@ void main(void) {
     mat_comp model = decomp_mat(model_mat);
  
     // Mix vertex positions, rotate using mat3, and add the translation
-    vp = model.rotation * mix(p, p2, blend) + model.translation;
+    vp = model.rotation * (model.scale * mix(p, p2, blend)) + model.translation;
 
     // Mix normals
     vn = model.rotation * mix(n, n2, blend);

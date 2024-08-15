@@ -9,7 +9,7 @@ use raymath::vector3_distance;
 
 use crate::math::{self, Vector3};
 use crate::nuerror::NUError;
-use crate::text;
+use crate::{text, time};
 
 // draw texture res, default window res
 pub const INTERNAL_W: i32 = 320;
@@ -585,6 +585,8 @@ pub fn end_frame() -> Result<(), NUError> {
     let mut vo: GLint = 0;
     let mut last_texture: u32 = u32::MAX - 1;
 
+    let gt = (time::get_run_time()?.sin() + 3.0 / 2.) as f32;
+
     let len = rg.draw_calls.len();
     for i in 0..len {
         // todo, raw index
@@ -597,13 +599,21 @@ pub fn end_frame() -> Result<(), NUError> {
             }
         }
 
-        // scale, rotate, translate
+        // scale
+        let mat_s = raymath::matrix_scale(gt, gt, gt);
+        // rotate
         let mat_y = raymath::matrix_rotate_y(c.yaw);
         let mat_p = raymath::matrix_rotate_z(c.pitch);
-        let mat_rot = raymath::matrix_multiply(mat_p, mat_y);
+        let mat_r = raymath::matrix_multiply(mat_p, mat_y);
+        // translate
         let mat_t = raymath::matrix_translate(c.pos.x, c.pos.y, c.pos.z);
 
-        let model_mat = raymath::matrix_multiply(mat_rot, mat_t);
+        // scale, rotate, translate
+        let model_mat = raymath::matrix_identity();
+        let model_mat = raymath::matrix_multiply(model_mat, mat_s);
+        let model_mat = raymath::matrix_multiply(model_mat, mat_r);
+        let model_mat = raymath::matrix_multiply(model_mat, mat_t);
+
         let model_f16: [f32; 16] = model_mat.into();
 
         unsafe {
