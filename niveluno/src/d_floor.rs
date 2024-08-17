@@ -6,6 +6,7 @@ use crate::render;
 
 pub struct Floor {
     base: Decor,
+    mat: raymath::Matrix,
 }
 
 impl DecorInstance for Floor {
@@ -18,9 +19,7 @@ impl DecorInstance for Floor {
         let ref_dec = g_game::get_ref_decor(self.base.ref_id).unwrap();
 
         let dc = render::DrawCall {
-            pos: self.base.location.into(),
-            yaw: 0.,
-            pitch: 0.,
+            matrix: self.mat,
             texture: ref_dec.texture_handle as u32,
             f1: ref_dec.frame_handle as i32,
             f2: ref_dec.frame_handle as i32,
@@ -36,6 +35,7 @@ impl Floor {
     pub fn new(decor: &Decor) -> Self {
         Self {
             base: decor.clone(),
+            mat: raymath::matrix_translate(decor.location[0], decor.location[1], decor.location[2]),
         }
     }
 }

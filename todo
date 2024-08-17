@@ -2,3 +2,6 @@ audio
 add capability to use matrix/quat for scale+rotation+displacement
 clean up shader variable names
 collision system
+
+add remaining types to raymath from raylib-rs (bounding box, collision ray, etc)
+publish raymath crate

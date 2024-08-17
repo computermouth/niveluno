@@ -605,6 +605,7 @@ dependencies = [
  "gltf",
  "image",
  "mparse",
+ "raymath",
  "serde",
  "serde_json",
 ]

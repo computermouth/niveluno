@@ -51,6 +51,18 @@ pub struct Vector4 {
     pub w: f32,
 }
 
+impl From<[f32; 4]> for Vector4 {
+    fn from(f: [f32; 4]) -> Self {
+        Self::new(f[0], f[1], f[2], f[3])
+    }
+}
+
+impl Vector4 {
+    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+        Self { x, y, z, w }
+    }
+}
+
 pub type Quaternion = Vector4;
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Matrix {

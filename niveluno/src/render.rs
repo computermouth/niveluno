@@ -5,7 +5,7 @@ use minipng;
 
 use gl;
 use gl::types::*;
-use raymath::vector3_distance;
+use raymath::{vector3_distance, Matrix};
 
 use crate::math::{self, Vector3};
 use crate::nuerror::NUError;
@@ -32,9 +32,7 @@ pub const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
 // only need to set it once for all geometry
 #[derive(Clone, Copy)]
 pub struct DrawCall {
-    pub pos: Vector3,
-    pub yaw: f32,
-    pub pitch: f32,
+    pub matrix: Matrix,
     pub texture: GLuint,
     pub f1: GLint, // todo, first frame of interpolation
     pub f2: GLint, // second frame of interpolation
@@ -585,13 +583,7 @@ pub fn end_frame() -> Result<(), NUError> {
     let mut vo: GLint = 0;
     let mut last_texture: u32 = u32::MAX - 1;
 
-    let gt = ((time::get_run_time()?.sin() + 1.0) / 2. + 1.) as f32;
-
-    let len = rg.draw_calls.len();
-    for i in 0..len {
-        // todo, raw index
-        let c = rg.draw_calls[i];
-
+    for c in &rg.draw_calls {
         if last_texture != c.texture {
             last_texture = c.texture;
             unsafe {
@@ -599,22 +591,7 @@ pub fn end_frame() -> Result<(), NUError> {
             }
         }
 
-        // scale
-        let mat_s = raymath::matrix_scale(gt, gt, gt);
-        // rotate
-        let mat_y = raymath::matrix_rotate_y(c.yaw);
-        let mat_p = raymath::matrix_rotate_z(c.pitch);
-        let mat_r = raymath::matrix_multiply(mat_p, mat_y);
-        // translate
-        let mat_t = raymath::matrix_translate(c.pos.x, c.pos.y, c.pos.z);
-
-        // scale, rotate, translate
-        let model_mat = raymath::matrix_identity();
-        let model_mat = raymath::matrix_multiply(model_mat, mat_s);
-        let model_mat = raymath::matrix_multiply(model_mat, mat_r);
-        let model_mat = raymath::matrix_multiply(model_mat, mat_t);
-
-        let model_f16: [f32; 16] = model_mat.into();
+        let model_f16: [f32; 16] = c.matrix.into();
 
         unsafe {
             gl::Uniform4f(

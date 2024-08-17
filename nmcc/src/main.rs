@@ -1,3 +1,4 @@
+use core::f32;
 use std::{io::Cursor, vec};
 
 use gltf;
@@ -76,11 +77,12 @@ fn json_string_pairs(json_str: &str) -> Vec<(String, String)> {
 }
 
 fn rotate_on_x(v: Vec3) -> Vec3 {
-    let deg270: f32 = 3.0 * 3.14159 / 2.0;
+    return v;
+    let deg90: f32 = 0.0 * 3.14159 / 2.0;
 
     let rot_matrix: [[f32; 3]; 3] = [
-        [deg270.cos(), -(deg270.sin()), 0.],
-        [deg270.sin(), deg270.cos(), 0.],
+        [deg90.cos(), -(deg90.sin()), 0.],
+        [deg90.sin(), deg90.cos(), 0.],
         [0., 0., 1.],
     ];
 
@@ -238,7 +240,7 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
                 index: di,
                 location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.z, c_pos.y])),
                 rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),
-                scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.y, scale.z])),
+                scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.z, scale.y])),
             }))
         }
         Some(Extras {
@@ -270,8 +272,9 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
                 has_ref,
                 params: p,
                 location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.z, c_pos.y])),
-                rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),
-                scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.y, scale.z])),
+                rotation: bb
+                    .add_sequence(big_buffer::HashItem::Quat([-rot.x, -rot.z, -rot.y, rot.w])),
+                scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.z, scale.y])),
             }))
         }
         Some(Extras { _type: Some(s), .. }) => {

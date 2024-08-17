@@ -23,7 +23,7 @@ void main(void) {
     fragColor = texture(s, vt);
 
     // Debug: no textures
-    // fragColor = vec4(.5);
+    // fragColor.rgb = vec3(.5);
 
     // Calculate all lights
     vec3 vl = vec3(0, 0, 0);
