@@ -76,32 +76,6 @@ fn json_string_pairs(json_str: &str) -> Vec<(String, String)> {
     pairs
 }
 
-fn rotate_on_x(v: Vec3) -> Vec3 {
-    return v;
-    let deg90: f32 = 0.0 * 3.14159 / 2.0;
-
-    let rot_matrix: [[f32; 3]; 3] = [
-        [deg90.cos(), -(deg90.sin()), 0.],
-        [deg90.sin(), deg90.cos(), 0.],
-        [0., 0., 1.],
-    ];
-
-    let f_i = [v.x, v.y, v.z];
-    let mut f_o = [0., 0., 0.];
-
-    for i in 0..3 {
-        for j in 0..3 {
-            f_o[i] += rot_matrix[i][j] * f_i[j];
-        }
-    }
-
-    Vec3 {
-        x: f_o[0],
-        y: f_o[1],
-        z: f_o[2],
-    }
-}
-
 fn get_reference(
     n: &gltf::Node,
     b: &Vec<gltf::buffer::Data>,
@@ -466,15 +440,9 @@ fn parse_ref_decor(
         // push positions to floatbuffer,
         // store indicies
         for i in 0..indices.len() {
-            let f1 = positions[indices[i] as usize * 3 + 0];
-            let f2 = positions[indices[i] as usize * 3 + 1];
-            let f3 = positions[indices[i] as usize * 3 + 2];
-
-            let Vec3 { x, y, z } = rotate_on_x(Vec3 {
-                x: f1,
-                y: f2,
-                z: f3,
-            });
+            let x = positions[indices[i] as usize * 3 + 0];
+            let y = positions[indices[i] as usize * 3 + 1];
+            let z = positions[indices[i] as usize * 3 + 2];
 
             let index = bb.add_sequence(big_buffer::HashItem::Vert([x, z, y]));
 
@@ -593,15 +561,10 @@ fn parse_ref_entt(
         // store indicies
         let mut base_pos = vec![];
         for i in 0..indices.len() {
-            let f1 = positions[indices[i] as usize * 3 + 0];
-            let f2 = positions[indices[i] as usize * 3 + 1];
-            let f3 = positions[indices[i] as usize * 3 + 2];
+            let x = positions[indices[i] as usize * 3 + 0];
+            let y = positions[indices[i] as usize * 3 + 1];
+            let z = positions[indices[i] as usize * 3 + 2];
 
-            let Vec3 { x, y, z } = rotate_on_x(Vec3 {
-                x: f1,
-                y: f2,
-                z: f3,
-            });
             let index = bb.add_sequence(big_buffer::HashItem::Vert([x, z, y]));
 
             base_pos.push(index);
@@ -617,19 +580,9 @@ fn parse_ref_entt(
                         let mut out_morph = vec![];
                         for k in 0..base_pos.len() {
                             if let Some(vert) = bb.get_vert_at(base_pos[k] as usize) {
-                                let f1 = morphs[indices[k] as usize * 3 + 0];
-                                let f2 = morphs[indices[k] as usize * 3 + 1];
-                                let f3 = morphs[indices[k] as usize * 3 + 2];
-
-                                let Vec3 {
-                                    mut x,
-                                    mut y,
-                                    mut z,
-                                } = rotate_on_x(Vec3 {
-                                    x: f1,
-                                    y: f2,
-                                    z: f3,
-                                });
+                                let mut x = morphs[indices[k] as usize * 3 + 0];
+                                let mut y = morphs[indices[k] as usize * 3 + 1];
+                                let mut z = morphs[indices[k] as usize * 3 + 2];
 
                                 x += vert[0];
                                 y += vert[2];

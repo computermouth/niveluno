@@ -2209,3 +2209,645 @@ pub fn matrix_decompose(mat: Matrix) -> (Vector3, Quaternion, Vector3) {
 
     (translation, rotation, scale)
 }
+
+// ==============================================================================
+
+// Ray, ray for raycasting
+#[derive(Copy, Clone)]
+pub struct Ray {
+    // Ray position (origin)
+    pub position: Vector3,
+    // Ray direction (normalized)
+    pub direction: Vector3,
+}
+
+// Rectangle, 4 components
+pub struct Rectangle {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+// BoundingBox
+pub struct BoundingBox {
+    // Minimum vertex box-corner
+    pub min: Vector3,
+    // Maximum vertex box-corner
+    pub max: Vector3,
+}
+
+// RayCollision, ray hit information
+pub struct RayCollision {
+    // Did the ray hit something?
+    pub hit: bool,
+    // Distance to the nearest hit
+    pub distance: f32,
+    // Point of the nearest hit
+    pub point: Vector3,
+    // Surface normal of hit
+    pub normal: Vector3,
+}
+
+//----------------------------------------------------------------------------------
+// Module Functions Definition - Collision Detection functions
+//----------------------------------------------------------------------------------
+
+// Check if point is inside rectangle
+pub fn check_collision_point_rec(point: Vector2, rec: Rectangle) -> bool {
+    (point.x >= rec.x)
+        && (point.x < (rec.x + rec.width))
+        && (point.y >= rec.y)
+        && (point.y < (rec.y + rec.height))
+}
+
+// Check if point is inside circle
+pub fn check_collision_point_circle(point: Vector2, center: Vector2, radius: f32) -> bool {
+    let mut collision = false;
+
+    let distance_squared =
+        (point.x - center.x) * (point.x - center.x) + (point.y - center.y) * (point.y - center.y);
+
+    if distance_squared <= radius * radius {
+        collision = true;
+    }
+
+    return collision;
+}
+
+// Check if point is inside a triangle defined by three points (p1, p2, p3)
+pub fn check_collision_point_triangle(
+    point: Vector2,
+    p1: Vector2,
+    p2: Vector2,
+    p3: Vector2,
+) -> bool {
+    let alpha = ((p2.y - p3.y) * (point.x - p3.x) + (p3.x - p2.x) * (point.y - p3.y))
+        / ((p2.y - p3.y) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.y - p3.y));
+
+    let beta = ((p3.y - p1.y) * (point.x - p3.x) + (p1.x - p3.x) * (point.y - p3.y))
+        / ((p2.y - p3.y) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.y - p3.y));
+
+    let gamma = 1. - alpha - beta;
+
+    (alpha > 0.) && (beta > 0.) && (gamma > 0.)
+}
+
+// Check if point is within a polygon described by array of vertices
+// NOTE: Based on http://jeffreythompson.org/collision-detection/poly-point.php
+pub fn check_collision_point_poly(
+    point: Vector2,
+    points: Vec<Vector2>,
+    point_count: usize,
+) -> bool {
+    let mut inside = false;
+
+    if point_count > 2 {
+        let mut j = point_count - 1;
+        for i in 0..point_count {
+            if (points[i].y > point.y) != (points[j].y > point.y)
+                && (point.x
+                    < (points[j].x - points[i].x) * (point.y - points[i].y)
+                        / (points[j].y - points[i].y)
+                        + points[i].x)
+            {
+                inside = !inside;
+            }
+
+            j = i;
+        }
+    }
+
+    return inside;
+}
+
+// Check collision between two rectangles
+pub fn check_collision_recs(rec1: Rectangle, rec2: Rectangle) -> bool {
+    (rec1.x < (rec2.x + rec2.width) && (rec1.x + rec1.width) > rec2.x)
+        && (rec1.y < (rec2.y + rec2.height) && (rec1.y + rec1.height) > rec2.y)
+}
+
+// Check collision between two circles
+pub fn check_collision_circles(
+    center1: Vector2,
+    radius1: f32,
+    center2: Vector2,
+    radius2: f32,
+) -> bool {
+    let dx = center2.x - center1.x; // X distance between centers
+    let dy = center2.y - center1.y; // Y distance between centers
+
+    let distance_squared = dx * dx + dy * dy; // Distance between centers squared
+    let radius_sum = radius1 + radius2;
+
+    distance_squared <= (radius_sum * radius_sum)
+}
+
+// Check collision between circle and rectangle
+// NOTE: Reviewed version to take into account corner limit case
+pub fn check_collision_circle_rec(center: Vector2, radius: f32, rec: Rectangle) -> bool {
+    let rec_center_x = rec.x + rec.width / 2.0;
+    let rec_center_y = rec.y + rec.height / 2.0;
+
+    let dx = (center.x - rec_center_x).abs();
+    let dy = (center.y - rec_center_y).abs();
+
+    if dx > (rec.width / 2.0 + radius) {
+        return false;
+    }
+    if dy > (rec.height / 2.0 + radius) {
+        return false;
+    }
+
+    if dx <= (rec.width / 2.0) {
+        return true;
+    }
+    if dy <= (rec.height / 2.0) {
+        return true;
+    }
+
+    let corner_distance_sq = (dx - rec.width / 2.0) * (dx - rec.width / 2.0)
+        + (dy - rec.height / 2.0) * (dy - rec.height / 2.0);
+
+    corner_distance_sq <= (radius * radius)
+}
+
+// Check the collision between two lines defined by two points each, returns collision point by reference
+pub fn check_collision_lines(
+    start_pos1: Vector2,
+    end_pos1: Vector2,
+    start_pos2: Vector2,
+    end_pos2: Vector2,
+) -> Option<Vector2> {
+    let div = (end_pos2.y - start_pos2.y) * (end_pos1.x - start_pos1.x)
+        - (end_pos2.x - start_pos2.x) * (end_pos1.y - start_pos1.y);
+
+    if div.abs() >= f32::EPSILON {
+        let xi = ((start_pos2.x - end_pos2.x)
+            * (start_pos1.x * end_pos1.y - start_pos1.y * end_pos1.x)
+            - (start_pos1.x - end_pos1.x)
+                * (start_pos2.x * end_pos2.y - start_pos2.y * end_pos2.x))
+            / div;
+        let yi = ((start_pos2.y - end_pos2.y)
+            * (start_pos1.x * end_pos1.y - start_pos1.y * end_pos1.x)
+            - (start_pos1.y - end_pos1.y)
+                * (start_pos2.x * end_pos2.y - start_pos2.y * end_pos2.x))
+            / div;
+
+        if (((start_pos1.x - end_pos1.x).abs() > f32::EPSILON)
+            && (xi < start_pos1.x.min(end_pos1.x) || (xi > start_pos1.x.max(end_pos1.x))))
+            || (((start_pos2.x - end_pos2.x).abs() > f32::EPSILON)
+                && (xi < start_pos2.x.min(end_pos2.x) || (xi > start_pos2.x.max(end_pos2.x))))
+            || (((start_pos1.y - end_pos1.y).abs() > f32::EPSILON)
+                && (yi < start_pos1.y.min(end_pos1.y) || (yi > start_pos1.y.max(end_pos1.y))))
+            || (((start_pos2.y - end_pos2.y).abs() > f32::EPSILON)
+                && (yi < start_pos2.y.min(end_pos2.y) || (yi > start_pos2.y.max(end_pos2.y))))
+        {
+            None
+        } else {
+            Some(Vector2 { x: xi, y: yi })
+        }
+    } else {
+        None
+    }
+}
+
+// Check if point belongs to line created between two points [p1] and [p2] with defined margin in pixels [threshold]
+pub fn check_collision_point_line(
+    point: Vector2,
+    p1: Vector2,
+    p2: Vector2,
+    threshold: usize,
+) -> bool {
+    let mut collision = false;
+    let threshold = threshold as f32;
+
+    let dxc = point.x - p1.x;
+    let dyc = point.y - p1.y;
+    let dxl = p2.x - p1.x;
+    let dyl = p2.y - p1.y;
+    let cross = dxc * dyl - dyc * dxl;
+
+    if cross.abs() < (threshold * dxl.abs().max(dyl.abs())) {
+        if dxl.abs() >= dyl.abs() {
+            collision = if dxl > 0. {
+                (p1.x <= point.x) && (point.x <= p2.x)
+            } else {
+                (p2.x <= point.x) && (point.x <= p1.x)
+            }
+        } else {
+            collision = if dyl > 0. {
+                (p1.y <= point.y) && (point.y <= p2.y)
+            } else {
+                (p2.y <= point.y) && (point.y <= p1.y)
+            }
+        }
+    }
+
+    return collision;
+}
+
+// Check if circle collides with a line created betweeen two points [p1] and [p2]
+pub fn check_collision_circle_line(center: Vector2, radius: f32, p1: Vector2, p2: Vector2) -> bool {
+    let dx = p1.x - p2.x;
+    let dy = p1.y - p2.y;
+
+    if (dx.abs() + dy.abs()) <= f32::EPSILON {
+        return check_collision_circles(p1, 0., center, radius);
+    }
+
+    let length_sq = (dx * dx) + (dy * dy);
+    let mut dot_product =
+        (((center.x - p1.x) * (p2.x - p1.x)) + ((center.y - p1.y) * (p2.y - p1.y))) / (length_sq);
+
+    if dot_product > 1.0 {
+        dot_product = 1.0;
+    } else if dot_product < 0.0 {
+        dot_product = 0.0;
+    }
+
+    let dx2 = (p1.x - (dot_product * (dx))) - center.x;
+    let dy2 = (p1.y - (dot_product * (dy))) - center.y;
+    let distance_sq = (dx2 * dx2) + (dy2 * dy2);
+
+    distance_sq <= radius * radius
+}
+
+// Get collision rectangle for two rectangles collision
+pub fn get_collision_rec(rec1: Rectangle, rec2: Rectangle) -> Rectangle {
+    let mut overlap = Rectangle {
+        x: 0.,
+        y: 0.,
+        width: 0.,
+        height: 0.,
+    };
+
+    let left = if rec1.x > rec2.x { rec1.x } else { rec2.x };
+    let right1 = rec1.x + rec1.width;
+    let right2 = rec2.x + rec2.width;
+    let right = if right1 < right2 { right1 } else { right2 };
+    let top = if rec1.y > rec2.y { rec1.y } else { rec2.y };
+    let bottom1 = rec1.y + rec1.height;
+    let bottom2 = rec2.y + rec2.height;
+    let bottom = if bottom1 < bottom2 { bottom1 } else { bottom2 };
+
+    if (left < right) && (top < bottom) {
+        overlap.x = left;
+        overlap.y = top;
+        overlap.width = right - left;
+        overlap.height = bottom - top;
+    }
+
+    return overlap;
+}
+
+// Check collision between two spheres
+pub fn check_collision_spheres(
+    center1: Vector3,
+    radius1: f32,
+    center2: Vector3,
+    radius2: f32,
+) -> bool {
+    // Simple way to check for collision, just checking distance between two points
+    // Unfortunately, sqrtf() is a costly operation, so we avoid it with following solution
+    /*
+    float dx = center1.x - center2.x;      // X distance between centers
+    float dy = center1.y - center2.y;      // Y distance between centers
+    float dz = center1.z - center2.z;      // Z distance between centers
+
+    float distance = sqrtf(dx*dx + dy*dy + dz*dz);  // Distance between centers
+
+    if (distance <= (radius1 + radius2)) collision = true;
+    */
+
+    // Check for distances squared to avoid sqrtf()
+    vector3_dot_product(
+        vector3_subtract(center2, center1),
+        vector3_subtract(center2, center1),
+    ) <= (radius1 + radius2) * (radius1 + radius2)
+}
+
+// Check collision between two boxes
+// NOTE: Boxes are defined by two points minimum and maximum
+pub fn check_collision_boxes(box1: BoundingBox, box2: BoundingBox) -> bool {
+    let mut collision = true;
+
+    if (box1.max.x >= box2.min.x) && (box1.min.x <= box2.max.x) {
+        if (box1.max.y < box2.min.y) || (box1.min.y > box2.max.y) {
+            collision = false;
+        }
+        if (box1.max.z < box2.min.z) || (box1.min.z > box2.max.z) {
+            collision = false;
+        }
+    } else {
+        collision = false;
+    }
+
+    return collision;
+}
+
+// Check collision between box and sphere
+pub fn check_collision_box_sphere(bbox: BoundingBox, center: Vector3, radius: f32) -> bool {
+    let mut dmin = 0.;
+
+    if center.x < bbox.min.x {
+        dmin += (center.x - bbox.min.x).powi(2);
+    } else if center.x > bbox.max.x {
+        dmin += (center.x - bbox.max.x).powi(2);
+    }
+
+    if center.y < bbox.min.y {
+        dmin += (center.y - bbox.min.y).powi(2);
+    } else if center.y > bbox.max.y {
+        dmin += (center.y - bbox.max.y).powi(2);
+    }
+
+    if center.z < bbox.min.z {
+        dmin += (center.z - bbox.min.z).powi(2);
+    } else if center.z > bbox.max.z {
+        dmin += (center.z - bbox.max.z).powi(2);
+    }
+
+    if dmin <= (radius * radius) {
+        true
+    } else {
+        false
+    }
+}
+
+// Get collision info between ray and sphere
+pub fn get_ray_collision_sphere(ray: Ray, center: Vector3, radius: f32) -> RayCollision {
+    let mut collision = RayCollision {
+        hit: false,
+        distance: 0.,
+        point: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+        normal: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+    };
+
+    let ray_sphere_pos = vector3_subtract(center, ray.position);
+    let vector = vector3_dot_product(ray_sphere_pos, ray.direction);
+    let distance = vector3_length(ray_sphere_pos);
+    let d = radius * radius - (distance * distance - vector * vector);
+
+    collision.hit = d >= 0.;
+
+    // Check if ray origin is inside the sphere to calculate the correct collision point
+    if distance < radius {
+        collision.distance = vector + d.sqrt();
+
+        // Calculate collision point
+        collision.point = vector3_add(
+            ray.position,
+            vector3_scale(ray.direction, collision.distance),
+        );
+
+        // Calculate collision normal (pointing outwards)
+        collision.normal =
+            vector3_negate(vector3_normalize(vector3_subtract(collision.point, center)));
+    } else {
+        collision.distance = vector - d.sqrt();
+
+        // Calculate collision point
+        collision.point = vector3_add(
+            ray.position,
+            vector3_scale(ray.direction, collision.distance),
+        );
+
+        // Calculate collision normal (pointing inwards)
+        collision.normal = vector3_normalize(vector3_subtract(collision.point, center));
+    }
+
+    return collision;
+}
+
+// Get collision info between ray and box
+pub fn get_ray_collision_box(mut ray: Ray, bbox: BoundingBox) -> RayCollision {
+    let mut collision = RayCollision {
+        hit: false,
+        distance: 0.,
+        point: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+        normal: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+    };
+
+    // Note: If ray.position is inside the box, the distance is negative (as if the ray was reversed)
+    // Reversing ray.direction will give use the correct result
+    let inside_box = (ray.position.x > bbox.min.x)
+        && (ray.position.x < bbox.max.x)
+        && (ray.position.y > bbox.min.y)
+        && (ray.position.y < bbox.max.y)
+        && (ray.position.z > bbox.min.z)
+        && (ray.position.z < bbox.max.z);
+
+    if inside_box {
+        ray.direction = vector3_negate(ray.direction);
+    }
+
+    let mut t: [f32; 11] = [0.; 11];
+
+    t[8] = 1.0 / ray.direction.x;
+    t[9] = 1.0 / ray.direction.y;
+    t[10] = 1.0 / ray.direction.z;
+
+    t[0] = (bbox.min.x - ray.position.x) * t[8];
+    t[1] = (bbox.max.x - ray.position.x) * t[8];
+    t[2] = (bbox.min.y - ray.position.y) * t[9];
+    t[3] = (bbox.max.y - ray.position.y) * t[9];
+    t[4] = (bbox.min.z - ray.position.z) * t[10];
+    t[5] = (bbox.max.z - ray.position.z) * t[10];
+    t[6] = f32::max(
+        f32::max(f32::min(t[0], t[1]), f32::min(t[2], t[3])),
+        f32::min(t[4], t[5]),
+    );
+    t[7] = f32::min(
+        f32::min(f32::max(t[0], t[1]), f32::max(t[2], t[3])),
+        f32::max(t[4], t[5]),
+    );
+
+    collision.hit = !((t[7] < 0.) || (t[6] > t[7]));
+    collision.distance = t[6];
+    collision.point = vector3_add(
+        ray.position,
+        vector3_scale(ray.direction, collision.distance),
+    );
+
+    // Get box center point
+    collision.normal = vector3_lerp(bbox.min, bbox.max, 0.5);
+    // Get vector center point->hit point
+    collision.normal = vector3_subtract(collision.point, collision.normal);
+    // Scale vector to unit cube
+    // NOTE: We use an additional .01 to fix numerical errors
+    collision.normal = vector3_scale(collision.normal, 2.01);
+    collision.normal = vector3_divide(collision.normal, vector3_subtract(bbox.max, bbox.min));
+    // The relevant elements of the vector are now slightly larger than 1.0f (or smaller than -1.0f)
+    // and the others are somewhere between -1.0 and 1.0 casting to int is exactly our wanted normal!
+    collision.normal.x = (collision.normal.x as isize) as f32;
+    collision.normal.y = (collision.normal.y as isize) as f32;
+    collision.normal.z = (collision.normal.z as isize) as f32;
+
+    collision.normal = vector3_normalize(collision.normal);
+
+    if inside_box {
+        // Reset ray.direction
+        ray.direction = vector3_negate(ray.direction);
+        // Fix result
+        collision.distance *= -1.0;
+        collision.normal = vector3_negate(collision.normal);
+    }
+
+    return collision;
+}
+
+// Get collision info between ray and mesh
+pub fn get_ray_collision_mesh(
+    ray: Ray,
+    mesh: Vec<[Vector3; 3]>,
+    transform: Matrix,
+) -> RayCollision {
+    let mut collision = RayCollision {
+        hit: false,
+        distance: 0.,
+        point: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+        normal: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+    };
+
+    // Check if mesh vertex data on CPU for testing
+    // if (mesh.vertices != NULL)
+    // {
+    //     int triangleCount = mesh.triangleCount;
+
+    // Test against all triangles in mesh
+    for tri in mesh {
+        let mut a = tri[0];
+        let mut b = tri[1];
+        let mut c = tri[2];
+
+        a = vector3_transform(a, transform);
+        b = vector3_transform(b, transform);
+        c = vector3_transform(c, transform);
+
+        let tri_hit_info = get_ray_collision_triangle(ray.clone(), a, b, c);
+
+        if tri_hit_info.hit {
+            // Save the closest hit triangle
+            if (!collision.hit) || (collision.distance > tri_hit_info.distance) {
+                collision = tri_hit_info;
+            }
+        }
+    }
+    // }
+
+    return collision;
+}
+
+// Get collision info between ray and triangle
+// NOTE: The points are expected to be in counter-clockwise winding
+// NOTE: Based on https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
+pub fn get_ray_collision_triangle(ray: Ray, p1: Vector3, p2: Vector3, p3: Vector3) -> RayCollision {
+    let mut collision = RayCollision {
+        hit: false,
+        distance: 0.,
+        point: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+        normal: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+    };
+
+    // Find vectors for two edges sharing V1
+    let edge1 = vector3_subtract(p2, p1);
+    let edge2 = vector3_subtract(p3, p1);
+
+    // Begin calculating determinant - also used to calculate u parameter
+    let p = vector3_cross_product(ray.direction, edge2);
+
+    // If determinant is near zero, ray lies in plane of triangle or ray is parallel to plane of triangle
+    let det = vector3_dot_product(edge1, p);
+
+    // Avoid culling!
+    if (det > -f32::EPSILON) && (det < f32::EPSILON) {
+        return collision;
+    };
+
+    let inv_det = 1.0 / det;
+
+    // Calculate distance from V1 to ray origin
+    let tv = vector3_subtract(ray.position, p1);
+
+    // Calculate u parameter and test bound
+    let u = vector3_dot_product(tv, p) * inv_det;
+
+    // The intersection lies outside the triangle
+    if (u < 0.0) || (u > 1.0) {
+        return collision;
+    }
+
+    // Prepare to test v parameter
+    let q = vector3_cross_product(tv, edge1);
+
+    // Calculate V parameter and test bound
+    let v = vector3_dot_product(ray.direction, q) * inv_det;
+
+    // The intersection lies outside the triangle
+    if (v < 0.0) || ((u + v) > 1.0) {
+        return collision;
+    }
+
+    let t = vector3_dot_product(edge2, q) * inv_det;
+
+    if t > f32::EPSILON {
+        // Ray hit, get hit point and normal
+        collision.hit = true;
+        collision.distance = t;
+        collision.normal = vector3_normalize(vector3_cross_product(edge1, edge2));
+        collision.point = vector3_add(ray.position, vector3_scale(ray.direction, t));
+    }
+
+    return collision;
+}
+
+// Get collision info between ray and quad
+// NOTE: The points are expected to be in counter-clockwise winding
+pub fn get_ray_collision_quad(
+    ray: Ray,
+    p1: Vector3,
+    p2: Vector3,
+    p3: Vector3,
+    p4: Vector3,
+) -> RayCollision {
+    let mut collision = get_ray_collision_triangle(ray, p1, p2, p4);
+
+    if !collision.hit {
+        collision = get_ray_collision_triangle(ray, p2, p3, p4);
+    }
+
+    return collision;
+}
