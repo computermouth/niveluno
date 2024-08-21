@@ -9,10 +9,17 @@ pub const RAD2DEG: f32 = 180.0 / std::f32::consts::PI;
 // Types and Structures Definition
 //----------------------------------------------------------------------------------
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector2 {
     pub x: f32,
     pub y: f32,
+}
+
+// deleteme
+impl From<[f32; 5]> for Vector2 {
+    fn from(f: [f32; 5]) -> Self {
+        Self{x: f[0], y: f[1]}
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -2213,7 +2220,7 @@ pub fn matrix_decompose(mat: Matrix) -> (Vector3, Quaternion, Vector3) {
 // ==============================================================================
 
 // Ray, ray for raycasting
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Ray {
     // Ray position (origin)
     pub position: Vector3,
@@ -2222,11 +2229,19 @@ pub struct Ray {
 }
 
 // Rectangle, 4 components
+#[derive(Debug, Copy, Clone)]
 pub struct Rectangle {
     pub x: f32,
     pub y: f32,
     pub width: f32,
     pub height: f32,
+}
+
+// deleteme
+impl From<[f32; 5]> for Rectangle {
+    fn from(f: [f32; 5]) -> Self {
+        Self{x: f[0], y: f[1], width: f[2], height: f[3]}
+    }
 }
 
 // BoundingBox
@@ -2238,6 +2253,7 @@ pub struct BoundingBox {
 }
 
 // RayCollision, ray hit information
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RayCollision {
     // Did the ray hit something?
     pub hit: bool,
@@ -2297,10 +2313,11 @@ pub fn check_collision_point_triangle(
 // NOTE: Based on http://jeffreythompson.org/collision-detection/poly-point.php
 pub fn check_collision_point_poly(
     point: Vector2,
-    points: Vec<Vector2>,
-    point_count: usize,
+    points: Vec<Vector2>
 ) -> bool {
     let mut inside = false;
+
+    let point_count = points.len();
 
     if point_count > 2 {
         let mut j = point_count - 1;
@@ -2680,7 +2697,17 @@ pub fn get_ray_collision_box(mut ray: Ray, bbox: BoundingBox) -> RayCollision {
     );
 
     collision.hit = !((t[7] < 0.) || (t[6] > t[7]));
+
+    if !collision.hit {
+        return collision;
+    }
+
     collision.distance = t[6];
+
+    if collision.distance.is_nan() || collision.distance.is_infinite() {
+        return collision;
+    }
+
     collision.point = vector3_add(
         ray.position,
         vector3_scale(ray.direction, collision.distance),
@@ -2696,9 +2723,9 @@ pub fn get_ray_collision_box(mut ray: Ray, bbox: BoundingBox) -> RayCollision {
     collision.normal = vector3_divide(collision.normal, vector3_subtract(bbox.max, bbox.min));
     // The relevant elements of the vector are now slightly larger than 1.0f (or smaller than -1.0f)
     // and the others are somewhere between -1.0 and 1.0 casting to int is exactly our wanted normal!
-    collision.normal.x = (collision.normal.x as isize) as f32;
-    collision.normal.y = (collision.normal.y as isize) as f32;
-    collision.normal.z = (collision.normal.z as isize) as f32;
+    collision.normal.x = collision.normal.x as i32 as f32;
+    collision.normal.y = collision.normal.y as i32 as f32;
+    collision.normal.z = collision.normal.z as i32 as f32;
 
     collision.normal = vector3_normalize(collision.normal);
 
@@ -2850,4 +2877,41 @@ pub fn get_ray_collision_quad(
     }
 
     return collision;
+}
+
+// =========================================================
+
+// todo -- deleteme
+impl From<[f32; 3]> for Vector2 {
+    fn from(f: [f32; 3]) -> Self {
+        Vector2{x: f[0], y: f[1]}
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 5]> for Vector3 {
+    fn from(f: [f32; 5]) -> Self {
+        Vector3{x: f[0], y: f[1], z: f[2]}
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 16]> for Vector3 {
+    fn from(f: [f32; 16]) -> Self {
+        Vector3{x: f[0], y: f[1], z: f[2]}
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 5]> for Quaternion {
+    fn from(f: [f32; 5]) -> Self {
+        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
+    }
+}
+
+// todo -- deleteme
+impl From<[f32; 16]> for Quaternion {
+    fn from(f: [f32; 16]) -> Self {
+        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
+    }
 }
