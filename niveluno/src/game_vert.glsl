@@ -86,15 +86,26 @@ mat_comp decomp_mat(mat4 matrix) {
     return components;
 }
 
+vec4 clamp_to_fixed_point(vec4 val) {
+
+    // 1 / 32
+    // float step = 0.00390625;
+    float step = 1.0/8.0;
+
+    val = round(val / vec4(step)) * vec4(step);
+
+    return val;
+}
+
 void main(void) {
     f_unlit = float(unlit);
 
     // scale, rotation, translation matrix
     mat4 model_mat = mat4 (
-        model_mat_v1,
-        model_mat_v2,
-        model_mat_v3,
-        model_mat_v4
+        clamp_to_fixed_point(model_mat_v1),
+        clamp_to_fixed_point(model_mat_v2),
+        clamp_to_fixed_point(model_mat_v3),
+        clamp_to_fixed_point(model_mat_v4)
     );
 
     mat_comp model = decomp_mat(model_mat);
