@@ -6,47 +6,7 @@ use crate::g_game;
 use crate::render;
 use raymath::Vector3;
 
-pub enum GcylFrames {
-    Default,
-    Cylinder001,
-    Cylinder002,
-}
-
-impl From<&str> for GcylFrames {
-    fn from(value: &str) -> Self {
-        match value {
-            "default" => Self::Default,
-            "Cylinder.001" => Self::Cylinder001,
-            "Cylinder.002" => Self::Cylinder002,
-            _ => {
-                eprintln!("unmatched frame: {value}");
-                Self::Default
-            }
-        }
-    }
-}
-
-pub struct Animation {
-    time: f32,
-    frames: &'static [GcylFrames],
-}
-
-pub const GCYL_DEFAULT_ANIMATION: Animation = Animation {
-    time: 10.0,
-    frames: &[GcylFrames::Default],
-};
-
-pub const GCYL_DEFAULT_TO_001: Animation = Animation {
-    time: 10.0,
-    frames: &[GcylFrames::Default, GcylFrames::Cylinder001],
-};
-
-pub const GCYL_002_TO_001: Animation = Animation {
-    time: 10.0,
-    frames: &[GcylFrames::Cylinder002, GcylFrames::Cylinder001],
-};
-
-pub struct Gcyl {
+pub struct Pig {
     base: Entity,
     yaw: f32,
     pitch: f32,
@@ -54,19 +14,34 @@ pub struct Gcyl {
     quat: raymath::Quaternion,
 }
 
-impl EntityInstance for Gcyl {
+struct Animation {
+    keys: Vec<String>,
+    indices: Vec<u32>,
+    length: Vec<f32>,
+}
+
+enum PigAnimations {
+    Tpose(Animation),
+    Swipe(Animation),
+    Charge(Animation),
+    Land(Animation),
+    Die(Animation),
+    Bump(Animation),
+}
+
+impl EntityInstance for Pig {
     fn update(&mut self) {
-        let dt = time::get_delta_time().unwrap() as f32;
+        // let dt = time::get_delta_time().unwrap() as f32;
 
-        self.yaw += 1. * dt;
-        self.pitch -= 3. * dt;
+        // self.yaw += 1. * dt;
+        // self.pitch -= 3. * dt;
 
-        let quat_y = raymath::quaternion_from_axis_angle(Vector3::new(1., 0., 0.), self.yaw);
-        let quat_p = raymath::quaternion_from_axis_angle(Vector3::new(0., 1., 0.), self.pitch);
+        // let quat_y = raymath::quaternion_from_axis_angle(Vector3::new(1., 0., 0.), self.yaw);
+        // let quat_p = raymath::quaternion_from_axis_angle(Vector3::new(0., 1., 0.), self.pitch);
 
         self.quat = self.base.rotation.into();
-        self.quat = raymath::quaternion_multiply(self.quat, quat_p);
-        self.quat = raymath::quaternion_multiply(self.quat, quat_y);
+        // self.quat = raymath::quaternion_multiply(self.quat, quat_p);
+        // self.quat = raymath::quaternion_multiply(self.quat, quat_y);
     }
 
     fn draw_model(&mut self) {
@@ -99,7 +74,7 @@ impl EntityInstance for Gcyl {
     }
 }
 
-impl Gcyl {
+impl Pig {
     pub fn new(entt: &Entity) -> Self {
         let ref_ent = g_game::get_ref_entity(entt.index).unwrap();
 

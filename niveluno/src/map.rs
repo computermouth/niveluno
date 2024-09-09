@@ -55,6 +55,7 @@ pub struct LoadedDecorReference {
 pub struct LoadedEnttReference {
     pub index: usize,
     pub texture_handle: usize,
+    pub frame_names: Vec<String>,
     pub frame_handles: Vec<usize>,
     pub num_verts: usize,
 }
@@ -113,6 +114,7 @@ pub fn load(payload: Payload) -> Result<Map, NUError> {
     eprintln!("decor: {:?}", payload.drn_data);
     eprintln!("entts: {:?}", payload.ern_data);
     eprintln!("keyvs: {:?}", payload.kvs_data);
+    eprintln!("frams: {:?}", payload.fn_data);
 
     let level_payload = MapPayload {
         drn_data: payload.drn_data,
@@ -212,9 +214,15 @@ pub fn load(payload: Payload) -> Result<Map, NUError> {
             ])
         }
 
+        let mut frame_names = vec![];
+        for name in &re.frame_names {
+            frame_names.push(level_payload.fn_data[*name as usize].clone());
+        }
+
         ref_entts.push(LoadedEnttReference {
             index: re.name as usize,
             texture_handle: img_handles[re.texture as usize],
+            frame_names,
             frame_handles: pack_floats(verts, uvs)?,
             num_verts: vlen,
         })

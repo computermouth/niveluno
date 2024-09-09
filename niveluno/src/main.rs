@@ -19,6 +19,7 @@ mod e_entity;
 mod e_gcyl;
 mod e_light;
 mod e_menu;
+mod e_pig;
 mod e_player;
 // pak/decor??
 mod d_decor;

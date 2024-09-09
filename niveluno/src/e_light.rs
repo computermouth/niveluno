@@ -22,10 +22,11 @@ enum Orientation {
     LeftRight,
     UpDown,
     BackForward,
+    Unset,
 }
 
-impl EntityInstance for Light {
-    fn update(&mut self) {
+impl Light {
+    fn move_on_orientation(&mut self) {
         let (axis, shift) = match self.orientation {
             Orientation::LeftRight => (
                 Vector3 {
@@ -51,6 +52,9 @@ impl EntityInstance for Light {
                 },
                 3.,
             ),
+            Orientation::Unset => {
+                unreachable!("light had unset orientation in move_on_orientation")
+            }
         };
 
         let time_factor = (time::get_run_time().unwrap() + shift).sin() as f32;
@@ -60,6 +64,14 @@ impl EntityInstance for Light {
             self.position,
             vector3_scale(vector3_scale(axis, 0.1), time_factor),
         );
+    }
+}
+
+impl EntityInstance for Light {
+    fn update(&mut self) {
+        if self.orientation != Orientation::Unset {
+            self.move_on_orientation()
+        }
 
         render::push_light(self.position, self.intensity, self.r, self.g, self.b).unwrap();
     }
@@ -68,6 +80,10 @@ impl EntityInstance for Light {
 
 impl Light {
     pub fn new(entt: &Entity) -> Self {
+        // let ref_ent = g_game::get_ref_entity(entt.index).unwrap();
+
+        // eprintln!("re.names: {:?}", ref_ent.frame_names);
+
         let mut rgbi = [1, 128, 255, 255];
 
         for (i, v) in entt.params.iter().enumerate() {
@@ -88,11 +104,11 @@ impl Light {
             let key = g_game::get_param(*v as usize).unwrap();
             if key == "orientation" {
                 let value = g_game::get_param(entt.params[i + 1] as usize).unwrap();
-                match value {
-                    "lr" => orientation = Orientation::LeftRight,
-                    "ud" => orientation = Orientation::UpDown,
-                    "bf" => orientation = Orientation::BackForward,
-                    _ => eprintln!("unmatched light orientation"),
+                orientation = match value {
+                    "lr" => Orientation::LeftRight,
+                    "ud" => Orientation::UpDown,
+                    "bf" => Orientation::BackForward,
+                    _ => Orientation::Unset,
                 }
             }
         }

@@ -90,9 +90,23 @@ vec4 clamp_to_fixed_point(vec4 val) {
 
     // 1 / 32
     // float step = 0.00390625;
-    float step = 1.0/8.0;
+    float step = 1.0/32.0;
 
     val = round(val / vec4(step)) * vec4(step);
+
+    return val;
+}
+
+vec3 clamp_v3_to_fixed_point(vec3 val) {
+
+    // 1 / 32
+    // float step = 0.00390625;
+    float step = 1.0/32.0;
+
+    val = round(val / vec3(step)) * vec3(step);
+
+    // vec3 step_v3 = vec3(step * sin(val.x), step * sin(val.y), step * sin(val.z));
+    // val = round(val / step_v3) * step_v3;
 
     return val;
 }
@@ -111,7 +125,11 @@ void main(void) {
     mat_comp model = decomp_mat(model_mat);
  
     // Mix vertex positions, rotate using mat3, and add the translation
-    vp = model.rotation * (model.scale * mix(p, p2, blend)) + model.translation;
+    vec3 vp_in = model.rotation * (model.scale * mix(p, p2, blend)) + model.translation;
+
+    // what if the step was also like
+    // vec3(step + sin(val.x), step + sin(val.y), step + sin(val.z))
+    vp = clamp_v3_to_fixed_point(vp_in);
 
     // Mix normals
     vn = model.rotation * mix(n, n2, blend);

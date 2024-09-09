@@ -33,6 +33,7 @@ impl DecorInstance for Floor {
 
 impl Floor {
     pub fn new(decor: &Decor) -> Self {
+        // todo, scale + quat
         Self {
             base: decor.clone(),
             mat: raymath::matrix_translate(decor.location[0], decor.location[1], decor.location[2]),

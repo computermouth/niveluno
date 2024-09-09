@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::asset;
 use crate::map::{self, LoadedDecorReference, LoadedEnttReference};
 use crate::nuerror::NUError;
@@ -7,6 +9,7 @@ use crate::e_entity::EntityInstance;
 use crate::e_gcyl::Gcyl;
 use crate::e_light::Light;
 use crate::e_menu::Menu;
+use crate::e_pig::Pig;
 use crate::e_player::Player;
 
 use crate::d_decor::DecorInstance;
@@ -105,8 +108,22 @@ pub fn stage_level(level: map::Map) -> Result<(), NUError> {
     Ok(())
 }
 
+pub enum AnimatedEntities {
+    Gcyl,
+    Menu,
+    Pig,
+    
+}
+
 pub fn init_level(level: &map::Map) -> Result<(), NUError> {
     let gg = GameGod::get()?;
+
+    // let mut animations = HashMap::new();
+    for mr in &level.ref_entities {
+        match level.payload.ern_data[mr.index].as_str() {
+            s => eprintln!("mr ern: {s}")
+        }
+    }
 
     let mut decor = vec![];
     for md in &level.map_decor {
@@ -130,6 +147,7 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
                 "gcyl" => Some(Box::new(Gcyl::new(me))),
                 "light" => Some(Box::new(Light::new(me))),
                 "player" => Some(Box::new(Player::new(me))),
+                "pig" => Some(Box::new(Pig::new(me))),
                 "menu_m" => Some(Box::new(Menu::new(me))),
                 "menu_e" => Some(Box::new(Menu::new(me))),
                 "menu_n" => Some(Box::new(Menu::new(me))),
@@ -145,6 +163,7 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
         }
     }
 
+    // gg.animations = animations;
     gg.decor_inst = decor;
     gg.entts_inst = entts;
 

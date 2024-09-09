@@ -18,7 +18,7 @@ pub struct Vector2 {
 // deleteme
 impl From<[f32; 5]> for Vector2 {
     fn from(f: [f32; 5]) -> Self {
-        Self{x: f[0], y: f[1]}
+        Self { x: f[0], y: f[1] }
     }
 }
 
@@ -2240,7 +2240,12 @@ pub struct Rectangle {
 // deleteme
 impl From<[f32; 5]> for Rectangle {
     fn from(f: [f32; 5]) -> Self {
-        Self{x: f[0], y: f[1], width: f[2], height: f[3]}
+        Self {
+            x: f[0],
+            y: f[1],
+            width: f[2],
+            height: f[3],
+        }
     }
 }
 
@@ -2311,10 +2316,7 @@ pub fn check_collision_point_triangle(
 
 // Check if point is within a polygon described by array of vertices
 // NOTE: Based on http://jeffreythompson.org/collision-detection/poly-point.php
-pub fn check_collision_point_poly(
-    point: Vector2,
-    points: Vec<Vector2>
-) -> bool {
+pub fn check_collision_point_poly(point: Vector2, points: Vec<Vector2>) -> bool {
     let mut inside = false;
 
     let point_count = points.len();
@@ -2884,34 +2886,52 @@ pub fn get_ray_collision_quad(
 // todo -- deleteme
 impl From<[f32; 3]> for Vector2 {
     fn from(f: [f32; 3]) -> Self {
-        Vector2{x: f[0], y: f[1]}
+        Vector2 { x: f[0], y: f[1] }
     }
 }
 
 // todo -- deleteme
 impl From<[f32; 5]> for Vector3 {
     fn from(f: [f32; 5]) -> Self {
-        Vector3{x: f[0], y: f[1], z: f[2]}
+        Vector3 {
+            x: f[0],
+            y: f[1],
+            z: f[2],
+        }
     }
 }
 
 // todo -- deleteme
 impl From<[f32; 16]> for Vector3 {
     fn from(f: [f32; 16]) -> Self {
-        Vector3{x: f[0], y: f[1], z: f[2]}
+        Vector3 {
+            x: f[0],
+            y: f[1],
+            z: f[2],
+        }
     }
 }
 
 // todo -- deleteme
 impl From<[f32; 5]> for Quaternion {
     fn from(f: [f32; 5]) -> Self {
-        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
+        Quaternion {
+            x: f[0],
+            y: f[1],
+            z: f[2],
+            w: f[3],
+        }
     }
 }
 
 // todo -- deleteme
 impl From<[f32; 16]> for Quaternion {
     fn from(f: [f32; 16]) -> Self {
-        Quaternion{x: f[0], y: f[1], z: f[2], w: f[3]}
+        Quaternion {
+            x: f[0],
+            y: f[1],
+            z: f[2],
+            w: f[3],
+        }
     }
 }
