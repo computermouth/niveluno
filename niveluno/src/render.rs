@@ -9,7 +9,7 @@ use raymath::{vector3_distance, Matrix};
 
 use crate::math::{self, Vector3};
 use crate::nuerror::NUError;
-use crate::{text, time};
+use crate::text;
 
 // draw texture res, default window res
 pub const INTERNAL_W: i32 = 320;

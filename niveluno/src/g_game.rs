@@ -112,7 +112,6 @@ pub enum AnimatedEntities {
     Gcyl,
     Menu,
     Pig,
-    
 }
 
 pub fn init_level(level: &map::Map) -> Result<(), NUError> {
@@ -121,7 +120,7 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
     // let mut animations = HashMap::new();
     for mr in &level.ref_entities {
         match level.payload.ern_data[mr.index].as_str() {
-            s => eprintln!("mr ern: {s}")
+            s => eprintln!("mr ern: {s}"),
         }
     }
 
@@ -244,4 +243,28 @@ pub fn get_ref_entity(id: usize) -> Result<LoadedEnttReference, NUError> {
 
     // it'd be nice if this was a reference
     Ok(level.ref_entities[id].clone())
+}
+
+pub fn get_animation_ids(animations: &[&[&str]], ref_ent: &LoadedEnttReference) -> Vec<Vec<usize>> {
+    let mut animation_ids = vec![];
+
+    for animation in animations {
+        let mut frame_ids = vec![];
+        for frame in *animation {
+            let id = ref_ent.frame_names.iter().position(|r| r == frame);
+
+            let id = match id {
+                Some(i) => i,
+                None => {
+                    eprintln!("frame '{frame}' not matched");
+                    0
+                }
+            };
+
+            frame_ids.push(id);
+        }
+        animation_ids.push(frame_ids);
+    }
+
+    animation_ids
 }
