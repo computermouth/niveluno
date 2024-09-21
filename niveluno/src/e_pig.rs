@@ -17,14 +17,16 @@ pub struct Pig {
     anim_length: Vec<f32>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(usize)]
 enum PigAnimations {
     Tpose,
     Swipe,
     Charge,
+    Drop,
     Land,
     Die,
+    Dead,
     Bump,
     __End,
 }
@@ -120,6 +122,7 @@ const PIG_ANIMATIONS: &[&[&str]] = &[
         PIG_FRAME_CHARGE_003,
         PIG_FRAME_CHARGE_004,
     ],
+    &[PIG_FRAME_LAND_000],
     &[
         PIG_FRAME_LAND_000,
         PIG_FRAME_LAND_001,
@@ -143,6 +146,7 @@ const PIG_ANIMATIONS: &[&[&str]] = &[
         PIG_FRAME_DIE_012,
         PIG_FRAME_DIE_013,
     ],
+    &[PIG_FRAME_DIE_013],
     &[
         PIG_FRAME_BUMP_000,
         PIG_FRAME_BUMP_001,
@@ -190,12 +194,12 @@ impl EntityInstance for Pig {
         // animation, frame, mix
         self.anim_time += time::get_delta_time().unwrap() as f32;
 
-        let mut f = self.anim_time / self.anim_length[self.anim_id as usize];
-        let mix = f - f.floor();
+        let f = self.anim_time / self.anim_length[self.anim_id as usize];
+        let mut mix = f - f.floor();
 
         let anim = &self.animations[self.anim_id as usize];
 
-        let mut frame_curr = anim[(f as usize) % anim.len()];
+        let frame_curr = anim[(f as usize) % anim.len()];
         let mut frame_next = anim[((f as usize) + 1) % anim.len()];
         // if frame_next < frame_curr {
         //     let tmp = frame_curr;
@@ -203,16 +207,15 @@ impl EntityInstance for Pig {
         //     frame_next = tmp;
         //     mix = 1. - mix;
         // }
-        if f > 1.0 {
+        if frame_next < frame_curr || ((frame_next == frame_curr) && f >= 1.0) {
             let mut next_id = (self.anim_id as usize) + 1;
             if next_id >= PigAnimations::__End as usize {
-                next_id = 0;
+                next_id = 1;
             }
             self.anim_id = unsafe { std::mem::transmute(next_id) };
-            f = 0.;
 
-            frame_curr = anim[(f as usize) % anim.len()];
-            frame_next = anim[((f as usize) + 1) % anim.len()];
+            frame_next = self.animations[self.anim_id as usize][0];
+            mix = 0.5;
 
             self.anim_time = 0.;
         }
@@ -238,7 +241,16 @@ impl Pig {
         eprintln!("re.names: {:?}", ref_ent.frame_names);
         eprintln!("re.animations: {:?}", animations);
 
-        let anim_length = vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+        let mut anim_length = vec![0.; PigAnimations::__End as usize];
+        eprintln!("anim_length.len() {}", anim_length.len());
+        anim_length[PigAnimations::Tpose as usize] = 1.0;
+        anim_length[PigAnimations::Swipe as usize] = 0.1;
+        anim_length[PigAnimations::Charge as usize] = 0.2;
+        anim_length[PigAnimations::Drop as usize] = 0.4;
+        anim_length[PigAnimations::Land as usize] = 0.4;
+        anim_length[PigAnimations::Die as usize] = 0.15;
+        anim_length[PigAnimations::Dead as usize] = 1.0;
+        anim_length[PigAnimations::Bump as usize] = 0.15;
 
         assert_eq!(animations.len(), anim_length.len());
 
@@ -249,7 +261,7 @@ impl Pig {
             scale_mat: raymath::matrix_scale(entt.scale[0], entt.scale[1], entt.scale[2]),
             quat: raymath::quaternion_identity(),
             animations,
-            anim_id: PigAnimations::Tpose,
+            anim_id: PigAnimations::Swipe,
             anim_time: 0.,
             anim_length,
         }
