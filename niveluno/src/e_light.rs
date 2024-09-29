@@ -1,4 +1,4 @@
-use raymath::{vector3_add, vector3_multiply, vector3_scale};
+use raymath::{vector3_add, vector3_scale};
 
 use crate::math::Vector3;
 

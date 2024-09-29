@@ -229,8 +229,7 @@ impl EntityInstance for Pig {
             f2: ref_ent.frame_handles[frame_next] as i32,
             mix,
             num_verts: ref_ent.num_verts,
-            // glow: None,
-            glow: Some(Vector3::new(500., 500., 500.)),
+            glow: None,
         };
         render::draw(dc).unwrap();
     }

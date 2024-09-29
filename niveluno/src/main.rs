@@ -15,6 +15,7 @@ mod time;
 // pak module
 mod g_game;
 // pak/entity??
+mod e_barrier;
 mod e_entity;
 mod e_gcyl;
 mod e_light;

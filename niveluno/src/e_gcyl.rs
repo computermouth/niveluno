@@ -26,26 +26,6 @@ impl From<&str> for GcylFrames {
     }
 }
 
-pub struct Animation {
-    time: f32,
-    frames: &'static [GcylFrames],
-}
-
-pub const GCYL_DEFAULT_ANIMATION: Animation = Animation {
-    time: 10.0,
-    frames: &[GcylFrames::Default],
-};
-
-pub const GCYL_DEFAULT_TO_001: Animation = Animation {
-    time: 10.0,
-    frames: &[GcylFrames::Default, GcylFrames::Cylinder001],
-};
-
-pub const GCYL_002_TO_001: Animation = Animation {
-    time: 10.0,
-    frames: &[GcylFrames::Cylinder002, GcylFrames::Cylinder001],
-};
-
 pub struct Gcyl {
     base: Entity,
     yaw: f32,

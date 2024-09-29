@@ -5,6 +5,7 @@ use crate::map::{self, LoadedDecorReference, LoadedEnttReference};
 use crate::nuerror::NUError;
 use crate::text;
 
+use crate::e_barrier::Barrier;
 use crate::e_entity::EntityInstance;
 use crate::e_gcyl::Gcyl;
 use crate::e_light::Light;
@@ -143,6 +144,7 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
     for me in &level.map_entities {
         let dyn_entt_inst: Option<Box<dyn EntityInstance>> =
             match level.payload.ern_data[me.index].as_str() {
+                "barrier" => Some(Box::new(Barrier::new(me))),
                 "gcyl" => Some(Box::new(Gcyl::new(me))),
                 "light" => Some(Box::new(Light::new(me))),
                 "player" => Some(Box::new(Player::new(me))),
