@@ -25,7 +25,7 @@ impl DecorInstance for Floor {
             f2: ref_dec.frame_handle as i32,
             mix: 0.,
             num_verts: ref_dec.num_verts,
-            unlit: false,
+            glow: None,
         };
         render::draw(dc).unwrap();
     }

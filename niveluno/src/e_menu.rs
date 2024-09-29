@@ -55,7 +55,7 @@ impl EntityInstance for Menu {
             f2: ref_ent.frame_handles[0] as i32,
             mix: 0.,
             num_verts: ref_ent.num_verts,
-            unlit: false,
+            glow: None,
         };
         render::draw(dc).unwrap();
     }

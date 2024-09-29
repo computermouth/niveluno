@@ -14,8 +14,9 @@ uniform int light_count;
 // Lights [(x,y,z), [r,g,b], ...]
 uniform vec3 lights[64];
 
-// flag to turn off lighting
-in float f_unlit;
+// Use a static multiplier to light, instead
+// of dynamic lighting
+in vec3 out_glow;
 
 out vec4 fragColor;
 
@@ -43,7 +44,7 @@ void main(void) {
     // vl = vec3(2, 2, 2);
 
     vec3 p = pow(vl, vec3(0.75));
-    if (f_unlit != 0.0) { p = vec3(1.25); }
+    if (!isnan(out_glow.x)) { p = out_glow; }
 
     fragColor.rgb = floor(
         fragColor.rgb * p // Light, Gamma

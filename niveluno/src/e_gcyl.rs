@@ -93,7 +93,7 @@ impl EntityInstance for Gcyl {
             f2: ref_ent.frame_handles[1] as i32,
             mix: t,
             num_verts: ref_ent.num_verts,
-            unlit: false,
+            glow: None,
         };
         render::draw(dc).unwrap();
     }

@@ -27,9 +27,10 @@ uniform vec2 mouse;
 // Blend factor between the two vertex positions
 uniform float blend;
 
-// Flag to turn off lighting in the frag shader
-uniform int unlit;
-out float f_unlit;
+// Use a static multiplier to light, instead
+// of dynamic lighting
+uniform vec3 glow;
+out vec3 out_glow;
 
 // Generate a rotation Matrix around the x,y,z axis;
 // Used for model rotation and camera yaw
@@ -112,7 +113,7 @@ vec3 clamp_v3_to_fixed_point(vec3 val) {
 }
 
 void main(void) {
-    f_unlit = float(unlit);
+    out_glow = glow;
 
     // scale, rotation, translation matrix
     mat4 model_mat = mat4 (

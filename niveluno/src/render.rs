@@ -1,3 +1,4 @@
+use core::f32;
 use std::ffi::CString;
 use std::ptr::addr_of_mut;
 
@@ -37,7 +38,7 @@ pub struct DrawCall {
     pub f1: GLint, // todo, first frame of interpolation
     pub f2: GLint, // second frame of interpolation
     pub mix: f32,
-    pub unlit: bool,
+    pub glow: Option<Vector3>,
     pub num_verts: usize,
 }
 
@@ -79,7 +80,7 @@ struct RenderGod {
     pub u_model_mat_v3: GLint,
     pub u_model_mat_v4: GLint,
     pub u_blend: GLint,
-    pub u_unlit: GLint,
+    pub u_glow: GLint,
 
     // vertex attribute location for mixing
     pub va_p2: GLint,
@@ -297,7 +298,7 @@ pub fn init() -> Result<(), NUError> {
         u_model_mat_v3: 0,
         u_model_mat_v4: 0,
         u_blend: 0,
-        u_unlit: 0,
+        u_glow: 0,
 
         // vertex attribute location for mixing
         va_p2: 0,
@@ -350,7 +351,7 @@ pub fn init() -> Result<(), NUError> {
         rg.u_model_mat_v4 =
             gl::GetUniformLocation(rg.shader_program, CString::new("model_mat_v4")?.as_ptr());
         rg.u_blend = gl::GetUniformLocation(rg.shader_program, CString::new("blend")?.as_ptr());
-        rg.u_unlit = gl::GetUniformLocation(rg.shader_program, CString::new("unlit")?.as_ptr());
+        rg.u_glow = gl::GetUniformLocation(rg.shader_program, CString::new("glow")?.as_ptr());
     }
 
     // vertex buffer
@@ -623,7 +624,13 @@ pub fn end_frame() -> Result<(), NUError> {
                 model_f16[0xF],
             );
             gl::Uniform1f(rg.u_blend, c.mix);
-            gl::Uniform1i(rg.u_unlit, c.unlit as i32);
+
+            let glow = match c.glow {
+                None => Vector3::new(f32::NAN, f32::NAN, f32::NAN),
+                Some(v) => v,
+            };
+
+            gl::Uniform3f(rg.u_glow, glow.x, glow.y, glow.z);
         }
 
         if vo != (c.f2 - c.f1) {

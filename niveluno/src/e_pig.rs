@@ -1,3 +1,5 @@
+use raymath::Vector3;
+
 use crate::e_entity::EntityInstance;
 use crate::map::Entity;
 use crate::time;
@@ -227,7 +229,8 @@ impl EntityInstance for Pig {
             f2: ref_ent.frame_handles[frame_next] as i32,
             mix,
             num_verts: ref_ent.num_verts,
-            unlit: false,
+            // glow: None,
+            glow: Some(Vector3::new(500., 500., 500.)),
         };
         render::draw(dc).unwrap();
     }
