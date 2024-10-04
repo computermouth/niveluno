@@ -69,9 +69,9 @@ impl Light {
 
 impl EntityInstance for Light {
     fn update(&mut self) {
-        if self.orientation != Orientation::Unset {
-            self.move_on_orientation()
-        }
+        // if self.orientation != Orientation::Unset {
+        //     self.move_on_orientation()
+        // }
 
         render::push_light(self.position, self.intensity, self.r, self.g, self.b).unwrap();
     }

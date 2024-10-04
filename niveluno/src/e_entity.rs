@@ -1,7 +1,3 @@
-// would rather match on sum type, but calling
-// other_e::func seems hairy. maybe if it took a copy
-// of other_e, modified, bubbled up to a buffer to replace?
-
 use raymath::{vector3_add, vector3_multiply, vector3_scale, vector3_subtract, Vector3};
 
 use crate::time;

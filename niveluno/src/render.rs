@@ -13,10 +13,10 @@ use crate::nuerror::NUError;
 use crate::text;
 
 // draw texture res, default window res
-pub const INTERNAL_W: i32 = 320;
-pub const INTERNAL_H: i32 = 180;
-pub const D_WINDOW_W: u32 = 640;
-pub const D_WINDOW_H: u32 = 360;
+pub const INTERNAL_W: i32 = 640;
+pub const INTERNAL_H: i32 = 360;
+pub const D_WINDOW_W: u32 = 854;
+pub const D_WINDOW_H: u32 = 480;
 
 const V_SHADER_STR: &str = include_str!("game_vert.glsl");
 const F_SHADER_STR: &str = include_str!("game_frag.glsl");
@@ -240,6 +240,15 @@ fn vertex_attribute(
             (vertex_size * 4) as GLsizei,
             (offset * 4) as *const GLvoid,
         );
+    }
+
+    loop {
+        let s = unsafe { gl::GetError() };
+        if s == gl::NO_ERROR {
+            break;
+        }
+        eprintln!("glerror: {:x}", s);
+        panic!();
     }
 
     match location {

@@ -1,11 +1,11 @@
-use raymath::{vector3_add, vector3_multiply, vector3_scale};
+use raymath;
 
-use crate::math::Vector3;
+use crate::math::{self, Vector3};
 
 use crate::e_entity::EntityInstance;
 use crate::map::Entity;
 
-use crate::{g_game, render, time};
+use crate::{g_game, render};
 
 pub struct Barrier {
     base: Entity,
@@ -32,12 +32,22 @@ impl EntityInstance for Barrier {
         mat = raymath::matrix_multiply(mat, mat_t);
 
         let color = match self.id.unwrap() {
-            0 => Vector3::new(0., 0., 255.),
-            1 => Vector3::new(0., 128., 255.),
-            2 => Vector3::new(255., 128., 0.),
-            3 => Vector3::new(255., 0., 0.),
-            _ => Vector3::new(255., 255., 255.),
+            0 => Vector3::new(0.0, 0.0, 1.0),
+            1 => Vector3::new(0.0, 0.5, 1.0),
+            2 => Vector3::new(0.0, 1.0, 1.0),
+            3 => Vector3::new(0.0, 1.0, 0.0),
+            4 => Vector3::new(1.0, 1.0, 0.0),
+            5 => Vector3::new(1.0, 0.5, 0.0),
+            6 => Vector3::new(1.0, 0.0, 0.0),
+            7 => Vector3::new(0.5, 0.0, 0.0),
+            _ => Vector3::new(1.0, 1.0, 1.0),
         };
+
+        let cam_pos = render::get_camera_pos().unwrap();
+        let cam_light_dist = math::vector3_distance(self.base.location.into(), cam_pos);
+
+        let fade = math::scale(cam_light_dist, 32., 34., 1., 0.).clamp(0., 1.);
+        let color = math::vector3_scale(color, fade);
 
         let dc = render::DrawCall {
             matrix: mat,
@@ -54,10 +64,6 @@ impl EntityInstance for Barrier {
 
 impl Barrier {
     pub fn new(entt: &Entity) -> Self {
-        // let ref_ent = g_game::get_ref_entity(entt.index).unwrap();
-
-        // eprintln!("re.names: {:?}", ref_ent.frame_names);
-
         let mut id = None;
 
         for (i, v) in entt.params.iter().enumerate() {

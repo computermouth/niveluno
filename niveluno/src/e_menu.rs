@@ -63,9 +63,6 @@ impl EntityInstance for Menu {
 
 impl Menu {
     pub fn new(entt: &Entity) -> Self {
-        let euler = raymath::quaternion_to_euler(entt.rotation.into());
-
-        eprintln!("base.rot: {:?} -- euler: {:?}", entt.rotation, euler);
         Self {
             base: entt.clone(),
             yaw: f32::consts::PI,

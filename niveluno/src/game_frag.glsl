@@ -44,8 +44,12 @@ void main(void) {
     // vl = vec3(2, 2, 2);
 
     vec3 p = pow(vl, vec3(0.75));
-    if (!isnan(out_glow.x)) { p = out_glow; }
 
+    if (!isnan(out_glow.x)) {
+        fragColor.rgb = out_glow;
+        return;
+    }
+    
     fragColor.rgb = floor(
         fragColor.rgb * p // Light, Gamma
         * 16.0 + 0.5

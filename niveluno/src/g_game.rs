@@ -15,6 +15,7 @@ use crate::e_player::Player;
 
 use crate::d_decor::DecorInstance;
 use crate::d_floor::Floor;
+use crate::d_platform::Platform;
 
 struct GameGod {
     pub current_level: Option<map::Map>,
@@ -130,6 +131,7 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
         let dyn_decor_inst: Option<Box<dyn DecorInstance>> =
             match level.payload.drn_data[md.ref_id].as_str() {
                 "floor" => Some(Box::new(Floor::new(md))),
+                "platform" => Some(Box::new(Platform::new(md))),
                 unknown => {
                     eprintln!("unrecognized decor '{}'", unknown);
                     None
