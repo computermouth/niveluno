@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::asset;
 use crate::map::{self, LoadedDecorReference, LoadedEnttReference};
 use crate::nuerror::NUError;
@@ -271,4 +269,10 @@ pub fn get_animation_ids(animations: &[&[&str]], ref_ent: &LoadedEnttReference) 
     }
 
     animation_ids
+}
+
+pub fn get_decor_instances() -> Result<&'static Vec<Box<dyn DecorInstance>>, NUError> {
+    let gg = GameGod::get()?;
+
+    Ok(&gg.decor_inst)
 }

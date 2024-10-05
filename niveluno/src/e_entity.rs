@@ -1,6 +1,11 @@
-use raymath::{vector3_add, vector3_multiply, vector3_scale, vector3_subtract, Vector3};
+use core::f32;
 
-use crate::time;
+use raymath::{
+    get_ray_collision_mesh, vector3_add, vector3_distance, vector3_multiply, vector3_negate,
+    vector3_normalize, vector3_scale, vector3_subtract, Vector3,
+};
+
+use crate::{g_game, time};
 
 pub trait EntityInstance {
     // name: String,
@@ -26,7 +31,7 @@ const FRICTION: f32 = 10.0;
 
 pub fn update_physics(acceleration: &mut Vector3, velocity: &mut Vector3, position: &mut Vector3) {
     // Apply Gravity
-    // acceleration.y = -36. * GRAVITY;
+    acceleration.y = -36. * GRAVITY;
 
     let delta_time = time::get_delta_time().unwrap() as f32;
 
@@ -44,6 +49,23 @@ pub fn update_physics(acceleration: &mut Vector3, velocity: &mut Vector3, positi
     *velocity = vector3_add(*velocity, vector3_subtract(af, vf));
 
     let move_dist = vector3_scale(*velocity, delta_time);
-    // todo, cast ray, handle collision
-    *position = vector3_add(*position, move_dist);
+
+    let mut out_pos = vector3_add(*position, move_dist);
+
+    let decs = g_game::get_decor_instances().unwrap();
+    for dec in decs {
+        let mesh = dec.get_mesh();
+        let mat = dec.get_matrix();
+        let ray = raymath::Ray {
+            position: *position,
+            direction: vector3_normalize(move_dist),
+        };
+
+        let coll = get_ray_collision_mesh(ray, mesh, mat);
+        if coll.hit && coll.distance <= 1. + f32::EPSILON {
+            out_pos = vector3_add(coll.point, vector3_negate(coll.normal));
+        }
+    }
+
+    *position = out_pos;
 }

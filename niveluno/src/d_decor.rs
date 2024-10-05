@@ -17,4 +17,6 @@ pub trait DecorInstance {
     //     fn set_state(&mut self);
     //     fn spawn_projectile(&mut self);
     //     fn attack(&mut self);
+    fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]>;
+    fn get_matrix(&self) -> raymath::Matrix;
 }

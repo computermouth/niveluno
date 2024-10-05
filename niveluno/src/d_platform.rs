@@ -29,6 +29,15 @@ impl DecorInstance for Platform {
         };
         render::draw(dc).unwrap();
     }
+
+    fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {
+        let ldr = g_game::get_ref_decor(self.base.ref_id).unwrap();
+        ldr.mesh
+    }
+
+    fn get_matrix(&self) -> raymath::Matrix {
+        self.mat
+    }
 }
 
 impl Platform {

@@ -48,6 +48,7 @@ pub struct LoadedDecorReference {
     pub index: usize,
     pub texture_handle: usize,
     pub frame_handle: usize,
+    pub mesh: Vec<[Vector3; 3]>,
     pub num_verts: usize,
 }
 
@@ -150,6 +151,16 @@ pub fn load(payload: Payload) -> Result<Map, NUError> {
             ])
         }
 
+        let mut mesh_verts = vec![];
+        let n_verts = verts.len() / 3;
+        for i in 0..n_verts {
+            let v1: Vector3 = verts[i * 3 + 0].into();
+            let v2: Vector3 = verts[i * 3 + 1].into();
+            let v3: Vector3 = verts[i * 3 + 2].into();
+
+            mesh_verts.push([v1, v2, v3]);
+        }
+
         // vecs for compatibility with animated models
         let pf = pack_floats(vec![verts], uvs)?;
         if pf.len() != 1 {
@@ -160,6 +171,7 @@ pub fn load(payload: Payload) -> Result<Map, NUError> {
             index: rd.name as usize,
             texture_handle: img_handles[rd.texture as usize],
             frame_handle: pf[0],
+            mesh: mesh_verts,
             num_verts: vlen,
         })
     }
