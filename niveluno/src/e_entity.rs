@@ -1,9 +1,11 @@
 use core::f32;
 
 use raymath::{
-    get_ray_collision_mesh, vector3_add, vector3_distance, vector3_multiply, vector3_negate,
-    vector3_normalize, vector3_scale, vector3_subtract, Vector3,
+    get_ray_collision_mesh, vector3_add, vector3_length, vector3_multiply, vector3_negate,
+    vector3_normalize, vector3_scale, vector3_subtract, RayCollision, Vector3,
 };
+
+use crate::math::get_padded_ray_collision_mesh;
 
 use crate::{g_game, time};
 
@@ -61,9 +63,12 @@ pub fn update_physics(acceleration: &mut Vector3, velocity: &mut Vector3, positi
             direction: vector3_normalize(move_dist),
         };
 
-        let coll = get_ray_collision_mesh(ray, mesh, mat);
-        if coll.hit && coll.distance <= 1. + f32::EPSILON {
-            out_pos = vector3_add(coll.point, vector3_negate(coll.normal));
+        let coll = get_padded_ray_collision_mesh(ray, mesh, mat, 1.5);
+        if coll.hit && coll.distance <= vector3_length(move_dist) {
+            out_pos = vector3_add(
+                coll.point,
+                vector3_scale(vector3_negate(coll.normal), 0.00001),
+            );
         }
     }
 
