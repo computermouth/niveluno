@@ -126,7 +126,7 @@ impl Player {
             pitch: 0.,
             yaw: 0.,
             position: entt.location.into(),
-            speed: 36.,
+            speed: 96.,
             acceleration: Vector3 {
                 x: 0.,
                 y: 0.,

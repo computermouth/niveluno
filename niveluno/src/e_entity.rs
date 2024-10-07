@@ -1,8 +1,8 @@
 use core::f32;
 
 use raymath::{
-    get_ray_collision_mesh, vector3_add, vector3_length, vector3_multiply, vector3_negate,
-    vector3_normalize, vector3_scale, vector3_subtract, RayCollision, Vector3,
+    get_ray_collision_mesh, vector3_add, vector3_dot_product, vector3_length, vector3_multiply,
+    vector3_negate, vector3_normalize, vector3_scale, vector3_subtract, RayCollision, Vector3,
 };
 
 use crate::math::get_padded_ray_collision_mesh;
@@ -33,7 +33,7 @@ const FRICTION: f32 = 10.0;
 
 pub fn update_physics(acceleration: &mut Vector3, velocity: &mut Vector3, position: &mut Vector3) {
     // Apply Gravity
-    acceleration.y = -36. * GRAVITY;
+    // acceleration.y = -36. * GRAVITY;
 
     let delta_time = time::get_delta_time().unwrap() as f32;
 
@@ -50,25 +50,72 @@ pub fn update_physics(acceleration: &mut Vector3, velocity: &mut Vector3, positi
     );
     *velocity = vector3_add(*velocity, vector3_subtract(af, vf));
 
-    let move_dist = vector3_scale(*velocity, delta_time);
-
+    let mut move_dist = vector3_scale(*velocity, delta_time);
     let mut out_pos = vector3_add(*position, move_dist);
 
-    let decs = g_game::get_decor_instances().unwrap();
-    for dec in decs {
-        let mesh = dec.get_mesh();
-        let mat = dec.get_matrix();
-        let ray = raymath::Ray {
-            position: *position,
-            direction: vector3_normalize(move_dist),
-        };
+    'out: while vector3_length(move_dist) != 0.0 {
+        eprintln!("move_dist0: {:?}", move_dist);
 
-        let coll = get_padded_ray_collision_mesh(ray, mesh, mat, 1.5);
-        if coll.hit && coll.distance <= vector3_length(move_dist) {
-            out_pos = vector3_add(
-                coll.point,
-                vector3_scale(vector3_negate(coll.normal), 0.00001),
-            );
+        let decs = g_game::get_decor_instances().unwrap();
+        let mut nearest_hit: Option<RayCollision> = None;
+        for dec in decs {
+            let mesh = dec.get_mesh();
+            let mat = dec.get_matrix();
+            let ray = raymath::Ray {
+                position: *position,
+                direction: vector3_normalize(move_dist),
+            };
+
+            let coll = get_padded_ray_collision_mesh(ray, mesh, mat, 1.5);
+            if coll.hit && coll.distance <= vector3_length(move_dist) {
+                // If nearest collision is not set or this one is closer, update nearest_hit
+                if nearest_hit.is_none() || nearest_hit.unwrap().distance > coll.distance {
+                    nearest_hit = Some(coll);
+                }
+            }
+        }
+
+        match nearest_hit {
+            // If no collision, break out of the loop
+            None => break 'out,
+            Some(coll) => {
+                // Set player position to the collision point plus a small offset along the normal
+                out_pos = vector3_add(coll.point, vector3_scale(vector3_negate(coll.normal), 0.01));
+                move_dist = Vector3::new(0., 0., 0.);
+
+                // Calculate the remaining distance after the collision
+                let remaining_distance = vector3_length(move_dist) - coll.distance;
+
+                // Project movement onto the plane of the wall to "slide" along it
+                let move_along_wall = vector3_subtract(
+                    move_dist,
+                    vector3_scale(coll.normal, vector3_dot_product(move_dist, coll.normal)),
+                );
+
+                // Scale to the remaining distance, but avoid excessive speed loss
+                if remaining_distance > 0.0 {
+                    move_dist =
+                        vector3_scale(vector3_normalize(move_along_wall), remaining_distance);
+                } else {
+                    move_dist = Vector3::new(0., 0., 0.);
+                }
+
+                // if coll.normal.x != 0. {
+                //     move_dist.x = 0.;
+                // }
+
+                // if coll.normal.y != 0. {
+                //     move_dist.y = 0.;
+                // }
+
+                // if coll.normal.z != 0. {
+                //     move_dist.z = 0.;
+                // }
+
+                // move_dist = vector3_normalize(move_dist);
+
+                // eprintln!("move_dist2: {:?}", move_dist);
+            }
         }
     }
 
