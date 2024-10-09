@@ -1,4 +1,5 @@
 use gl;
+use raymath::{BoundingBox, Vector3};
 use sdl2::mixer::{self, InitFlag};
 use sdl2::video::{GLProfile, SwapInterval};
 

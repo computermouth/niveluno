@@ -65,15 +65,16 @@ impl EntityInstance for Player {
             y_mat,
         );
 
-        // let key_jump = keys[input::Key::Jump as usize] as i8;
-        // if key_jump == 1 && self.on_ground {
-        //     self.acceleration.y = 10.;
-        //     self.on_ground = false;
-        // }
+        let key_jump = keys[input::Key::Jump as usize] as i8;
+        if key_jump == 1 && self.on_ground {
+            self.velocity.y = 12.;
+            self.velocity.y = 24.;
+            self.on_ground = false;
+        }
 
         let speed_factor = match self.on_ground {
-            true => 1.5,
-            false => 0.3,
+            true => 1.0,
+            false => 0.9,
         };
         self.acceleration = vector3_scale(self.acceleration, self.speed * speed_factor);
 
@@ -86,6 +87,7 @@ impl EntityInstance for Player {
             &mut self.acceleration,
             &mut self.velocity,
             &mut self.position,
+            &mut self.on_ground,
         );
 
         // TODO: Smooth step up on stairs

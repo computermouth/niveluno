@@ -42,10 +42,21 @@ impl DecorInstance for Floor {
 
 impl Floor {
     pub fn new(decor: &Decor) -> Self {
+        // scale, rotation, translation
+        let mat_s = raymath::matrix_scale(decor.scale[0], decor.scale[2], decor.scale[1]);
+        let mat_r = raymath::quaternion_to_matrix(decor.rotation.into());
+        let mat_t =
+            raymath::matrix_translate(decor.location[0], decor.location[1], decor.location[2]);
+
+        let mut matrix = raymath::matrix_identity();
+        matrix = raymath::matrix_multiply(matrix, mat_s);
+        matrix = raymath::matrix_multiply(matrix, mat_r);
+        matrix = raymath::matrix_multiply(matrix, mat_t);
+
         // todo, scale + quat
         Self {
             base: decor.clone(),
-            mat: raymath::matrix_translate(decor.location[0], decor.location[1], decor.location[2]),
+            mat: matrix,
         }
     }
 }

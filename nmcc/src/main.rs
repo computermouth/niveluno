@@ -213,7 +213,8 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
             Some(Instance::Decor(DecorInstance {
                 index: di,
                 location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.z, c_pos.y])),
-                rotation: bb.add_sequence(big_buffer::HashItem::Quat([rot.x, rot.y, rot.z, rot.w])),
+                rotation: bb
+                    .add_sequence(big_buffer::HashItem::Quat([-rot.x, -rot.z, -rot.y, rot.w])),
                 scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.z, scale.y])),
             }))
         }
