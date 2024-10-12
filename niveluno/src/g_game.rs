@@ -21,7 +21,8 @@ struct GameGod {
     pub decor_inst: Vec<Box<dyn DecorInstance>>,
     pub entts_inst: Vec<Box<dyn EntityInstance>>,
     pub top_state: TopState,
-    pub text_font: Option<text::SizedFontHandle>,
+    pub text_font_lg: Option<text::SizedFontHandle>,
+    pub text_font_sm: Option<text::SizedFontHandle>,
     pub symb_font: Option<text::SizedFontHandle>,
 }
 
@@ -55,7 +56,8 @@ pub fn init() -> Result<(), NUError> {
             decor_inst: vec![],
             entts_inst: vec![],
             top_state: TopState::Menu,
-            text_font: None,
+            text_font_lg: None,
+            text_font_sm: None,
             symb_font: None,
         });
     }
@@ -65,7 +67,8 @@ pub fn init() -> Result<(), NUError> {
     let lib_mono_bold_bytes = asset::get_file("ttf/LiberationMono-Bold.ttf")?
         .ok_or_else(|| NUError::MiscError("libmonobold not found".to_string()))?;
     let lib_mono_bold_font = text::push_font(lib_mono_bold_bytes)?;
-    gg.text_font = Some(text::create_sized_font(lib_mono_bold_font, 32)?);
+    gg.text_font_lg = Some(text::create_sized_font(lib_mono_bold_font, 32)?);
+    gg.text_font_sm = Some(text::create_sized_font(lib_mono_bold_font, 16)?);
 
     let nerd_symbols_bytes = asset::get_file("ttf/SymbolsNerdFontMono-Regular.ttf")?
         .ok_or_else(|| NUError::MiscError("nerd_symbols not found".to_string()))?;
@@ -81,9 +84,14 @@ pub fn init() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn get_text_font() -> Result<text::SizedFontHandle, NUError> {
+pub fn get_text_font_lg() -> Result<text::SizedFontHandle, NUError> {
     let gg = GameGod::get()?;
-    Ok(gg.text_font.unwrap())
+    Ok(gg.text_font_lg.unwrap())
+}
+
+pub fn get_text_font_sm() -> Result<text::SizedFontHandle, NUError> {
+    let gg = GameGod::get()?;
+    Ok(gg.text_font_sm.unwrap())
 }
 
 pub fn get_symb_font() -> Result<text::SizedFontHandle, NUError> {

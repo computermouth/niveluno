@@ -29,6 +29,33 @@ pub struct Vector3 {
     pub z: f32,
 }
 
+// maybe do something smarter
+// https://stackoverflow.com/questions/39638363/how-can-i-use-a-hashmap-with-f64-as-key-in-rust
+use std::hash::{Hash, Hasher};
+
+impl Eq for Vector3 {}
+impl Hash for Vector3 {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let mut x = self.x;
+        let mut y = self.y;
+        let mut z = self.z;
+
+        if x == -0. {
+            x = 0.;
+        }
+        if y == -0. {
+            y = 0.;
+        }
+        if z == -0. {
+            z = 0.;
+        }
+        // Convert floats to bits to ensure consistency when hashing
+        x.to_bits().hash(state);
+        y.to_bits().hash(state);
+        z.to_bits().hash(state);
+    }
+}
+
 impl From<[f32; 3]> for Vector3 {
     fn from(f: [f32; 3]) -> Self {
         Self::new(f[0], f[1], f[2])
@@ -2250,6 +2277,7 @@ impl From<[f32; 5]> for Rectangle {
 }
 
 // BoundingBox
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundingBox {
     // Minimum vertex box-corner
     pub min: Vector3,

@@ -230,6 +230,7 @@ pub fn init() -> Result<(), NUError> {
     Ok(())
 }
 
+#[derive(Debug, Copy, Clone)]
 pub struct FontHandle {
     h: usize,
 }

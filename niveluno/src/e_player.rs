@@ -1,4 +1,4 @@
-use raymath::{matrix_rotate_y, vector3_scale, vector3_transform};
+use raymath::{matrix_rotate_y, vector3_add, vector3_normalize, vector3_scale, vector3_transform};
 
 use crate::e_entity::EntityInstance;
 use crate::g_game::TopState;
@@ -21,6 +21,8 @@ pub struct Player {
     velocity: Vector3,
     on_ground: bool,
     friction: f32,
+    height: f32,
+    width: f32,
 }
 
 impl EntityInstance for Player {
@@ -67,8 +69,7 @@ impl EntityInstance for Player {
 
         let key_jump = keys[input::Key::Jump as usize] as i8;
         if key_jump == 1 && self.on_ground {
-            self.velocity.y = 12.;
-            self.velocity.y = 24.;
+            self.velocity.y = 15.;
             self.on_ground = false;
         }
 
@@ -83,16 +84,19 @@ impl EntityInstance for Player {
             false => 2.5,
         };
 
-        e_entity::update_physics(
+        e_entity::update_physics_2(
             &mut self.acceleration,
             &mut self.velocity,
             &mut self.position,
             &mut self.on_ground,
+            self.height,
+            self.width,
         );
 
         // TODO: Smooth step up on stairs
         // r_camera.y = e->p.y + 8 - clamp(game_time - e->_stepped_up_at, 0, 0.1) * -160;
-        render::set_camera_pos(self.position).unwrap();
+        let camera_pos = vector3_add(self.position, Vector3::new(0., self.height, 0.));
+        render::set_camera_pos(camera_pos).unwrap();
 
         self.update_hud();
     }
@@ -112,7 +116,7 @@ impl Player {
                     a: 255,
                 },
             },
-            font: g_game::get_text_font().unwrap(),
+            font: g_game::get_text_font_lg().unwrap(),
         })
         .unwrap();
 
@@ -152,7 +156,7 @@ impl Player {
                             a: 255,
                         },
                     },
-                    font: g_game::get_text_font().unwrap(),
+                    font: g_game::get_text_font_lg().unwrap(),
                 })
                 .unwrap(),
                 TopState::Play => text::create_surface(text::FontInput {
@@ -169,6 +173,8 @@ impl Player {
                 })
                 .unwrap(),
             },
+            height: 2.,
+            width: 3.,
         }
     }
 

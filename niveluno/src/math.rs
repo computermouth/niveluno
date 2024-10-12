@@ -1,5 +1,3 @@
-use std::ops::Bound;
-
 pub use raymath::*;
 
 pub fn scale(v: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32 {
@@ -13,6 +11,27 @@ pub fn vec3_face_normal(v0: Vector3, v1: Vector3, v2: Vector3) -> Vector3 {
     let cross = vector3_cross_product(lh, rh);
 
     vector3_normalize(cross)
+}
+
+/// Transforms a Vector3 by a given Matrix
+pub fn vector3_transform(v: Vector3, mat: Matrix) -> Vector3 {
+    Vector3 {
+        x: mat.m0 * v.x + mat.m4 * v.y + mat.m8 * v.z + mat.m12,
+        y: mat.m1 * v.x + mat.m5 * v.y + mat.m9 * v.z + mat.m13,
+        z: mat.m2 * v.x + mat.m6 * v.y + mat.m10 * v.z + mat.m14,
+    }
+}
+
+/// Transforms a Vec<[Vector3;3]> by a given Matrix
+pub fn mesh_tranform(mesh: Vec<[Vector3; 3]>, mat: Matrix) -> Vec<[Vector3; 3]> {
+    let mut out = vec![];
+    for tri in mesh {
+        let v1 = vector3_transform(tri[0], mat);
+        let v2 = vector3_transform(tri[1], mat);
+        let v3 = vector3_transform(tri[2], mat);
+        out.push([v1, v2, v3]);
+    }
+    out
 }
 
 // Get collision info between ray and mesh
@@ -152,7 +171,7 @@ pub fn get_padded_ray_collision_triangle(
     return collision;
 }
 
-fn get_box_vertices(bbox: BoundingBox) -> [Vector3; 8] {
+fn get_box_vertices(bbox: &BoundingBox) -> [Vector3; 8] {
     [
         bbox.min,
         Vector3 {
@@ -228,7 +247,7 @@ fn is_point_in_box(point: Vector3, bbox: &BoundingBox) -> bool {
 }
 
 // SAT intersection between an AABB and a triangle
-pub fn sat_aabb_tri(bbox: BoundingBox, tri: [Vector3; 3]) -> bool {
+pub fn sat_aabb_tri(bbox: &BoundingBox, tri: [Vector3; 3]) -> bool {
     // return early if a vertex is in the box
     // maybe remove, might not actually save much perf
     for &vertex in &tri {
@@ -245,11 +264,6 @@ pub fn sat_aabb_tri(bbox: BoundingBox, tri: [Vector3; 3]) -> bool {
         Vector3 {
             x: 1.0,
             y: 0.0,
-            z: 0.0,
-        },
-        Vector3 {
-            x: 0.0,
-            y: 1.0,
             z: 0.0,
         },
         Vector3 {
@@ -288,4 +302,12 @@ pub fn sat_aabb_tri(bbox: BoundingBox, tri: [Vector3; 3]) -> bool {
 
     // all axes overlap
     true
+}
+
+pub fn get_sat_aabb_collision_mesh(bbox: BoundingBox, mesh: Vec<[Vector3; 3]>) -> bool {
+    for triangle in mesh {
+        let res = sat_aabb_tri(&bbox, triangle);
+    }
+
+    false
 }
