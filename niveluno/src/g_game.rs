@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use crate::asset;
 use crate::map::{self, LoadedDecorReference, LoadedEnttReference};
 use crate::nuerror::NUError;
@@ -116,11 +118,34 @@ pub fn stage_level(level: map::Map) -> Result<(), NUError> {
     Ok(())
 }
 
-pub enum AnimatedEntities {
-    Gcyl,
-    Menu,
-    Pig,
+enum Instance {
+    // Decor
+    DFloor(Floor),
+    DPlatform(Platform),
+    // Entities
+    EBarrier(Barrier),
+    EGcyl(Gcyl),
+    ELight(Light),
+    EPlayer(Player),
+    EPig(Pig),
+    EMenuM(Menu),
+    EMenuE(Menu),
+    EMenuN(Menu),
+    EMenuU(Menu),
+    ETriggerLevelChange, // todo
 }
+
+// impl Instance {
+//     fn from_str(s: &str, ) -> Option<Self> {
+//         match s {
+//             "floor" => Self::DFloor(Floor::new(md)),
+//             "platform" => Some(Box::new(Platform::new(md))),
+//             unknown => {
+//                 panic!("unrecognized decor '{}'", unknown);
+//             }
+//         }
+//     }
+// }
 
 pub fn init_level(level: &map::Map) -> Result<(), NUError> {
     let gg = GameGod::get()?;

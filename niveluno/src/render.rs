@@ -15,8 +15,8 @@ use crate::text;
 // draw texture res, default window res
 pub const INTERNAL_W: i32 = 640;
 pub const INTERNAL_H: i32 = 360;
-pub const D_WINDOW_W: u32 = 854;
-pub const D_WINDOW_H: u32 = 480;
+pub const D_WINDOW_W: u32 = 640;
+pub const D_WINDOW_H: u32 = 360;
 
 const V_SHADER_STR: &str = include_str!("game_vert.glsl");
 const F_SHADER_STR: &str = include_str!("game_frag.glsl");
@@ -890,8 +890,18 @@ pub fn set_camera_pitch(f: f32) -> Result<(), NUError> {
     Ok(())
 }
 
+pub fn get_camera_pitch() -> Result<f32, NUError> {
+    let rg = RenderGod::get()?;
+    Ok(rg.camera_pitch)
+}
+
 pub fn set_camera_yaw(f: f32) -> Result<(), NUError> {
     let rg = RenderGod::get()?;
     rg.camera_yaw = f;
     Ok(())
+}
+
+pub fn get_camera_yaw() -> Result<f32, NUError> {
+    let rg = RenderGod::get()?;
+    Ok(rg.camera_yaw)
 }

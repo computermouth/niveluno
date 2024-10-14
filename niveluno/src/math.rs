@@ -34,143 +34,6 @@ pub fn mesh_tranform(mesh: Vec<[Vector3; 3]>, mat: Matrix) -> Vec<[Vector3; 3]> 
     out
 }
 
-// Get collision info between ray and mesh
-pub fn get_padded_ray_collision_mesh(
-    ray: Ray,
-    mesh: Vec<[Vector3; 3]>,
-    transform: Matrix,
-    padding: f32,
-) -> RayCollision {
-    let mut collision = RayCollision {
-        hit: false,
-        distance: 0.,
-        point: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
-        normal: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
-    };
-
-    // Check if mesh vertex data on CPU for testing
-    // if (mesh.vertices != NULL)
-    // {
-    //     int triangleCount = mesh.triangleCount;
-
-    // Test against all triangles in mesh
-    for tri in mesh {
-        let mut a = tri[0];
-        let mut b = tri[1];
-        let mut c = tri[2];
-
-        a = vector3_transform(a, transform);
-        b = vector3_transform(b, transform);
-        c = vector3_transform(c, transform);
-
-        let tri_hit_info = get_padded_ray_collision_triangle(ray.clone(), padding, a, b, c);
-
-        if tri_hit_info.hit {
-            // Save the closest hit triangle
-            if (!collision.hit) || (collision.distance > tri_hit_info.distance) {
-                collision = tri_hit_info;
-            }
-        }
-    }
-    // }
-
-    return collision;
-}
-
-// Get collision info between ray and triangle
-// NOTE: The points are expected to be in counter-clockwise winding
-// NOTE: Based on https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
-pub fn get_padded_ray_collision_triangle(
-    ray: Ray,
-    padding: f32,
-    p1: Vector3,
-    p2: Vector3,
-    p3: Vector3,
-) -> RayCollision {
-    let mut collision = RayCollision {
-        hit: false,
-        distance: 0.,
-        point: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
-        normal: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
-    };
-
-    // Find vectors for two edges sharing V1
-    let edge1 = vector3_subtract(p2, p1);
-    let edge2 = vector3_subtract(p3, p1);
-
-    // commit sins
-    let normal = vector3_normalize(vector3_cross_product(edge1, edge2));
-    let pad = vector3_scale(vector3_negate(normal), padding);
-    let p1 = vector3_add(p1, pad);
-    let p2 = vector3_add(p2, pad);
-    let p3 = vector3_add(p3, pad);
-    let edge1 = vector3_subtract(p2, p1);
-    let edge2 = vector3_subtract(p3, p1);
-
-    // Begin calculating determinant - also used to calculate u parameter
-    let p = vector3_cross_product(ray.direction, edge2);
-
-    // If determinant is near zero, ray lies in plane of triangle or ray is parallel to plane of triangle
-    let det = vector3_dot_product(edge1, p);
-
-    // Avoid culling!
-    if (det > -f32::EPSILON) && (det < f32::EPSILON) {
-        return collision;
-    };
-
-    let inv_det = 1.0 / det;
-
-    // Calculate distance from V1 to ray origin
-    let tv = vector3_subtract(ray.position, p1);
-
-    // Calculate u parameter and test bound
-    let u = vector3_dot_product(tv, p) * inv_det;
-
-    // The intersection lies outside the triangle
-    if (u < 0.0) || (u > 1.0) {
-        return collision;
-    }
-
-    // Prepare to test v parameter
-    let q = vector3_cross_product(tv, edge1);
-
-    // Calculate V parameter and test bound
-    let v = vector3_dot_product(ray.direction, q) * inv_det;
-
-    // The intersection lies outside the triangle
-    if (v < 0.0) || ((u + v) > 1.0) {
-        return collision;
-    }
-
-    let t = vector3_dot_product(edge2, q) * inv_det;
-
-    if t > f32::EPSILON {
-        // Ray hit, get hit point and normal
-        collision.hit = true;
-        collision.distance = t;
-        collision.normal = normal;
-        collision.point = vector3_add(ray.position, vector3_scale(ray.direction, t));
-    }
-
-    return collision;
-}
-
 fn get_box_vertices(bbox: &BoundingBox) -> [Vector3; 8] {
     [
         bbox.min,
@@ -304,10 +167,37 @@ pub fn sat_aabb_tri(bbox: &BoundingBox, tri: [Vector3; 3]) -> bool {
     true
 }
 
-pub fn get_sat_aabb_collision_mesh(bbox: BoundingBox, mesh: Vec<[Vector3; 3]>) -> bool {
-    for triangle in mesh {
-        let res = sat_aabb_tri(&bbox, triangle);
+pub fn world_point_to_screen_coord(
+    location: Vector3,
+    camera_pos: Vector3,
+    camera_yaw: f32,
+    camera_pitch: f32,
+    screen_width: f32,
+    screen_height: f32,
+) -> Option<Vector2> {
+    // get pos relative to camera
+    let view_pos = vector3_subtract(location, camera_pos);
+
+    // get rotated pos
+    let yaw_matrix = matrix_rotate_y(camera_yaw);
+    let pitch_matrix = matrix_rotate_x(camera_pitch);
+    let rotation_matrix = matrix_multiply(yaw_matrix, pitch_matrix);
+    let rotated_pos = vector3_transform(view_pos, rotation_matrix);
+
+    // point is behind the camera
+    if rotated_pos.z <= 0.0 {
+        return None;
     }
 
-    false
+    // project
+    let aspect_ratio = screen_width / screen_height;
+    let screen_x = (rotated_pos.x / rotated_pos.z) * (screen_width * 0.5) + (screen_width * 0.5);
+    let screen_y = (rotated_pos.y / rotated_pos.z) * (screen_height * 0.5 * aspect_ratio)
+        + (screen_height * 0.5);
+
+    // Flip the Y-axis to match screen coordinates (top-left origin)
+    Some(Vector2 {
+        x: screen_x,
+        y: screen_height - screen_y,
+    })
 }

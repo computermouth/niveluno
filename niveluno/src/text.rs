@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::hash::Hash;
 
+use raymath::vector3_multiply;
+use raymath::vector3_scale;
+use raymath::Vector3;
 use sdl2::pixels;
 use sdl2::rect;
 use sdl2::rwops::RWops;
@@ -10,6 +14,7 @@ use sdl2::ttf::{Font, Sdl2TtfContext};
 use gl;
 use gl::types::*;
 
+use crate::g_game;
 use crate::nuerror::NUError;
 use crate::render;
 use crate::time;
@@ -36,10 +41,15 @@ pub enum Mode {
     },
 }
 
-pub struct FontInput {
+pub struct TextInput {
     pub text: String,
     pub mode: Mode,
     pub font: SizedFontHandle,
+}
+
+pub struct BannerInput {
+    pub level: u32,
+    pub color: FontColor,
 }
 
 // #[derive(Clone)]
@@ -76,6 +86,8 @@ struct TextGod<'a> {
     // pub font_md: Option<Font<'a, 'a>>,
     // pub font_lg: Option<Font<'a, 'a>>,
     pub timed_surfaces: Vec<TimedSurface>,
+    // barrier characters
+    pub barrier_renders: HashMap<char, (Surface<'a>, Surface<'a>)>,
     // gl things
     pub overlay_program: GLuint,
     pub overlay_position: GLint,
@@ -121,6 +133,7 @@ pub fn init() -> Result<(), NUError> {
             context: sdl2::ttf::init().map_err(|e| NUError::SDLError(e.to_string()))?,
             overlay_surface: None,
             timed_surfaces: vec![],
+            barrier_renders: HashMap::new(),
             overlay_program: 0,
             overlay_position: 0,
             overlay_texcoord: 0,
@@ -369,7 +382,7 @@ pub fn end_frame() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn create_surface<'a>(input: FontInput) -> Result<Box<TextSurface>, NUError> {
+pub fn create_surface<'a>(input: TextInput) -> Result<Box<TextSurface>, NUError> {
     let tg = TextGod::get()?;
 
     let font = tg
@@ -406,6 +419,111 @@ pub fn create_surface<'a>(input: FontInput) -> Result<Box<TextSurface>, NUError>
         w: tmp_fg.width(),
         h: tmp_fg.height(),
         data: tmp_fg,
+    }))
+}
+
+pub fn create_barrier_level_surface<'a>(input: BannerInput) -> Result<Box<TextSurface>, NUError> {
+    let tg = TextGod::get()?;
+
+    let render_map = &mut tg.barrier_renders;
+
+    let font = tg
+        .font_font_dict
+        .get(&g_game::get_text_font_sm().unwrap().h)
+        .unwrap();
+
+    let mut digits = vec![];
+    let mut input_level = input.level;
+    if input_level == 0 {
+        digits.push(0);
+    }
+    while input_level > 0 {
+        let digit = input_level % 10;
+        digits.push(digit);
+        input_level = input_level / 10;
+    }
+    digits.reverse();
+
+    let mut digit_string = "LV. ".to_string();
+    for i in digits {
+        digit_string.push_str(&i.to_string());
+    }
+
+    // these are specific to the chosen font
+    let letter_w = 10;
+    let letter_h = 19;
+
+    let mut out_surf = sdl2::surface::Surface::new(
+        letter_w * digit_string.len() as u32 + letter_w / 2,
+        letter_h,
+        pixels::PixelFormatEnum::ABGR8888,
+    )
+    .unwrap();
+    let w = out_surf.width();
+    let h = out_surf.height();
+
+    out_surf
+        .fill_rect(
+            sdl2::rect::Rect::new(0, 0, w, h),
+            sdl2::pixels::Color::RGBA(input.color.r, input.color.g, input.color.b, 196),
+        )
+        .unwrap();
+
+    for (i, v) in digit_string.chars().enumerate() {
+        let (black_num, white_num) = match render_map.get(&v) {
+            Some(bw) => bw,
+            None => {
+                let black = sdl2::pixels::Color::RGBA(16, 16, 16, 196);
+                let black_num = font
+                    .render(&v.to_string())
+                    .solid(black)
+                    .map_err(|e| NUError::SDLError(e.to_string()))?;
+                // eprintln!("bn {} {}", black_num.width(), black_num.height());
+
+                let white = sdl2::pixels::Color::RGBA(224, 224, 224, 255);
+                let white_num = font
+                    .render(&v.to_string())
+                    .blended(white)
+                    .map_err(|e| NUError::SDLError(e.to_string()))?;
+
+                render_map.insert(v, (black_num, white_num));
+                render_map.get(&v).unwrap()
+            }
+        };
+
+        black_num
+            .blit(
+                sdl2::rect::Rect::new(0, 0, black_num.width(), black_num.height()),
+                &mut out_surf,
+                sdl2::rect::Rect::new(
+                    ((i as u32 * letter_w) + (letter_w / 4) + 1) as i32,
+                    2,
+                    black_num.width(),
+                    black_num.height(),
+                ),
+            )
+            .unwrap();
+
+        white_num
+            .blit(
+                sdl2::rect::Rect::new(0, 0, white_num.width(), white_num.height()),
+                &mut out_surf,
+                sdl2::rect::Rect::new(
+                    ((i as u32 * letter_w) + (letter_w / 4)) as i32,
+                    0,
+                    white_num.width(),
+                    white_num.height(),
+                ),
+            )
+            .unwrap();
+    }
+
+    Ok(Box::new(TextSurface {
+        x: 0,
+        y: 0,
+        w: out_surf.width(),
+        h: out_surf.height(),
+        data: out_surf,
     }))
 }
 

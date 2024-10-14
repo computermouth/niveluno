@@ -84,7 +84,7 @@ impl EntityInstance for Player {
             false => 2.5,
         };
 
-        e_entity::update_physics_2(
+        e_entity::update_physics(
             &mut self.acceleration,
             &mut self.velocity,
             &mut self.position,
@@ -106,7 +106,7 @@ impl EntityInstance for Player {
 impl Player {
     pub fn new(entt: &Entity) -> Self {
         // timed surface on spawn
-        let mut spawn = text::create_surface(text::FontInput {
+        let mut spawn = text::create_surface(text::TextInput {
             text: "SPAWN".to_string(),
             mode: text::Mode::Solid {
                 color: text::FontColor {
@@ -146,7 +146,7 @@ impl Player {
             on_ground: true,
             friction: 0.3,
             hud: match g_game::get_state().unwrap() {
-                TopState::Menu => text::create_surface(text::FontInput {
+                TopState::Menu => text::create_surface(text::TextInput {
                     text: "MAIN MENU".to_string(),
                     mode: text::Mode::Solid {
                         color: text::FontColor {
@@ -159,7 +159,7 @@ impl Player {
                     font: g_game::get_text_font_lg().unwrap(),
                 })
                 .unwrap(),
-                TopState::Play => text::create_surface(text::FontInput {
+                TopState::Play => text::create_surface(text::TextInput {
                     text: "󰊠󰘉".to_string(),
                     mode: text::Mode::Solid {
                         color: text::FontColor {
