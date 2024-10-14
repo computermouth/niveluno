@@ -1,5 +1,4 @@
 use gl;
-use raymath::{BoundingBox, Vector3};
 use sdl2::mixer::{self, InitFlag};
 use sdl2::video::{GLProfile, SwapInterval};
 
@@ -15,16 +14,15 @@ mod time;
 
 // pak module
 mod g_game;
+mod g_instance;
 // pak/entity??
 mod e_barrier;
-mod e_entity;
 mod e_gcyl;
 mod e_light;
 mod e_menu;
 mod e_pig;
 mod e_player;
 // pak/decor??
-mod d_decor;
 mod d_floor;
 mod d_platform;
 

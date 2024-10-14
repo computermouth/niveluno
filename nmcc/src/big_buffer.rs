@@ -48,9 +48,6 @@ pub struct BigBuffer {
     f32_data: Vec<f32>,
     f32_hmap: HashMap<HashItem, usize>,
     img_data: Vec<Vec<u8>>,
-    // decor reference name data
-    drn_data: Vec<String>,
-    drn_hmap: HashMap<String, u32>,
     // frame name data
     fn_data: Vec<String>,
     fn_hmap: HashMap<String, u32>,
@@ -68,8 +65,6 @@ impl BigBuffer {
             f32_data: Vec::new(),
             f32_hmap: HashMap::new(),
             img_data: Vec::new(),
-            drn_data: Vec::new(),
-            drn_hmap: HashMap::new(),
             fn_data: Vec::new(),
             fn_hmap: HashMap::new(),
             ern_data: Vec::new(),
@@ -211,22 +206,6 @@ impl BigBuffer {
         }
     }
 
-    pub fn add_decor_name(&mut self, s: &str) -> Result<u32, ()> {
-        if let Some(_) = self.drn_hmap.get(s) {
-            return Err(());
-        }
-
-        let len = self.drn_data.len();
-        self.drn_hmap.insert(s.to_string(), len as u32);
-        self.drn_data.push(s.to_string());
-
-        Ok(len as u32)
-    }
-
-    pub fn get_decor_index(&mut self, s: &str) -> Option<&u32> {
-        self.drn_hmap.get(s)
-    }
-
     pub fn add_entt_name(&mut self, s: &str) -> Result<u32, ()> {
         if let Some(_) = self.ern_hmap.get(s) {
             return Err(());
@@ -298,10 +277,6 @@ impl BigBuffer {
 
     pub fn get_img_data(&self) -> &Vec<Vec<u8>> {
         &self.img_data
-    }
-
-    pub fn get_drn_data(&self) -> &Vec<String> {
-        &self.drn_data
     }
 
     pub fn get_fn_data(&self) -> &Vec<String> {

@@ -1,12 +1,11 @@
 use raymath;
 
-use crate::math::{self, Vector3};
+use crate::math;
 
-use crate::e_entity::EntityInstance;
 use crate::map::Entity;
 
 use crate::text::{BannerInput, FontColor};
-use crate::{d_decor, e_player, g_game, render, text};
+use crate::{g_game, render, text};
 
 pub struct Barrier {
     base: Entity,
@@ -37,8 +36,26 @@ const BANNER_COLORS_RGB: [[u8; 3]; 9] = [
     [0xFF, 0xFF, 0xFF],
 ];
 
-impl EntityInstance for Barrier {
-    fn update(&mut self) {
+impl Barrier {
+    pub fn new(entt: &Entity) -> Self {
+        let mut id = None;
+
+        for (i, v) in entt.params.iter().enumerate() {
+            let key = g_game::get_param(*v as usize).unwrap();
+            if key == "id" {
+                let value = g_game::get_param(entt.params[i + 1] as usize).unwrap();
+                id = Some(value.parse().unwrap());
+                break;
+            }
+        }
+
+        Self {
+            base: entt.clone(),
+            id,
+        }
+    }
+
+    pub fn update(&mut self) {
         // todo, push the barrier level surface to a queue with a distance,
         // to perform an ordered draw with the final camera params
         let pos_2d = math::world_point_to_screen_coord(
@@ -92,8 +109,8 @@ impl EntityInstance for Barrier {
         }
     }
 
-    fn draw_model(&mut self) {
-        let ref_ent = g_game::get_ref_entity(self.base.index).unwrap();
+    pub fn draw_model(&mut self) {
+        let ref_ent = g_game::get_ref_entity(self.base.ref_id).unwrap();
 
         let mat_s =
             raymath::matrix_scale(self.base.scale[0], self.base.scale[1], self.base.scale[2]);
@@ -128,24 +145,12 @@ impl EntityInstance for Barrier {
         };
         render::draw(dc).unwrap();
     }
-}
 
-impl Barrier {
-    pub fn new(entt: &Entity) -> Self {
-        let mut id = None;
+    pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {
+        panic!("don't fetch entity meshes")
+    }
 
-        for (i, v) in entt.params.iter().enumerate() {
-            let key = g_game::get_param(*v as usize).unwrap();
-            if key == "id" {
-                let value = g_game::get_param(entt.params[i + 1] as usize).unwrap();
-                id = Some(value.parse().unwrap());
-                break;
-            }
-        }
-
-        Self {
-            base: entt.clone(),
-            id,
-        }
+    pub fn get_matrix(&self) -> raymath::Matrix {
+        panic!("don't fetch entity meshes")
     }
 }

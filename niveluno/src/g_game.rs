@@ -1,27 +1,13 @@
-use std::any::Any;
-
 use crate::asset;
-use crate::map::{self, LoadedDecorReference, LoadedEnttReference};
+use crate::g_instance::Instance;
+use crate::map::{self, LoadedEnttReference};
 use crate::nuerror::NUError;
 use crate::text;
-
-use crate::e_barrier::Barrier;
-use crate::e_entity::EntityInstance;
-use crate::e_gcyl::Gcyl;
-use crate::e_light::Light;
-use crate::e_menu::Menu;
-use crate::e_pig::Pig;
-use crate::e_player::Player;
-
-use crate::d_decor::DecorInstance;
-use crate::d_floor::Floor;
-use crate::d_platform::Platform;
 
 struct GameGod {
     pub current_level: Option<map::Map>,
     pub next_level: Option<map::Map>,
-    pub decor_inst: Vec<Box<dyn DecorInstance>>,
-    pub entts_inst: Vec<Box<dyn EntityInstance>>,
+    pub entts_inst: Vec<Instance>,
     pub top_state: TopState,
     pub text_font_lg: Option<text::SizedFontHandle>,
     pub text_font_sm: Option<text::SizedFontHandle>,
@@ -55,7 +41,6 @@ pub fn init() -> Result<(), NUError> {
         GAME_GOD = Some(GameGod {
             current_level: None,
             next_level: None,
-            decor_inst: vec![],
             entts_inst: vec![],
             top_state: TopState::Menu,
             text_font_lg: None,
@@ -118,35 +103,6 @@ pub fn stage_level(level: map::Map) -> Result<(), NUError> {
     Ok(())
 }
 
-enum Instance {
-    // Decor
-    DFloor(Floor),
-    DPlatform(Platform),
-    // Entities
-    EBarrier(Barrier),
-    EGcyl(Gcyl),
-    ELight(Light),
-    EPlayer(Player),
-    EPig(Pig),
-    EMenuM(Menu),
-    EMenuE(Menu),
-    EMenuN(Menu),
-    EMenuU(Menu),
-    ETriggerLevelChange, // todo
-}
-
-// impl Instance {
-//     fn from_str(s: &str, ) -> Option<Self> {
-//         match s {
-//             "floor" => Self::DFloor(Floor::new(md)),
-//             "platform" => Some(Box::new(Platform::new(md))),
-//             unknown => {
-//                 panic!("unrecognized decor '{}'", unknown);
-//             }
-//         }
-//     }
-// }
-
 pub fn init_level(level: &map::Map) -> Result<(), NUError> {
     let gg = GameGod::get()?;
 
@@ -157,48 +113,14 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
         }
     }
 
-    let mut decor = vec![];
-    for md in &level.map_decor {
-        let dyn_decor_inst: Option<Box<dyn DecorInstance>> =
-            match level.payload.drn_data[md.ref_id].as_str() {
-                "floor" => Some(Box::new(Floor::new(md))),
-                "platform" => Some(Box::new(Platform::new(md))),
-                unknown => {
-                    eprintln!("unrecognized decor '{}'", unknown);
-                    None
-                }
-            };
-        if dyn_decor_inst.is_some() {
-            decor.push(dyn_decor_inst.unwrap());
-        }
-    }
-
     let mut entts = vec![];
     for me in &level.map_entities {
-        let dyn_entt_inst: Option<Box<dyn EntityInstance>> =
-            match level.payload.ern_data[me.index].as_str() {
-                "barrier" => Some(Box::new(Barrier::new(me))),
-                "gcyl" => Some(Box::new(Gcyl::new(me))),
-                "light" => Some(Box::new(Light::new(me))),
-                "player" => Some(Box::new(Player::new(me))),
-                "pig" => Some(Box::new(Pig::new(me))),
-                "menu_m" => Some(Box::new(Menu::new(me))),
-                "menu_e" => Some(Box::new(Menu::new(me))),
-                "menu_n" => Some(Box::new(Menu::new(me))),
-                "menu_u" => Some(Box::new(Menu::new(me))),
-                "trigger_levelchange" => None,
-                unknown => {
-                    eprintln!("unrecognized entity '{}'", unknown);
-                    None
-                }
-            };
-        if dyn_entt_inst.is_some() {
-            entts.push(dyn_entt_inst.unwrap());
+        let entt_inst = Instance::from_str(level.payload.ern_data[me.ref_id].as_str(), me);
+        if entt_inst.is_some() {
+            entts.push(entt_inst.unwrap());
         }
     }
 
-    // gg.animations = animations;
-    gg.decor_inst = decor;
     gg.entts_inst = entts;
 
     Ok(())
@@ -213,16 +135,8 @@ pub fn run() -> Result<(), NUError> {
         init_level(gg.current_level.as_ref().unwrap())?;
     }
 
-    for decor in &mut gg.decor_inst {
-        decor.update();
-    }
-
     for entt in &mut gg.entts_inst {
         entt.update();
-    }
-
-    for decor in &mut gg.decor_inst {
-        decor.draw_model();
     }
 
     for entt in &mut gg.entts_inst {
@@ -245,23 +159,6 @@ pub fn get_param<'a>(id: usize) -> Result<&'a str, NUError> {
     }
 
     Ok(&level.payload.kvs_data[id])
-}
-
-pub fn get_ref_decor(id: usize) -> Result<LoadedDecorReference, NUError> {
-    let gg = GameGod::get()?;
-
-    let level = &gg.current_level;
-    let level = level
-        .as_ref()
-        .ok_or(NUError::MiscError("level not set".to_string()))?;
-
-    if id >= level.ref_decor.len() {
-        return Err(NUError::MiscError("id exceeds ref_decor len".to_string()));
-    }
-
-    // it'd be nice if this was a reference
-    // do I have to use Rc?? :(
-    Ok(level.ref_decor[id].clone())
 }
 
 pub fn get_ref_entity(id: usize) -> Result<LoadedEnttReference, NUError> {
@@ -304,8 +201,27 @@ pub fn get_animation_ids(animations: &[&[&str]], ref_ent: &LoadedEnttReference) 
     animation_ids
 }
 
-pub fn get_decor_instances() -> Result<&'static Vec<Box<dyn DecorInstance>>, NUError> {
+pub fn get_filtered_instances<'a, F>(filter_fn: F) -> Result<Vec<&'a mut Instance>, NUError>
+where
+    F: Fn(&mut Instance) -> bool, // Change to accept mutable reference
+{
     let gg = GameGod::get()?;
+    let all = &mut gg.entts_inst;
 
-    Ok(&gg.decor_inst)
+    let mut filtered: Vec<&'a mut Instance> = Vec::new();
+
+    for instance in all.iter_mut() {
+        if filter_fn(instance) {
+            let instance_ptr = instance as *mut Instance;
+            unsafe {
+                filtered.push(&mut *instance_ptr);
+            }
+        }
+    }
+
+    Ok(filtered)
+}
+
+pub fn get_decor_instances<'a>() -> Result<Vec<&'a mut Instance>, NUError> {
+    get_filtered_instances(|inst| inst.is_decor()) // Now works correctly with mutable reference
 }

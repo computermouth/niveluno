@@ -1,6 +1,5 @@
 use core::f32;
 
-use crate::e_entity::EntityInstance;
 use crate::map::Entity;
 use crate::time;
 
@@ -18,8 +17,17 @@ pub struct Menu {
     quat: raymath::Quaternion,
 }
 
-impl EntityInstance for Menu {
-    fn update(&mut self) {
+impl Menu {
+    pub fn new(entt: &Entity) -> Self {
+        Self {
+            base: entt.clone(),
+            yaw: f32::consts::PI,
+            pitch: 0.,
+            quat: raymath::quaternion_identity(),
+            scale_mat: raymath::matrix_scale(entt.scale[0], entt.scale[1], entt.scale[2]),
+        }
+    }
+    pub fn update(&mut self) {
         let time = time::get_run_time().unwrap() as f32;
 
         self.yaw = time.sin() as f32 / 2.;
@@ -33,8 +41,8 @@ impl EntityInstance for Menu {
         self.quat = raymath::quaternion_multiply(self.quat, quat_p);
     }
 
-    fn draw_model(&mut self) {
-        let ref_ent = g_game::get_ref_entity(self.base.index).unwrap();
+    pub fn draw_model(&mut self) {
+        let ref_ent = g_game::get_ref_entity(self.base.ref_id).unwrap();
 
         let mat_r = raymath::quaternion_to_matrix(self.quat);
         let mat_t = raymath::matrix_translate(
@@ -59,16 +67,12 @@ impl EntityInstance for Menu {
         };
         render::draw(dc).unwrap();
     }
-}
 
-impl Menu {
-    pub fn new(entt: &Entity) -> Self {
-        Self {
-            base: entt.clone(),
-            yaw: f32::consts::PI,
-            pitch: 0.,
-            quat: raymath::quaternion_identity(),
-            scale_mat: raymath::matrix_scale(entt.scale[0], entt.scale[1], entt.scale[2]),
-        }
+    pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {
+        panic!("don't fetch entity meshes")
+    }
+
+    pub fn get_matrix(&self) -> raymath::Matrix {
+        panic!("don't fetch entity meshes")
     }
 }

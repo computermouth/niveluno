@@ -10,18 +10,6 @@ use serde_json;
 mod big_buffer;
 
 #[derive(Debug)]
-enum Reference {
-    Decor(DecorReference),
-    Entity(EntityReference),
-}
-
-#[derive(Debug)]
-enum Instance {
-    Decor(DecorInstance),
-    Entity(EntityInstance),
-}
-
-#[derive(Debug)]
 struct Vec3 {
     x: f32,
     y: f32,
@@ -80,7 +68,7 @@ fn get_reference(
     n: &gltf::Node,
     b: &Vec<gltf::buffer::Data>,
     bb: &mut big_buffer::BigBuffer,
-) -> Option<Reference> {
+) -> Option<EntityReference> {
     let (c_pos, _, scale) = trs_from_decomp(n.transform().decomposed());
 
     // not completely negative
@@ -162,7 +150,7 @@ fn get_reference(
     }
 }
 
-fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instance> {
+fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<EntityInstance> {
     let (c_pos, rot, scale) = trs_from_decomp(n.transform().decomposed());
 
     // not really a good test for in positive space
@@ -205,18 +193,19 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
             _decor: Some(d),
             ..
         }) => {
-            let di = *bb.get_decor_index(d).or_else(|| {
-                eprintln!("W: couldn't get decor index for {:?} {d}", n.name());
+            let di = *bb.get_entt_index(d).or_else(|| {
+                eprintln!("W: couldn't get entt index for {:?} {d}", n.name());
                 None
             })?;
-
-            Some(Instance::Decor(DecorInstance {
+            Some(EntityInstance {
                 index: di,
+                has_ref: true,
+                params: vec![],
                 location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.z, c_pos.y])),
                 rotation: bb
                     .add_sequence(big_buffer::HashItem::Quat([-rot.x, -rot.z, -rot.y, rot.w])),
                 scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.z, scale.y])),
-            }))
+            })
         }
         Some(Extras {
             _type: Some("entity"),
@@ -242,7 +231,7 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
                 p.push(bb.add_kv_string(&v));
             }
 
-            Some(Instance::Entity(EntityInstance {
+            Some(EntityInstance {
                 index: ei,
                 has_ref,
                 params: p,
@@ -250,7 +239,7 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Instan
                 rotation: bb
                     .add_sequence(big_buffer::HashItem::Quat([-rot.x, -rot.z, -rot.y, rot.w])),
                 scale: bb.add_sequence(big_buffer::HashItem::Vert([scale.x, scale.z, scale.y])),
-            }))
+            })
         }
         Some(Extras { _type: Some(s), .. }) => {
             eprintln!("W: unknown type {s}");
@@ -381,7 +370,7 @@ fn parse_ref_decor(
     b: &Vec<gltf::buffer::Data>,
     bb: &mut big_buffer::BigBuffer,
     name: &str,
-) -> Option<Reference> {
+) -> Option<EntityReference> {
     let mesh = n.mesh().or_else(|| {
         eprintln!("W: {:?} has no mesh", n.name());
         None
@@ -478,19 +467,21 @@ fn parse_ref_decor(
     }
 
     let name_id;
-    if let Ok(n) = bb.add_decor_name(name) {
+    if let Ok(n) = bb.add_entt_name(name) {
         name_id = n;
     } else {
-        eprintln!("W: decor {:?} has duplicate name '{name}'", n.name());
+        eprintln!("W: entt {:?} has duplicate name '{name}'", n.name());
         return None;
     }
 
-    Some(Reference::Decor(DecorReference {
+    Some(EntityReference {
         name: name_id,
-        vertices: out_pos,
+        is_decor: true,
+        frame_names: vec![],
+        vertices: vec![out_pos],
         uvs: out_uvs,
         texture: bb.add_image(out_img),
-    }))
+    })
 }
 
 fn parse_ref_entt(
@@ -498,7 +489,7 @@ fn parse_ref_entt(
     b: &Vec<gltf::buffer::Data>,
     bb: &mut big_buffer::BigBuffer,
     name: &str,
-) -> Option<Reference> {
+) -> Option<EntityReference> {
     let mesh = n.mesh().or_else(|| {
         eprintln!("W: {:?} has no mesh", n.name());
         None
@@ -655,13 +646,14 @@ fn parse_ref_entt(
         return None;
     }
 
-    Some(Reference::Entity(EntityReference {
+    Some(EntityReference {
         name: name_id,
+        is_decor: false,
         frame_names: out_frame_ids,
         vertices: out_pos,
         uvs: out_uvs,
         texture: bb.add_image(out_img),
-    }))
+    })
 }
 
 fn get_morph_target_names(extras: &Option<Box<serde_json::value::RawValue>>) -> Vec<String> {
@@ -697,9 +689,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (document, buffers, _) = gltf::import(path)?;
 
-    let mut map_ref_decs = vec![];
     let mut map_ref_entt = vec![];
-    let mut map_ins_decs = vec![];
     let mut map_ins_entt = vec![];
 
     let bb = &mut big_buffer::BigBuffer::new();
@@ -710,10 +700,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut reference_index = vec![];
     for (i, node) in document.nodes().enumerate() {
         if let Some(r) = get_reference(&node, &buffers, bb) {
-            match r {
-                Reference::Decor(d) => map_ref_decs.push(d),
-                Reference::Entity(e) => map_ref_entt.push(e),
-            }
+            map_ref_entt.push(r);
             reference_index.push(i);
         }
     }
@@ -725,16 +712,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
         if let Some(r) = get_instance(&node, bb) {
-            match r {
-                Instance::Decor(d) => map_ins_decs.push(d),
-                Instance::Entity(e) => map_ins_entt.push(e),
-            }
+            map_ins_entt.push(r);
         }
     }
 
     let f32_data = bb.get_f32_data();
     let img_data = bb.get_img_data();
-    let drn_data = bb.get_drn_data();
     let ern_data = bb.get_ern_data();
     let kvs_data = bb.get_kvs_data();
     let fn_data = bb.get_fn_data();
@@ -742,13 +725,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let buf = mparse::marshal(
         f32_data,
         img_data,
-        drn_data,
         ern_data,
         kvs_data,
         fn_data,
-        &map_ref_decs,
         &map_ref_entt,
-        &map_ins_decs,
         &map_ins_entt,
     )?;
 
@@ -757,13 +737,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         assert_eq!(&payload.floats, f32_data);
         assert_eq!(&payload.img_data, img_data);
-        assert_eq!(&payload.drn_data, drn_data);
         assert_eq!(&payload.ern_data, ern_data);
         assert_eq!(&payload.kvs_data, kvs_data);
         assert_eq!(&payload.fn_data, fn_data);
-        assert_eq!(&payload.map_ref_decs, &map_ref_decs);
         assert_eq!(&payload.map_ref_ents, &map_ref_entt);
-        assert_eq!(&payload.map_ins_decs, &map_ins_decs);
         assert_eq!(&payload.map_ins_ents, &map_ins_entt);
     }
 

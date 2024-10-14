@@ -1,4 +1,3 @@
-use crate::e_entity::EntityInstance;
 use crate::map::Entity;
 use crate::time;
 
@@ -34,8 +33,21 @@ pub struct Gcyl {
     quat: raymath::Quaternion,
 }
 
-impl EntityInstance for Gcyl {
-    fn update(&mut self) {
+impl Gcyl {
+    pub fn new(entt: &Entity) -> Self {
+        let ref_ent = g_game::get_ref_entity(entt.ref_id).unwrap();
+
+        eprintln!("re.names: {:?}", ref_ent.frame_names);
+
+        Self {
+            base: entt.clone(),
+            yaw: 0.,
+            pitch: 0.,
+            scale_mat: raymath::matrix_scale(entt.scale[0], entt.scale[1], entt.scale[2]),
+            quat: raymath::quaternion_identity(),
+        }
+    }
+    pub fn update(&mut self) {
         let dt = time::get_delta_time().unwrap() as f32;
 
         self.yaw += 1. * dt;
@@ -49,8 +61,8 @@ impl EntityInstance for Gcyl {
         self.quat = raymath::quaternion_multiply(self.quat, quat_y);
     }
 
-    fn draw_model(&mut self) {
-        let ref_ent = g_game::get_ref_entity(self.base.index).unwrap();
+    pub fn draw_model(&mut self) {
+        let ref_ent = g_game::get_ref_entity(self.base.ref_id).unwrap();
 
         let mat_r = raymath::quaternion_to_matrix(self.quat);
         let mat_t = raymath::matrix_translate(
@@ -77,20 +89,12 @@ impl EntityInstance for Gcyl {
         };
         render::draw(dc).unwrap();
     }
-}
 
-impl Gcyl {
-    pub fn new(entt: &Entity) -> Self {
-        let ref_ent = g_game::get_ref_entity(entt.index).unwrap();
+    pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {
+        panic!("don't fetch entity meshes")
+    }
 
-        eprintln!("re.names: {:?}", ref_ent.frame_names);
-
-        Self {
-            base: entt.clone(),
-            yaw: 0.,
-            pitch: 0.,
-            scale_mat: raymath::matrix_scale(entt.scale[0], entt.scale[1], entt.scale[2]),
-            quat: raymath::quaternion_identity(),
-        }
+    pub fn get_matrix(&self) -> raymath::Matrix {
+        panic!("don't fetch entity meshes")
     }
 }

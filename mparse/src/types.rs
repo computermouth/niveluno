@@ -8,16 +8,9 @@ impl<'a> std::fmt::Display for MparseError<'a> {
 impl<'a> std::error::Error for MparseError<'a> {}
 
 #[derive(Debug, PartialEq)]
-pub struct DecorReference {
-    pub name: u32,
-    pub texture: u32,
-    pub vertices: Vec<u32>,
-    pub uvs: Vec<u32>,
-}
-
-#[derive(Debug, PartialEq)]
 pub struct EntityReference {
     pub name: u32,
+    pub is_decor: bool,
     pub frame_names: Vec<u32>,
     pub texture: u32,
     pub vertices: Vec<Vec<u32>>,
@@ -47,12 +40,9 @@ pub struct DecorInstance {
 pub struct Payload {
     pub floats: Vec<f32>,
     pub img_data: Vec<Vec<u8>>,
-    pub drn_data: Vec<String>,
     pub ern_data: Vec<String>,
     pub kvs_data: Vec<String>,
     pub fn_data: Vec<String>,
-    pub map_ref_decs: Vec<DecorReference>,
     pub map_ref_ents: Vec<EntityReference>,
-    pub map_ins_decs: Vec<DecorInstance>,
     pub map_ins_ents: Vec<EntityInstance>,
 }
