@@ -93,7 +93,7 @@ impl Player {
                 })
                 .unwrap(),
             },
-            height: 2.,
+            height: 2.1,
             width: 3.,
         }
     }

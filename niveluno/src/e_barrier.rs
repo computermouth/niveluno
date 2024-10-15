@@ -1,6 +1,6 @@
 use raymath;
 
-use crate::math;
+use crate::{g_instance, math};
 
 use crate::map::Entity;
 
@@ -70,9 +70,12 @@ impl Barrier {
         match pos_2d {
             None => {}
             Some(pos) => {
-                // if !d_decor::pos_is_visible(pos) {
-                //     return;
-                // }
+                if !g_instance::pos_is_visible(
+                    render::get_camera_pos().unwrap(),
+                    self.base.location.into(),
+                ) {
+                    return;
+                }
 
                 let color = BANNER_COLORS_RGB[self.id.unwrap() as usize];
 
@@ -102,8 +105,8 @@ impl Barrier {
                     return;
                 }
 
-                v_text.x = pos.x as u32 - v_text.w / 2;
-                v_text.y = pos.y as u32 - v_text.h / 2;
+                v_text.x = (pos_x - vtx_w / 2) as u32;
+                v_text.y = (pos_y - vtx_h / 2) as u32;
                 text::push_surface(&v_text).unwrap();
             }
         }

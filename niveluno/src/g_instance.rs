@@ -181,11 +181,11 @@ pub fn pos_is_visible(cam_pos: Vector3, point: Vector3) -> bool {
         let coll = math::get_ray_collision_mesh(ray, mesh, mat);
         // collides before reaching point
         if coll.hit && coll.distance < distance {
-            return true;
+            return false;
         }
     }
 
-    false
+    true
 }
 
 const GRAVITY: f32 = 1.0;
@@ -305,7 +305,7 @@ pub fn update_physics(
                 y: 0.0,
                 z: 0.0,
             } => {
-                aabb.min.y += height / 100.;
+                aabb.min.y += height + f32::EPSILON;
             }
             _ => {
                 let slope_angle = vector3_dot_product(last_floor, Vector3::new(0.0, 1.0, 0.0));
