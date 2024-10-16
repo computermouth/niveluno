@@ -12,9 +12,19 @@ use crate::{g_game, render, text};
 pub struct Barrier {
     base: Entity,
     id: Option<u32>,
-    bounds: [Vector3; 8],
-    normals: [Vector3; 6],
+    bounds: Bounds,
     mats: [Matrix; 8],
+}
+
+struct Bounds {
+    b1: Vector3,
+    b2: Vector3,
+    b3: Vector3,
+    b4: Vector3,
+    t1: Vector3,
+    t2: Vector3,
+    t3: Vector3,
+    t4: Vector3,
 }
 
 const BANNER_COLORS_V3: [[f32; 3]; 9] = [
@@ -56,99 +66,46 @@ impl Barrier {
 
         let mat_r = quaternion_to_matrix(entt.rotation.into());
 
-        let fbl = vector3_transform(
-            Vector3::new(-entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
-            mat_r,
-        );
-        let bbl = vector3_transform(
-            Vector3::new(-entt.scale[0] / 2., 0., entt.scale[2] / 2.),
-            mat_r,
-        );
-        let fbr = vector3_transform(
-            Vector3::new(entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
-            mat_r,
-        );
-        let bbr = vector3_transform(
-            Vector3::new(entt.scale[0] / 2., 0., entt.scale[2] / 2.),
-            mat_r,
-        );
-
-        let ftl = vector3_add(
-            vector3_transform(
-                Vector3::new(-entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
-                mat_r,
-            ),
-            Vector3 {
-                x: 0.,
-                y: 2.,
-                z: 0.,
-            },
-        );
-        let btl = vector3_add(
-            vector3_transform(
-                Vector3::new(-entt.scale[0] / 2., 0., entt.scale[2] / 2.),
-                mat_r,
-            ),
-            Vector3 {
-                x: 0.,
-                y: 2.,
-                z: 0.,
-            },
-        );
-        let ftr = vector3_add(
-            vector3_transform(
-                Vector3::new(entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
-                mat_r,
-            ),
-            Vector3 {
-                x: 0.,
-                y: 2.,
-                z: 0.,
-            },
-        );
-        let btr = vector3_add(
-            vector3_transform(
-                Vector3::new(entt.scale[0] / 2., 0., entt.scale[2] / 2.),
-                mat_r,
-            ),
-            Vector3 {
-                x: 0.,
-                y: 2.,
-                z: 0.,
-            },
-        );
-
-        let mut bounds = [ftl, ftr, fbr, fbl, btl, btr, bbr, bbl];
+        #[rustfmt::skip]
+        let mut bounds = [
+            // bottoms
+            vector3_transform(Vector3::new(-entt.scale[0] / 2., 0., -entt.scale[2] / 2.), mat_r),
+            vector3_transform(Vector3::new(-entt.scale[0] / 2., 0.,  entt.scale[2] / 2.), mat_r),
+            vector3_transform(Vector3::new( entt.scale[0] / 2., 0., -entt.scale[2] / 2.), mat_r),
+            vector3_transform(Vector3::new( entt.scale[0] / 2., 0.,  entt.scale[2] / 2.), mat_r),
+            // tops
+            vector3_add(vector3_transform( Vector3::new(-entt.scale[0] / 2., 0., -entt.scale[2] / 2.), mat_r), Vector3::new(0., 2., 0.)),
+            vector3_add(vector3_transform( Vector3::new(-entt.scale[0] / 2., 0.,  entt.scale[2] / 2.), mat_r), Vector3::new(0., 2., 0.)),
+            vector3_add(vector3_transform( Vector3::new( entt.scale[0] / 2., 0., -entt.scale[2] / 2.), mat_r), Vector3::new(0., 2., 0.)),
+            vector3_add(vector3_transform( Vector3::new( entt.scale[0] / 2., 0.,  entt.scale[2] / 2.), mat_r), Vector3::new(0., 2., 0.)),
+        ];
 
         let mut mats = [matrix_identity(); 8];
         let mat_t = raymath::matrix_translate(entt.location[0], entt.location[1], entt.location[2]);
-        for (i, point) in bounds.iter().enumerate() {
+        for (i, point) in bounds.iter_mut().enumerate() {
             let translate_mat = raymath::matrix_translate(point.x, point.y, point.z);
             let mat = raymath::matrix_multiply(mat_t, translate_mat);
             mats[i] = mat;
+            // reset the points with the matrix
+            // both of these work, not sure which is less work
+            // todo -- perf -- test this
+            // *point = raymath::vector3_transform(Vector3::new(0., 0., 0.), mat);
+            *point = raymath::vector3_transform(*point, mat_t);
         }
-
-        // apply mats to the points for bounds checking by player
-        for b in &mut bounds {
-            let translate_mat = raymath::matrix_translate(b.x, b.y, b.z);
-            let mat = raymath::matrix_multiply(mat_t, translate_mat);
-            *b = raymath::vector3_transform(*b, mat);
-        }
-
-        let normals = [
-            math::vec3_face_normal(fbl, fbr, ftl), // Front
-            math::vec3_face_normal(bbl, bbr, btl), // Back
-            math::vec3_face_normal(fbl, bbl, ftl), // Left
-            math::vec3_face_normal(fbr, bbr, ftr), // Right
-            math::vec3_face_normal(ftl, ftr, btl), // Top
-            math::vec3_face_normal(fbl, fbr, bbl), // Bottom
-        ];
 
         Self {
             base: entt.clone(),
             id,
-            bounds,
-            normals,
+            bounds: Bounds {
+                b1: bounds[0],
+                b2: bounds[1],
+                b3: bounds[2],
+                b4: bounds[3],
+                t1: bounds[4],
+                t2: bounds[5],
+                t3: bounds[6],
+                t4: bounds[7],
+            },
             mats,
         }
     }
@@ -265,47 +222,35 @@ impl Barrier {
     }
 
     pub fn position_is_inside(&self, point: Vector3) -> bool {
-        // Derive the min and max bounds from the points
-        let min_x = self.bounds[0]
-            .x
-            .min(self.bounds[3].x)
-            .min(self.bounds[4].x)
-            .min(self.bounds[7].x);
-        let max_x = self.bounds[1]
-            .x
-            .max(self.bounds[2].x)
-            .max(self.bounds[5].x)
-            .max(self.bounds[6].x);
+        let t1 = [self.bounds.t1, self.bounds.t2, self.bounds.t3];
+        let t2 = [self.bounds.t2, self.bounds.t3, self.bounds.t4];
 
-        let min_y = self.bounds[2]
-            .y
-            .min(self.bounds[3].y)
-            .min(self.bounds[6].y)
-            .min(self.bounds[7].y);
-        let max_y = self.bounds[0]
-            .y
-            .max(self.bounds[1].y)
-            .max(self.bounds[4].y)
-            .max(self.bounds[5].y);
+        let rt = math::Ray {
+            position: point,
+            direction: Vector3::new(0., 1., 0.),
+        };
 
-        let min_z = self.bounds[0]
-            .z
-            .min(self.bounds[1].z)
-            .min(self.bounds[2].z)
-            .min(self.bounds[3].z);
-        let max_z = self.bounds[4]
-            .z
-            .max(self.bounds[5].z)
-            .max(self.bounds[6].z)
-            .max(self.bounds[7].z);
+        if !math::get_ray_collision_triangle(rt, t1[0], t1[1], t1[2]).hit
+            && !math::get_ray_collision_triangle(rt, t2[0], t2[1], t2[2]).hit
+        {
+            return false;
+        }
 
-        // Check if the point is within bounds
-        point.x >= min_x
-            && point.x <= max_x
-            && point.y >= min_y
-            && point.y <= max_y
-            && point.z >= min_z
-            && point.z <= max_z
+        let b1 = [self.bounds.b1, self.bounds.b2, self.bounds.b3];
+        let b2 = [self.bounds.b2, self.bounds.b3, self.bounds.b4];
+
+        let rb = math::Ray {
+            position: point,
+            direction: Vector3::new(0., -1., 0.),
+        };
+
+        if !math::get_ray_collision_triangle(rb, b1[0], b1[1], b1[2]).hit
+            && !math::get_ray_collision_triangle(rb, b2[0], b2[1], b2[2]).hit
+        {
+            return false;
+        }
+
+        true
     }
 
     pub fn get_id(&self) -> u32 {

@@ -176,9 +176,28 @@ impl Player {
                 _ => panic!(), // this sucks ass
             };
 
-            // if barrier.position_is_inside(vector3_add(self.position, Vector3::new(0., self.height / 2., 0.))) {
-            //     eprintln!("barrier.id: {}", barrier.get_id())
-            // }
+            if barrier.position_is_inside(vector3_add(
+                self.position,
+                Vector3::new(0., self.height / 2., 0.),
+            )) {
+                if cfg!(debug_assertions) {
+                    let mut v_text = text::create_surface(text::TextInput {
+                        text: format!("barrier id: {}", barrier.get_id()),
+                        mode: text::Mode::Solid {
+                            color: text::FontColor {
+                                r: 255,
+                                g: 255,
+                                b: 255,
+                                a: 255,
+                            },
+                        },
+                        font: g_game::get_text_font_sm().unwrap(),
+                    })
+                    .unwrap();
+                    v_text.y = 16 * 8;
+                    text::push_surface(&v_text).unwrap();
+                }
+            }
         }
 
         // TODO: Smooth step up on stairs
