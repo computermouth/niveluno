@@ -169,6 +169,18 @@ impl Player {
             self.width,
         );
 
+        let bis = g_instance::get_barrier_instances().unwrap();
+        for ba in bis {
+            let barrier = match ba {
+                g_instance::Instance::EBarrier(b) => b,
+                _ => panic!(), // this sucks ass
+            };
+
+            // if barrier.position_is_inside(vector3_add(self.position, Vector3::new(0., self.height / 2., 0.))) {
+            //     eprintln!("barrier.id: {}", barrier.get_id())
+            // }
+        }
+
         // TODO: Smooth step up on stairs
         // r_camera.y = e->p.y + 8 - clamp(game_time - e->_stepped_up_at, 0, 0.1) * -160;
         let camera_pos = vector3_add(self.position, Vector3::new(0., self.height, 0.));

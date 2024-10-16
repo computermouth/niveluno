@@ -102,7 +102,7 @@ vec3 clamp_v3_to_fixed_point(vec3 val) {
 
     // 1 / 32
     // float step = 0.00390625;
-    float step = 1.0/32.0;
+    float step = 1.0/16.0;
 
     val = round(val / vec3(step)) * vec3(step);
 
@@ -138,6 +138,8 @@ void main(void) {
     // UV coords are handed over to the fragment shader as is
     vt = t;
 
+    vec3 camera_pos_xyz = clamp_v3_to_fixed_point(camera_pos.xyz);
+
     // Final vertex position is transformed by the projection matrix,
     // rotated around mouse yaw/pitch and offset by the camera position
     // We use a FOV of 90, so the matrix[0] and [5] are conveniently 1.
@@ -149,5 +151,5 @@ void main(void) {
         0, 0, -2, 0
     ) * // projection
     rx(-mouse.y) * ry(-mouse.x) *
-    vec4(vp - camera_pos.xyz, 1.0);
+    vec4(vp - camera_pos_xyz, 1.0);
 }

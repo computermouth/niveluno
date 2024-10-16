@@ -201,3 +201,48 @@ pub fn world_point_to_screen_coord(
         y: screen_height - screen_y,
     })
 }
+
+// Main function to determine if a point is inside the axis-aligned cuboid
+fn is_point_in_cuboid(cuboid_points: [Vector3; 8], point: Vector3) -> bool {
+    // Derive the min and max bounds from the points
+    let min_x = cuboid_points[0]
+        .x
+        .min(cuboid_points[3].x)
+        .min(cuboid_points[4].x)
+        .min(cuboid_points[7].x);
+    let max_x = cuboid_points[1]
+        .x
+        .max(cuboid_points[2].x)
+        .max(cuboid_points[5].x)
+        .max(cuboid_points[6].x);
+
+    let min_y = cuboid_points[2]
+        .y
+        .min(cuboid_points[3].y)
+        .min(cuboid_points[6].y)
+        .min(cuboid_points[7].y);
+    let max_y = cuboid_points[0]
+        .y
+        .max(cuboid_points[1].y)
+        .max(cuboid_points[4].y)
+        .max(cuboid_points[5].y);
+
+    let min_z = cuboid_points[0]
+        .z
+        .min(cuboid_points[1].z)
+        .min(cuboid_points[2].z)
+        .min(cuboid_points[3].z);
+    let max_z = cuboid_points[4]
+        .z
+        .max(cuboid_points[5].z)
+        .max(cuboid_points[6].z)
+        .max(cuboid_points[7].z);
+
+    // Check if the point is within bounds
+    point.x >= min_x
+        && point.x <= max_x
+        && point.y >= min_y
+        && point.y <= max_y
+        && point.z >= min_z
+        && point.z <= max_z
+}

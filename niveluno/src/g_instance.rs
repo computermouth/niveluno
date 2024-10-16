@@ -1,14 +1,15 @@
 use crate::d_floor::Floor;
 use crate::d_platform::Platform;
 
-use crate::e_barrier::Barrier;
+use crate::e_barrier::{self, Barrier};
 use crate::e_gcyl::Gcyl;
 use crate::e_light::Light;
 use crate::e_menu::Menu;
 use crate::e_pig::Pig;
 use crate::e_player::Player;
 
-use crate::map::Entity;
+use crate::map::{Entity, LoadedEnttReference};
+use crate::nuerror::NUError;
 use crate::{g_game, text, time};
 
 use core::f32;
@@ -39,30 +40,46 @@ pub enum Instance {
     ETriggerLevelChange, // todo
 }
 
-impl Instance {
-    pub fn from_str(s: &str, entt: &Entity) -> Option<Self> {
-        match s {
-            // decor
-            "floor" => Some(Self::DFloor(Floor::new(entt))),
-            "platform" => Some(Self::DPlatform(Platform::new(entt))),
-            // entities
-            "barrier" => Some(Self::EBarrier(Barrier::new(entt))),
-            "gcyl" => Some(Self::EGcyl(Gcyl::new(entt))),
-            "light" => Some(Self::ELight(Light::new(entt))),
-            "player" => Some(Self::EPlayer(Player::new(entt))),
-            "pig" => Some(Self::EPig(Pig::new(entt))),
-            "menu_m" => Some(Self::EMenuM(Menu::new(entt))),
-            "menu_e" => Some(Self::EMenuE(Menu::new(entt))),
-            "menu_n" => Some(Self::EMenuN(Menu::new(entt))),
-            "menu_u" => Some(Self::EMenuU(Menu::new(entt))),
-            "trigger_levelchange" => None,
-            unknown => {
-                eprintln!("unrecognized entity '{}'", unknown);
-                None
-            }
+// todo -- perf
+// cache these lookups, probably perform the cache at map_load
+pub fn ref_ent_from_str(s: &str) -> Option<LoadedEnttReference> {
+    let ents = g_game::get_map_ref_ents().unwrap();
+    let erns = g_game::get_map_ern_data().unwrap();
+
+    let mut out = None;
+    for (i, ern) in erns.iter().enumerate() {
+        if s == ern {
+            out = Some(ents[i].clone())
         }
     }
 
+    out
+}
+
+pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
+    match s {
+        // decor
+        "floor" => Some(Instance::DFloor(Floor::new(entt))),
+        "platform" => Some(Instance::DPlatform(Platform::new(entt))),
+        // entities
+        "barrier" => Some(Instance::EBarrier(Barrier::new(entt))),
+        "gcyl" => Some(Instance::EGcyl(Gcyl::new(entt))),
+        "light" => Some(Instance::ELight(Light::new(entt))),
+        "player" => Some(Instance::EPlayer(Player::new(entt))),
+        "pig" => Some(Instance::EPig(Pig::new(entt))),
+        "menu_m" => Some(Instance::EMenuM(Menu::new(entt))),
+        "menu_e" => Some(Instance::EMenuE(Menu::new(entt))),
+        "menu_n" => Some(Instance::EMenuN(Menu::new(entt))),
+        "menu_u" => Some(Instance::EMenuU(Menu::new(entt))),
+        "trigger_levelchange" => None,
+        unknown => {
+            eprintln!("unrecognized entity '{}'", unknown);
+            None
+        }
+    }
+}
+
+impl Instance {
     pub fn update(&mut self) {
         match self {
             Self::DFloor(e) => e.update(),
@@ -164,7 +181,7 @@ impl Instance {
 }
 
 pub fn pos_is_visible(cam_pos: Vector3, point: Vector3) -> bool {
-    let decs = g_game::get_decor_instances().unwrap();
+    let decs = get_decor_instances().unwrap();
     let dir = vector3_normalize(vector3_subtract(point, cam_pos));
     let distance = vector3_distance(cam_pos, point);
     let ray = raymath::Ray {
@@ -217,6 +234,9 @@ pub fn update_physics(
     );
     *velocity = vector3_add(*velocity, vector3_subtract(af, vf));
 
+    // todo -- perf
+    // we can probably return early here, if v3len(velocity) == 0.0 (or within epsilon)
+
     let steps = 16;
 
     let move_dist = vector3_scale(*velocity, delta_time);
@@ -228,7 +248,7 @@ pub fn update_physics(
     };
     let mut last_floor = Vector3::new(0., 0., 0.);
 
-    let mut decs = g_game::get_decor_instances().unwrap();
+    let mut decs = get_decor_instances().unwrap();
 
     *on_ground = false;
 
@@ -246,7 +266,9 @@ pub fn update_physics(
         };
 
         // find nearest floor collision
-        // todo, only loop over floors (normal.y >= .707)
+        // todo -- perf, only loop over floors (normal.y >= .707)
+        // pre calculate the normal, store somewhere else
+        // we're checking every triangle twice
         let mut floor_hit: Option<RayCollision> = None;
         for dec in &mut decs {
             let mesh = dec.get_mesh();
@@ -287,6 +309,7 @@ pub fn update_physics(
         }
 
         // WALLS
+        // todo -- perf dissolve map faces to reduce triangle count
         let mut aabb = BoundingBox {
             min: Vector3::new(tmp_pos.x - width / 2., tmp_pos.y, tmp_pos.z - width / 2.),
             max: Vector3::new(
@@ -462,4 +485,15 @@ pub fn update_physics(
         v_text.y = 16 * 7;
         text::push_surface(&v_text).unwrap();
     }
+}
+
+pub fn get_decor_instances<'a>() -> Result<Vec<&'a mut Instance>, NUError> {
+    g_game::get_filtered_instances(|inst| inst.is_decor())
+}
+
+pub fn get_barrier_instances<'a>() -> Result<Vec<&'a mut Instance>, NUError> {
+    g_game::get_filtered_instances(|inst| match inst {
+        Instance::EBarrier(_) => true,
+        _ => false,
+    })
 }

@@ -1,4 +1,6 @@
-use raymath;
+use raymath::{
+    matrix_identity, quaternion_to_matrix, vector3_add, vector3_transform, Matrix, Vector3,
+};
 
 use crate::{g_instance, math};
 
@@ -10,6 +12,9 @@ use crate::{g_game, render, text};
 pub struct Barrier {
     base: Entity,
     id: Option<u32>,
+    bounds: [Vector3; 8],
+    normals: [Vector3; 6],
+    mats: [Matrix; 8],
 }
 
 const BANNER_COLORS_V3: [[f32; 3]; 9] = [
@@ -49,9 +54,102 @@ impl Barrier {
             }
         }
 
+        let mat_r = quaternion_to_matrix(entt.rotation.into());
+
+        let fbl = vector3_transform(
+            Vector3::new(-entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
+            mat_r,
+        );
+        let bbl = vector3_transform(
+            Vector3::new(-entt.scale[0] / 2., 0., entt.scale[2] / 2.),
+            mat_r,
+        );
+        let fbr = vector3_transform(
+            Vector3::new(entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
+            mat_r,
+        );
+        let bbr = vector3_transform(
+            Vector3::new(entt.scale[0] / 2., 0., entt.scale[2] / 2.),
+            mat_r,
+        );
+
+        let ftl = vector3_add(
+            vector3_transform(
+                Vector3::new(-entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
+                mat_r,
+            ),
+            Vector3 {
+                x: 0.,
+                y: 2.,
+                z: 0.,
+            },
+        );
+        let btl = vector3_add(
+            vector3_transform(
+                Vector3::new(-entt.scale[0] / 2., 0., entt.scale[2] / 2.),
+                mat_r,
+            ),
+            Vector3 {
+                x: 0.,
+                y: 2.,
+                z: 0.,
+            },
+        );
+        let ftr = vector3_add(
+            vector3_transform(
+                Vector3::new(entt.scale[0] / 2., 0., -entt.scale[2] / 2.),
+                mat_r,
+            ),
+            Vector3 {
+                x: 0.,
+                y: 2.,
+                z: 0.,
+            },
+        );
+        let btr = vector3_add(
+            vector3_transform(
+                Vector3::new(entt.scale[0] / 2., 0., entt.scale[2] / 2.),
+                mat_r,
+            ),
+            Vector3 {
+                x: 0.,
+                y: 2.,
+                z: 0.,
+            },
+        );
+
+        let mut bounds = [ftl, ftr, fbr, fbl, btl, btr, bbr, bbl];
+
+        let mut mats = [matrix_identity(); 8];
+        let mat_t = raymath::matrix_translate(entt.location[0], entt.location[1], entt.location[2]);
+        for (i, point) in bounds.iter().enumerate() {
+            let translate_mat = raymath::matrix_translate(point.x, point.y, point.z);
+            let mat = raymath::matrix_multiply(mat_t, translate_mat);
+            mats[i] = mat;
+        }
+
+        // apply mats to the points for bounds checking by player
+        for b in &mut bounds {
+            let translate_mat = raymath::matrix_translate(b.x, b.y, b.z);
+            let mat = raymath::matrix_multiply(mat_t, translate_mat);
+            *b = raymath::vector3_transform(*b, mat);
+        }
+
+        let normals = [
+            math::vec3_face_normal(fbl, fbr, ftl), // Front
+            math::vec3_face_normal(bbl, bbr, btl), // Back
+            math::vec3_face_normal(fbl, bbl, ftl), // Left
+            math::vec3_face_normal(fbr, bbr, ftr), // Right
+            math::vec3_face_normal(ftl, ftr, btl), // Top
+            math::vec3_face_normal(fbl, fbr, bbl), // Bottom
+        ];
+
         Self {
             base: entt.clone(),
             id,
+            bounds,
+            normals,
+            mats,
         }
     }
 
@@ -147,6 +245,71 @@ impl Barrier {
             glow: Some(color),
         };
         render::draw(dc).unwrap();
+
+        if cfg!(debug_assertions) {
+            let re = g_instance::ref_ent_from_str("icosphere").unwrap();
+
+            for mat in self.mats {
+                let dc = render::DrawCall {
+                    matrix: mat,
+                    texture: re.texture_handle as u32,
+                    f1: re.frame_handles[0] as i32,
+                    f2: re.frame_handles[0] as i32,
+                    mix: 0.0,
+                    num_verts: re.num_verts,
+                    glow: Some(color),
+                };
+                render::draw(dc).unwrap();
+            }
+        }
+    }
+
+    pub fn position_is_inside(&self, point: Vector3) -> bool {
+        // Derive the min and max bounds from the points
+        let min_x = self.bounds[0]
+            .x
+            .min(self.bounds[3].x)
+            .min(self.bounds[4].x)
+            .min(self.bounds[7].x);
+        let max_x = self.bounds[1]
+            .x
+            .max(self.bounds[2].x)
+            .max(self.bounds[5].x)
+            .max(self.bounds[6].x);
+
+        let min_y = self.bounds[2]
+            .y
+            .min(self.bounds[3].y)
+            .min(self.bounds[6].y)
+            .min(self.bounds[7].y);
+        let max_y = self.bounds[0]
+            .y
+            .max(self.bounds[1].y)
+            .max(self.bounds[4].y)
+            .max(self.bounds[5].y);
+
+        let min_z = self.bounds[0]
+            .z
+            .min(self.bounds[1].z)
+            .min(self.bounds[2].z)
+            .min(self.bounds[3].z);
+        let max_z = self.bounds[4]
+            .z
+            .max(self.bounds[5].z)
+            .max(self.bounds[6].z)
+            .max(self.bounds[7].z);
+
+        // Check if the point is within bounds
+        point.x >= min_x
+            && point.x <= max_x
+            && point.y >= min_y
+            && point.y <= max_y
+            && point.z >= min_z
+            && point.z <= max_z
+    }
+
+    pub fn get_id(&self) -> u32 {
+        self.id.unwrap()
     }
 
     pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {

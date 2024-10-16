@@ -1,8 +1,8 @@
-use crate::asset;
 use crate::g_instance::Instance;
 use crate::map::{self, LoadedEnttReference};
 use crate::nuerror::NUError;
 use crate::text;
+use crate::{asset, g_instance};
 
 struct GameGod {
     pub current_level: Option<map::Map>,
@@ -103,6 +103,28 @@ pub fn stage_level(level: map::Map) -> Result<(), NUError> {
     Ok(())
 }
 
+pub fn spawn_entity(inst: Instance) -> Result<(), NUError> {
+    let gg = GameGod::get()?;
+
+    gg.entts_inst.push(inst);
+
+    Ok(())
+}
+
+pub fn get_map_ref_ents<'a>() -> Result<&'a Vec<LoadedEnttReference>, NUError> {
+    let gg = GameGod::get()?;
+    let curr = gg.current_level.as_ref().unwrap();
+
+    Ok(&curr.ref_entities)
+}
+
+pub fn get_map_ern_data<'a>() -> Result<&'a Vec<String>, NUError> {
+    let gg = GameGod::get()?;
+    let curr = gg.current_level.as_ref().unwrap();
+
+    Ok(&curr.payload.ern_data)
+}
+
 pub fn init_level(level: &map::Map) -> Result<(), NUError> {
     let gg = GameGod::get()?;
 
@@ -113,15 +135,14 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
         }
     }
 
-    let mut entts = vec![];
+    gg.entts_inst = vec![];
     for me in &level.map_entities {
-        let entt_inst = Instance::from_str(level.payload.ern_data[me.ref_id].as_str(), me);
+        let entt_inst =
+            g_instance::instance_from_str(level.payload.ern_data[me.ref_id].as_str(), me);
         if entt_inst.is_some() {
-            entts.push(entt_inst.unwrap());
+            spawn_entity(entt_inst.unwrap())?;
         }
     }
-
-    gg.entts_inst = entts;
 
     Ok(())
 }
@@ -203,7 +224,7 @@ pub fn get_animation_ids(animations: &[&[&str]], ref_ent: &LoadedEnttReference) 
 
 pub fn get_filtered_instances<'a, F>(filter_fn: F) -> Result<Vec<&'a mut Instance>, NUError>
 where
-    F: Fn(&mut Instance) -> bool, // Change to accept mutable reference
+    F: Fn(&mut Instance) -> bool,
 {
     let gg = GameGod::get()?;
     let all = &mut gg.entts_inst;
@@ -220,8 +241,4 @@ where
     }
 
     Ok(filtered)
-}
-
-pub fn get_decor_instances<'a>() -> Result<Vec<&'a mut Instance>, NUError> {
-    get_filtered_instances(|inst| inst.is_decor()) // Now works correctly with mutable reference
 }
