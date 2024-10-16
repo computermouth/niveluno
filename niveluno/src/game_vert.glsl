@@ -102,7 +102,7 @@ vec3 clamp_v3_to_fixed_point(vec3 val) {
 
     // 1 / 32
     // float step = 0.00390625;
-    float step = 1.0/16.0;
+    float step = 1.0/32.0;
 
     val = round(val / vec3(step)) * vec3(step);
 
