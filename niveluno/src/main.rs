@@ -73,8 +73,8 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
 
     // todo, text init here?
     video_subsystem
-        // .gl_set_swap_interval(SwapInterval::Immediate)
-        .gl_set_swap_interval(SwapInterval::VSync)
+        .gl_set_swap_interval(SwapInterval::Immediate)
+        // .gl_set_swap_interval(SwapInterval::VSync)
         .map_err(|e| NUError::SDLError(e))?;
 
     Ok((sdl_context, window, ctx))

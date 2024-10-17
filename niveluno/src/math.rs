@@ -179,8 +179,8 @@ pub fn world_point_to_screen_coord(
     let view_pos = vector3_subtract(location, camera_pos);
 
     // get rotated pos
-    let yaw_matrix = matrix_rotate_y(camera_yaw);
-    let pitch_matrix = matrix_rotate_x(camera_pitch);
+    let yaw_matrix = matrix_rotate_y(-camera_yaw);
+    let pitch_matrix = matrix_rotate_x(-camera_pitch);
     let rotation_matrix = matrix_multiply(yaw_matrix, pitch_matrix);
     let rotated_pos = vector3_transform(view_pos, rotation_matrix);
 
@@ -202,47 +202,58 @@ pub fn world_point_to_screen_coord(
     })
 }
 
-// Main function to determine if a point is inside the axis-aligned cuboid
-fn is_point_in_cuboid(cuboid_points: [Vector3; 8], point: Vector3) -> bool {
-    // Derive the min and max bounds from the points
-    let min_x = cuboid_points[0]
-        .x
-        .min(cuboid_points[3].x)
-        .min(cuboid_points[4].x)
-        .min(cuboid_points[7].x);
-    let max_x = cuboid_points[1]
-        .x
-        .max(cuboid_points[2].x)
-        .max(cuboid_points[5].x)
-        .max(cuboid_points[6].x);
 
-    let min_y = cuboid_points[2]
-        .y
-        .min(cuboid_points[3].y)
-        .min(cuboid_points[6].y)
-        .min(cuboid_points[7].y);
-    let max_y = cuboid_points[0]
-        .y
-        .max(cuboid_points[1].y)
-        .max(cuboid_points[4].y)
-        .max(cuboid_points[5].y);
 
-    let min_z = cuboid_points[0]
-        .z
-        .min(cuboid_points[1].z)
-        .min(cuboid_points[2].z)
-        .min(cuboid_points[3].z);
-    let max_z = cuboid_points[4]
-        .z
-        .max(cuboid_points[5].z)
-        .max(cuboid_points[6].z)
-        .max(cuboid_points[7].z);
+// Get collision info between ray and mesh
+pub fn get_ray_collision_mesh(
+    ray: Ray,
+    mesh: Vec<[Vector3; 3]>,
+    transform: Matrix,
+    check_within: Option<(Vector3, f32)>,
+) -> RayCollision {
+    let mut collision = RayCollision {
+        hit: false,
+        distance: 0.,
+        point: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+        normal: Vector3 {
+            x: 0.,
+            y: 0.,
+            z: 0.,
+        },
+    };
 
-    // Check if the point is within bounds
-    point.x >= min_x
-        && point.x <= max_x
-        && point.y >= min_y
-        && point.y <= max_y
-        && point.z >= min_z
-        && point.z <= max_z
+    // Test against all triangles in mesh
+    for tri in mesh {
+        let mut a = tri[0];
+        let mut b = tri[1];
+        let mut c = tri[2];
+
+        a = vector3_transform(a, transform);
+        b = vector3_transform(b, transform);
+        c = vector3_transform(c, transform);
+
+        if let Some((pos, max_dist)) = check_within {
+            if (vector3_distance(pos, a) > max_dist)
+                && (vector3_distance(pos, b) > max_dist)
+                && (vector3_distance(pos, c) > max_dist)
+            {
+                continue;
+            }
+        }
+
+        let tri_hit_info = get_ray_collision_triangle(ray.clone(), a, b, c);
+
+        if tri_hit_info.hit {
+            // Save the closest hit triangle
+            if (!collision.hit) || (collision.distance > tri_hit_info.distance) {
+                collision = tri_hit_info;
+            }
+        }
+    }
+
+    return collision;
 }

@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::hash::Hash;
 
-use raymath::vector3_multiply;
-use raymath::vector3_scale;
-use raymath::Vector3;
 use sdl2::pixels;
 use sdl2::rect;
 use sdl2::rwops::RWops;

@@ -15,10 +15,15 @@ pub struct Vector2 {
     pub y: f32,
 }
 
-// deleteme
-impl From<[f32; 5]> for Vector2 {
-    fn from(f: [f32; 5]) -> Self {
-        Self { x: f[0], y: f[1] }
+impl From<[f32; 2]> for Vector2 {
+    fn from(f: [f32; 2]) -> Self {
+        Self::new(f[0], f[1])
+    }
+}
+
+impl Vector2 {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
     }
 }
 
@@ -2770,56 +2775,6 @@ pub fn get_ray_collision_box(mut ray: Ray, bbox: BoundingBox) -> RayCollision {
     return collision;
 }
 
-// Get collision info between ray and mesh
-pub fn get_ray_collision_mesh(
-    ray: Ray,
-    mesh: Vec<[Vector3; 3]>,
-    transform: Matrix,
-) -> RayCollision {
-    let mut collision = RayCollision {
-        hit: false,
-        distance: 0.,
-        point: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
-        normal: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
-    };
-
-    // Check if mesh vertex data on CPU for testing
-    // if (mesh.vertices != NULL)
-    // {
-    //     int triangleCount = mesh.triangleCount;
-
-    // Test against all triangles in mesh
-    for tri in mesh {
-        let mut a = tri[0];
-        let mut b = tri[1];
-        let mut c = tri[2];
-
-        a = vector3_transform(a, transform);
-        b = vector3_transform(b, transform);
-        c = vector3_transform(c, transform);
-
-        let tri_hit_info = get_ray_collision_triangle(ray.clone(), a, b, c);
-
-        if tri_hit_info.hit {
-            // Save the closest hit triangle
-            if (!collision.hit) || (collision.distance > tri_hit_info.distance) {
-                collision = tri_hit_info;
-            }
-        }
-    }
-    // }
-
-    return collision;
-}
-
 // Get collision info between ray and triangle
 // NOTE: The points are expected to be in counter-clockwise winding
 // NOTE: Based on https://en.wikipedia.org/wiki/M%C3%B6ller%E2%80%93Trumbore_intersection_algorithm
@@ -2907,59 +2862,4 @@ pub fn get_ray_collision_quad(
     }
 
     return collision;
-}
-
-// =========================================================
-
-// todo -- deleteme
-impl From<[f32; 3]> for Vector2 {
-    fn from(f: [f32; 3]) -> Self {
-        Vector2 { x: f[0], y: f[1] }
-    }
-}
-
-// todo -- deleteme
-impl From<[f32; 5]> for Vector3 {
-    fn from(f: [f32; 5]) -> Self {
-        Vector3 {
-            x: f[0],
-            y: f[1],
-            z: f[2],
-        }
-    }
-}
-
-// todo -- deleteme
-impl From<[f32; 16]> for Vector3 {
-    fn from(f: [f32; 16]) -> Self {
-        Vector3 {
-            x: f[0],
-            y: f[1],
-            z: f[2],
-        }
-    }
-}
-
-// todo -- deleteme
-impl From<[f32; 5]> for Quaternion {
-    fn from(f: [f32; 5]) -> Self {
-        Quaternion {
-            x: f[0],
-            y: f[1],
-            z: f[2],
-            w: f[3],
-        }
-    }
-}
-
-// todo -- deleteme
-impl From<[f32; 16]> for Quaternion {
-    fn from(f: [f32; 16]) -> Self {
-        Quaternion {
-            x: f[0],
-            y: f[1],
-            z: f[2],
-            w: f[3],
-        }
-    }
 }

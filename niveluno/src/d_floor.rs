@@ -1,3 +1,5 @@
+use raymath::vector3_distance;
+
 use crate::map::Entity;
 
 use crate::g_game;

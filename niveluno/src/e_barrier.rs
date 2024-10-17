@@ -116,8 +116,8 @@ impl Barrier {
         let pos_2d = math::world_point_to_screen_coord(
             self.base.location.into(),
             render::get_camera_pos().unwrap(),
-            -render::get_camera_yaw().unwrap(),
-            -render::get_camera_pitch().unwrap(),
+            render::get_camera_yaw().unwrap(),
+            render::get_camera_pitch().unwrap(),
             render::INTERNAL_W as f32,
             render::INTERNAL_H as f32,
         );
