@@ -1,5 +1,6 @@
 use crate::d_floor::Floor;
 use crate::d_platform::Platform;
+use crate::d_table::Table;
 
 use crate::e_barrier::Barrier;
 use crate::e_gcyl::Gcyl;
@@ -20,6 +21,7 @@ pub enum Instance {
     // Decor
     DFloor(Floor),
     DPlatform(Platform),
+    DTable(Table),
     // Entities
     EBarrier(Barrier),
     EGcyl(Gcyl),
@@ -54,6 +56,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
         // decor
         "floor" => Some(Instance::DFloor(Floor::new(entt))),
         "platform" => Some(Instance::DPlatform(Platform::new(entt))),
+        "table" => Some(Instance::DTable(Table::new(entt))),
         // entities
         "barrier" => Some(Instance::EBarrier(Barrier::new(entt))),
         "gcyl" => Some(Instance::EGcyl(Gcyl::new(entt))),
@@ -77,6 +80,7 @@ impl Instance {
         match self {
             Self::DFloor(e) => e.update(),
             Self::DPlatform(e) => e.update(),
+            Self::DTable(e) => e.update(),
             Self::EBarrier(e) => e.update(),
             Self::EGcyl(e) => e.update(),
             Self::ELight(e) => e.update(),
@@ -96,6 +100,7 @@ impl Instance {
         match self {
             Self::DFloor(e) => e.draw_model(),
             Self::DPlatform(e) => e.draw_model(),
+            Self::DTable(e) => e.draw_model(),
             Self::EBarrier(e) => e.draw_model(),
             Self::EGcyl(e) => e.draw_model(),
             Self::ELight(e) => e.draw_model(),
@@ -115,6 +120,7 @@ impl Instance {
         match self {
             Self::DFloor(_) => true,
             Self::DPlatform(_) => true,
+            Self::DTable(_) => true,
             Self::EBarrier(_) => false,
             Self::EGcyl(_) => false,
             Self::ELight(_) => false,
@@ -135,6 +141,7 @@ impl Instance {
             // get meshes for decor
             Self::DFloor(e) => e.get_mesh(),
             Self::DPlatform(e) => e.get_mesh(),
+            Self::DTable(e) => e.get_mesh(),
             // rest will panic
             Self::EBarrier(e) => e.get_mesh(),
             Self::EGcyl(e) => e.get_mesh(),
@@ -156,6 +163,7 @@ impl Instance {
             // get mat for decor
             Self::DFloor(e) => e.get_matrix(),
             Self::DPlatform(e) => e.get_matrix(),
+            Self::DTable(e) => e.get_matrix(),
             // rest will panic
             Self::EBarrier(e) => e.get_matrix(),
             Self::EGcyl(e) => e.get_matrix(),
@@ -188,7 +196,7 @@ pub fn pos_is_visible(cam_pos: Vector3, point: Vector3) -> bool {
         let mesh = dec.get_mesh();
         let mat = dec.get_matrix();
 
-        // max distance hack. exclude 
+        // max distance hack. exclude
         if vector3_distance(cam_pos, point) > 64. {
             return false;
         }

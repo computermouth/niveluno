@@ -1,15 +1,18 @@
 use std::collections::HashSet;
 
 use raymath::{
-    matrix_rotate_y, vector3_add, vector3_distance, vector3_dot_product,
-    vector3_multiply, vector3_negate, vector3_scale, vector3_subtract, vector3_transform,
-    BoundingBox, RayCollision,
+    matrix_rotate_y, matrix_translate, vector3_add, vector3_cross_product, vector3_distance,
+    vector3_dot_product, vector3_multiply, vector3_negate, vector3_project, vector3_scale,
+    vector3_subtract, vector3_transform, BoundingBox, RayCollision,
 };
 
 use crate::g_game::TopState;
 use crate::g_instance::get_decor_instances;
 use crate::map::{self, Entity};
-use crate::math::{mesh_tranform, get_ray_collision_mesh, sat_aabb_tri, vec3_face_normal, Vector3};
+use crate::math::{
+    closest_point_to_triangle, get_ray_collision_mesh, mesh_tranform, sat_aabb_tri,
+    vec3_face_normal, Vector3,
+};
 use crate::text;
 use crate::{asset, g_game};
 use crate::{g_instance, input};
@@ -100,7 +103,7 @@ impl Player {
                 })
                 .unwrap(),
             },
-            height: 2.1,
+            height: 2.001, // the .001 is for climbing 1m ledges
             width: 3.,
         }
     }
@@ -187,7 +190,8 @@ impl Player {
             if barrier.position_is_inside(vector3_add(
                 self.position,
                 Vector3::new(0., self.height / 2., 0.),
-            )) { bid = Some(barrier.get_id())
+            )) {
+                bid = Some(barrier.get_id())
             }
         }
 
@@ -228,7 +232,9 @@ impl Player {
 
 const GRAVITY: f32 = 1.0;
 const FRICTION: f32 = 10.0;
-
+// ~45.01 degrees -- if you change this, you'll
+// have to change a few of the height / 2. below
+const MAX_SLOPE: f32 = 0.707;
 const MAX_COLLISION_DIST: f32 = 32.;
 
 pub fn update_physics(
@@ -273,8 +279,6 @@ pub fn update_physics(
 
     let mut decs = get_decor_instances().unwrap();
 
-    *on_ground = false;
-
     for _ in 0..steps {
         // move one step
         let mut tmp_pos = vector3_add(*position, step_size);
@@ -299,7 +303,7 @@ pub fn update_physics(
 
             let coll = get_ray_collision_mesh(ray, mesh, mat, Some((tmp_pos, MAX_COLLISION_DIST)));
             // collides, and is closest, and is less than 45 degree slope
-            if coll.hit && coll.distance < height && -coll.normal.y >= 0.607 {
+            if coll.hit && coll.distance < height && -coll.normal.y >= MAX_SLOPE {
                 // If nearest collision is not set or this one is closer, update nearest_hit
                 if floor_hit.is_none() || floor_hit.unwrap().distance > coll.distance {
                     floor_hit = Some(coll);
@@ -333,36 +337,38 @@ pub fn update_physics(
 
         // WALLS
         // todo -- perf dissolve map faces to reduce triangle count
+        // todo -- height here should be divided by max slope out of 90 degrees. 45/90 == 1/2.
         let mut aabb = BoundingBox {
-            min: Vector3::new(tmp_pos.x - width / 2., tmp_pos.y, tmp_pos.z - width / 2.),
-            max: Vector3::new(
-                tmp_pos.x + width / 2.,
-                tmp_pos.y + height,
-                tmp_pos.z + width / 2.,
-            ),
+            min: Vector3::new(tmp_pos.x, tmp_pos.y, tmp_pos.z),
+            max: Vector3::new(tmp_pos.x, tmp_pos.y + height, tmp_pos.z),
         };
 
-        // raise the aabb.min.y proportionally to the slope,
-        // this prevents the player from intersecting walls next to the slope,
-        // and getting pushed off the ledge
         match last_floor {
+            Vector3 {
+                x: 0.0,
+                y: -1.0,
+                z: 0.0,
+            } => {
+                // todo -- this will permit 1/2 height climb-ups -- do camera smoothing
+                aabb.min.y += height / 2.;
+            }
             Vector3 {
                 x: 0.0,
                 y: 0.0,
                 z: 0.0,
-            } => {
-                aabb.min.y += height + f32::EPSILON;
-            }
+            } => {}
             _ => {
-                let slope_angle = vector3_dot_product(last_floor, Vector3::new(0.0, 1.0, 0.0));
-                let slope_adjustment = width * (1.0 - slope_angle).abs();
-                aabb.min.y = tmp_pos.y + slope_adjustment;
+                // lets see
+                aabb.min.y += height / 2. + ((1. + last_floor.y) / (1. - MAX_SLOPE)) / 2.;
             }
         };
 
         last_aabb = aabb;
 
         let mut wall_collisions = HashSet::new();
+
+        // let mut wall = None;
+
         for dec in &mut decs {
             let mesh = dec.get_mesh();
             let mat = dec.get_matrix();
@@ -374,6 +380,10 @@ pub fn update_physics(
                     vector3_negate(vec3_face_normal(tri[0], tri[1], tri[2])),
                 )
             }) {
+                if !(-normal.y < MAX_SLOPE) {
+                    continue;
+                }
+
                 if (vector3_distance(tmp_pos, tri[0]) > MAX_COLLISION_DIST)
                     && (vector3_distance(tmp_pos, tri[1]) > MAX_COLLISION_DIST)
                     && (vector3_distance(tmp_pos, tri[2]) > MAX_COLLISION_DIST)
@@ -381,13 +391,71 @@ pub fn update_physics(
                     continue;
                 }
 
-                // Perform SAT test to check for wall collision with bounding box
-                if -normal.y < 0.607 && sat_aabb_tri(&aabb, tri) {
+                let closest = closest_point_to_triangle(
+                    tri,
+                    Vector3::new(tmp_pos.x, (aabb.max.y + aabb.min.y) / 2., tmp_pos.z),
+                );
+
+                if cfg!(debug_assertions) {
+                    let re = g_instance::ref_ent_from_str("icosphere").unwrap();
+                    let mat = matrix_translate(closest.x, closest.y, closest.z);
+
+                    let dc = render::DrawCall {
+                        matrix: mat,
+                        texture: re.texture_handle as u32,
+                        f1: re.frame_handles[0] as i32,
+                        f2: re.frame_handles[0] as i32,
+                        mix: 0.0,
+                        num_verts: re.num_verts,
+                        glow: Some(Vector3::new(0.7, 0.7, 0.7)),
+                    };
+                    render::draw(dc).unwrap();
+                }
+
+                // collides height-wise
+                if aabb.min.y <= closest.y &&
+                    closest.y <= aabb.max.y &&
+                    // collides width-wise
+                    vector3_distance(Vector3::new(tmp_pos.x, 0., tmp_pos.z), Vector3::new(closest.x, 0., closest.z)) <= width / 2.
+                {
+                    // let new = vector3_add(closest, vector3_scale(vector3_negate(normal), 0.001));
+                    // match wall {
+                    //     None => wall = Some((new, normal)),
+                    //     Some((old, _)) => {
+                    //         let old_dist = vector3_distance(old, tmp_pos);
+                    //         let new_dist = vector3_distance(new, tmp_pos);
+                    //         if new_dist > old_dist {
+                    //             wall = Some((new, normal))
+                    //         }
+                    //     }
+                    // }
                     // Accumulate normals and count collisions
                     wall_collisions.insert(vector3_negate(normal));
+
+                    // todo, check if wall_collisions has a normal that's the opposite of this one,
+                    // if so only insert the closer one, that should solve for pushing through walls,
+                    // and also I guess the horseshoe collision |_|
+                    // still don't know what to do about _| corner collisions.
                 }
             }
         }
+
+        // if let Some((_, wall_normal)) = wall {
+        //     let wall_normal = vector3_negate(wall_normal);
+        //     let dot = vector3_dot_product(step_size, wall_normal);
+        //     if dot < 0. {
+        //         let correction = vector3_scale(wall_normal, dot);
+        //         step_size = vector3_subtract(step_size, correction);
+        //     }
+
+        //     // Enforce minimum movement in the direction away from the wall
+        //     // step_size = vector3_add(step_size, vector3_scale(wall_normal, 0.0005));
+        //     // tmp_pos = vector3_add(*position, step_size);
+        //     tmp_pos = vector3_add(
+        //         *position,
+        //         vector3_add(step_size, vector3_scale(wall_normal, 0.005)),
+        //     );
+        // }
 
         for wall_normal in wall_collisions {
             // Project velocity onto each wall normal

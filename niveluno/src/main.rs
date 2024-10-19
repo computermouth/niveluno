@@ -25,6 +25,7 @@ mod e_player;
 // pak/decor??
 mod d_floor;
 mod d_platform;
+mod d_table;
 
 use nuerror::NUError;
 

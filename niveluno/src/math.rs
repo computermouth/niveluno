@@ -202,8 +202,6 @@ pub fn world_point_to_screen_coord(
     })
 }
 
-
-
 // Get collision info between ray and mesh
 pub fn get_ray_collision_mesh(
     ray: Ray,
@@ -256,4 +254,170 @@ pub fn get_ray_collision_mesh(
     }
 
     return collision;
+}
+
+fn closest_point_on_plane(plane_normal: Vector3, plane_distance: f32, point: Vector3) -> Vector3 {
+    let distance = vector3_dot_product(plane_normal, point) - plane_distance;
+
+    vector3_subtract(point, vector3_scale(plane_normal, distance))
+}
+
+fn point_in_triangle(p: Vector3, t: [Vector3; 3]) -> bool {
+    // Lets define some local variables, we can change these
+    // without affecting the references passed in
+    let mut a = t[0];
+    let mut b = t[1];
+    let mut c = t[2];
+
+    // Move the triangle so that the point becomes the
+    // triangles origin
+    a = vector3_subtract(a, p);
+    b = vector3_subtract(b, p);
+    c = vector3_subtract(c, p);
+
+    // Compute the normal vectors for triangles:
+    // u = normal of PBC
+    // v = normal of PCA
+    // w = normal of PAB
+
+    let u = vector3_cross_product(b, c);
+    let v = vector3_cross_product(c, a);
+    let w = vector3_cross_product(a, b);
+
+    // Test to see if the normals are facing
+    // the same direction, return false if not
+    if vector3_dot_product(u, v) < 0. {
+        return false;
+    }
+    if vector3_dot_product(u, w) < 0. {
+        return false;
+    }
+
+    // All normals facing the same way, return true
+    return true;
+}
+
+fn closest_point_on_line(line: [Vector3; 2], point: Vector3) -> Vector3 {
+    let p0 = line[0];
+    let p1 = line[1];
+
+    let dir = vector3_normalize(vector3_subtract(p1, p0));
+
+    // Vector from p0 to the given point
+    let w = vector3_subtract(point, p0);
+    // Project w onto the direction vector dir
+    let projection = vector3_scale(dir, vector3_dot_product(w, dir));
+
+    vector3_add(p0, projection)
+}
+
+fn closest_point_on_triangle(triangle: [Vector3; 3], point: Vector3) -> Vector3 {
+    let plane_normal = vec3_face_normal(triangle[0], triangle[1], triangle[2]);
+    let plane_center = vector3_scale(
+        vector3_add(vector3_add(triangle[0], triangle[1]), triangle[2]),
+        1. / 3.,
+    );
+    let plane_distance = vector3_distance(plane_center, point);
+
+    let point = closest_point_on_plane(plane_normal, plane_distance, point);
+
+    if point_in_triangle(point, triangle) {
+        return point;
+    }
+
+    let ab = [triangle[0], triangle[1]];
+    let bc = [triangle[1], triangle[2]];
+    let ca = [triangle[2], triangle[0]];
+
+    let c1 = closest_point_on_line(ab, point);
+    let c2 = closest_point_on_line(bc, point);
+    let c3 = closest_point_on_line(ca, point);
+
+    let mag1 = vector3_length_sqr(vector3_subtract(point, c1));
+    let mag2 = vector3_length_sqr(vector3_subtract(point, c2));
+    let mag3 = vector3_length_sqr(vector3_subtract(point, c3));
+
+    let min = mag1.min(mag2);
+    let min = min.min(mag3);
+
+    if min == mag1 {
+        return c1;
+    } else if min == mag2 {
+        return c2;
+    }
+    c3
+}
+
+pub fn closest_point_to_triangle(tri: [Vector3; 3], point: Vector3) -> Vector3 {
+    // Vectors for edges of the triangle
+    let edge0 = vector3_subtract(tri[1], tri[0]);
+    let edge1 = vector3_subtract(tri[2], tri[0]);
+
+    // Vector from vertex tri[0] to the point
+    let v0 = vector3_subtract(point, tri[0]);
+
+    // Compute dot products
+    let d00 = vector3_dot_product(edge0, edge0);
+    let d01 = vector3_dot_product(edge0, edge1);
+    let d11 = vector3_dot_product(edge1, edge1);
+    let d20 = vector3_dot_product(v0, edge0);
+    let d21 = vector3_dot_product(v0, edge1);
+
+    // Compute the denominator for barycentric coordinates
+    let denom = d00 * d11 - d01 * d01;
+
+    // Check for degenerate triangle
+    if denom.abs() < f32::EPSILON {
+        // Handle degenerate case, return a vertex (or an average, or another point)
+        return tri[0];
+    }
+
+    // Barycentric coordinates
+    let u = (d11 * d20 - d01 * d21) / denom;
+    let v = (d00 * d21 - d01 * d20) / denom;
+
+    // Check if the point is inside the triangle (u >= 0, v >= 0, u + v <= 1)
+    if u >= 0.0 && v >= 0.0 && (u + v) <= 1.0 {
+        // The point is inside the triangle, calculate the exact point on the triangle plane
+        return vector3_add(
+            vector3_add(tri[0], vector3_scale(edge0, u)),
+            vector3_scale(edge1, v),
+        );
+    } else {
+        // The point is outside the triangle, so find the closest point on the triangle edges or vertices
+        let closest_on_edge1 = closest_point_on_line_segment(point, tri[0], tri[1]);
+        let closest_on_edge2 = closest_point_on_line_segment(point, tri[1], tri[2]);
+        let closest_on_edge3 = closest_point_on_line_segment(point, tri[2], tri[0]);
+
+        // Find the closest of the three points
+        let mut closest_point = closest_on_edge1;
+        let mut min_dist_sq = vector3_length_sqr(vector3_subtract(closest_on_edge1, point));
+
+        let dist2_sq = vector3_length_sqr(vector3_subtract(closest_on_edge2, point));
+        if dist2_sq < min_dist_sq {
+            min_dist_sq = dist2_sq;
+            closest_point = closest_on_edge2;
+        }
+
+        let dist3_sq = vector3_length_sqr(vector3_subtract(closest_on_edge3, point));
+        if dist3_sq < min_dist_sq {
+            closest_point = closest_on_edge3;
+        }
+
+        closest_point
+    }
+}
+
+// Helper function to find the closest point on a line segment
+pub fn closest_point_on_line_segment(point: Vector3, a: Vector3, b: Vector3) -> Vector3 {
+    let ab = vector3_subtract(b, a);
+    let t = vector3_dot_product(vector3_subtract(point, a), ab) / vector3_dot_product(ab, ab);
+
+    if t < 0.0 {
+        a
+    } else if t > 1.0 {
+        b
+    } else {
+        vector3_add(a, vector3_scale(ab, t))
+    }
 }

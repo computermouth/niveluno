@@ -5,12 +5,12 @@ use crate::map::Entity;
 use crate::g_game;
 use crate::render;
 
-pub struct Floor {
+pub struct Table {
     base: Entity,
     mat: raymath::Matrix,
 }
 
-impl Floor {
+impl Table {
     pub fn new(decor: &Entity) -> Self {
         // scale, rotation, translation
         let mat_s = raymath::matrix_scale(decor.scale[0], decor.scale[1], decor.scale[2]);
