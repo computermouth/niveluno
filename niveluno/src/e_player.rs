@@ -1,10 +1,10 @@
-use std::collections::HashSet;
+use core::f32;
+use std::collections::{HashMap, HashSet};
 
 use raymath::{
-    matrix_rotate_y, matrix_translate, vector3_add, vector3_cross_product, vector3_distance,
-    vector3_dot_product, vector3_multiply, vector3_negate, vector3_project, vector3_scale,
-    vector3_subtract, vector3_transform, BoundingBox, RayCollision,
+    matrix_rotate_y, matrix_translate, vector3_add, vector3_cross_product, vector3_distance, vector3_dot_product, vector3_length, vector3_multiply, vector3_negate, vector3_normalize, vector3_project, vector3_scale, vector3_subtract, vector3_transform, BoundingBox, RayCollision
 };
+use sdl2::libc::tm;
 
 use crate::g_game::TopState;
 use crate::g_instance::get_decor_instances;
@@ -35,32 +35,12 @@ pub struct Player {
 
 impl Player {
     pub fn new(entt: &Entity) -> Self {
-        // timed surface on spawn
-        let mut spawn = text::create_surface(text::TextInput {
-            text: "SPAWN".to_string(),
-            mode: text::Mode::Solid {
-                color: text::FontColor {
-                    r: 32,
-                    g: 196,
-                    b: 64,
-                    a: 255,
-                },
-            },
-            font: g_game::get_text_font_lg().unwrap(),
-        })
-        .unwrap();
-
-        spawn.x = 100;
-        spawn.y = 100;
-
-        let ts = text::TimedSurface::new(spawn, 1000);
-
-        text::push_timed_surface(ts).unwrap();
+        // todo, check that i'm the first and only player
 
         Self {
             base: entt.clone(),
             pitch: 0.,
-            yaw: 0.,
+            yaw: f32::consts::PI / 4., // 45 degrees
             position: entt.location.into(),
             speed: 96.,
             acceleration: Vector3 {
@@ -317,12 +297,13 @@ pub fn update_physics(
             let floor_collision = floor_hit.unwrap();
             let floor_normal = floor_collision.normal;
 
-            // Project step_size onto the floor's plane
-            let dot = vector3_dot_product(step_size, floor_normal);
-            let correction = vector3_scale(floor_normal, dot);
+            // // Project step_size onto the floor's plane
+            // let dot = vector3_dot_product(step_size, floor_normal);
+            // let correction = vector3_scale(floor_normal, dot);
 
-            // Remove the component of the step_size in the direction of the floor normal
-            step_size = vector3_subtract(step_size, correction);
+            // // Remove the component of the step_size in the direction of the floor normal
+            // step_size = vector3_subtract(step_size, correction);
+            step_size.y = 0.;
 
             // Ensure the player stays on or above the floor to prevent sinking
             let floor_y = floor_collision.point.y;
@@ -365,16 +346,21 @@ pub fn update_physics(
 
         last_aabb = aabb;
 
-        let mut wall_collisions = HashSet::new();
-
-        // let mut wall = None;
+/*
+        #[derive(Debug)]
+        struct Collision {
+            position: Vector3,
+            distance: f32,
+            normal: Vector3,
+        }
+        let mut wall_collisions: Vec<Collision> = vec![];
 
         for dec in &mut decs {
             let mesh = dec.get_mesh();
             let mat = dec.get_matrix();
             let mesh = mesh_tranform(mesh, mat);
 
-            for (tri, normal) in mesh.into_iter().map(|tri| {
+            for (tri, mut normal) in mesh.into_iter().map(|tri| {
                 (
                     tri,
                     vector3_negate(vec3_face_normal(tri[0], tri[1], tri[2])),
@@ -411,67 +397,274 @@ pub fn update_physics(
                     };
                     render::draw(dc).unwrap();
                 }
-
+                let distance = vector3_distance(Vector3::new(tmp_pos.x, 0., tmp_pos.z), Vector3::new(closest.x, 0., closest.z));
                 // collides height-wise
                 if aabb.min.y <= closest.y &&
                     closest.y <= aabb.max.y &&
                     // collides width-wise
-                    vector3_distance(Vector3::new(tmp_pos.x, 0., tmp_pos.z), Vector3::new(closest.x, 0., closest.z)) <= width / 2.
+                    distance <= width / 2.
                 {
-                    // let new = vector3_add(closest, vector3_scale(vector3_negate(normal), 0.001));
-                    // match wall {
-                    //     None => wall = Some((new, normal)),
-                    //     Some((old, _)) => {
-                    //         let old_dist = vector3_distance(old, tmp_pos);
-                    //         let new_dist = vector3_distance(new, tmp_pos);
-                    //         if new_dist > old_dist {
-                    //             wall = Some((new, normal))
-                    //         }
-                    //     }
-                    // }
-                    // Accumulate normals and count collisions
-                    wall_collisions.insert(vector3_negate(normal));
+                    // Accumulate sanitized normals
+                    if normal.x == 0. {
+                        normal.x = -0.
+                    }
+                    if normal.y == 0. {
+                        normal.y = -0.
+                    }
+                    if normal.z == 0. {
+                        normal.z = -0.
+                    }
+                    let n = vector3_negate(normal);
 
-                    // todo, check if wall_collisions has a normal that's the opposite of this one,
-                    // if so only insert the closer one, that should solve for pushing through walls,
-                    // and also I guess the horseshoe collision |_|
-                    // still don't know what to do about _| corner collisions.
+                    wall_collisions.push(
+                        Collision{
+                            normal: n, 
+                            distance, 
+                            position: Vector3::new(closest.x, 0., closest.z)
+                        }
+                    );
+                }
+            }
+        }
+        
+
+        while wall_collisions.len() > 0 {
+            // reverse sort, nearest at end for the pop
+            wall_collisions.sort_by(|a, b| {
+                match a.distance.partial_cmp(&b.distance) {
+                    Some(std::cmp::Ordering::Greater) => std::cmp::Ordering::Less,
+                    Some(std::cmp::Ordering::Less) => std::cmp::Ordering::Greater,
+                    _ => {
+                        // // If distances are equal, sort by dot product
+                        let dot_a = vector3_dot_product(step_size, a.normal);
+                        let dot_b = vector3_dot_product(step_size, b.normal);
+                
+                        // Higher dot product should come first
+                        match dot_b.partial_cmp(&dot_a) {
+                            Some(std::cmp::Ordering::Greater) => std::cmp::Ordering::Less,
+                            Some(std::cmp::Ordering::Less) => std::cmp::Ordering::Greater,
+                            _ => std::cmp::Ordering::Equal,
+                        }
+                    },
+                }
+            });
+
+            let collision = wall_collisions.pop().unwrap();
+
+            if collision.distance <= width / 2. {
+
+                let dot = vector3_dot_product(step_size, collision.normal);
+                if dot < 0. {
+                    // Cancel out movement along the wall normal to prevent pushing into walls
+                    let correction = vector3_scale(collision.normal, dot);
+                    step_size.x -= correction.x;
+                    step_size.y -= correction.y;
+                    step_size.x += correction.y;
+                    step_size.y += correction.x;
+                    eprintln!("correction: {:?}", correction);
+                    step_size = vector3_subtract(step_size, correction);
+                    // enforce minimum movement in the direction away from the wall
+                    tmp_pos = vector3_add(
+                        *position,
+                        vector3_add(step_size, vector3_scale(collision.normal, 0.005)),
+                    );
+                } else {
+                    eprintln!("skip");
+                }
+            }
+
+            // update distances based on the new `tmp_pos`
+            for collision in &mut wall_collisions {
+                collision.distance = vector3_distance(
+                    Vector3::new(tmp_pos.x, 0., tmp_pos.z),
+                    Vector3::new(collision.position.x, 0., collision.position.z),
+                );
+            }
+        }
+*/
+
+
+
+        // for collision in wall_collisions {
+        //     // Project velocity onto each wall normal
+        //     let dot = vector3_dot_product(step_size, collision.normal);
+        //     if dot < 0. {
+        //         // Cancel out movement along the wall normal to prevent pushing into walls
+        //         let correction = vector3_scale(collision.normal, dot);
+        //         step_size = vector3_subtract(step_size, correction);
+        //     }
+        //     // Enforce minimum movement in the direction away from the wall
+        //     // step_size = vector3_add(step_size, vector3_scale(wall_normal, 0.0005));
+        //     tmp_pos = vector3_add(
+        //         *position,
+        //         vector3_add(step_size, vector3_scale(collision.normal, 0.005)),
+        //     );
+        // }
+
+        #[derive(Debug)]
+        struct Collision {
+            position: Vector3,
+            distance: f32,
+            normal: Vector3,
+        }
+        let mut wall_collisions = HashMap::new();
+
+        for dec in &mut decs {
+            let mesh = dec.get_mesh();
+            let mat = dec.get_matrix();
+            let mesh = mesh_tranform(mesh, mat);
+
+            for (tri, mut normal) in mesh.into_iter().map(|tri| {
+                (
+                    tri,
+                    vector3_negate(vec3_face_normal(tri[0], tri[1], tri[2])),
+                )
+            }) {
+                if !(-normal.y < MAX_SLOPE) {
+                    continue;
+                }
+
+                if (vector3_distance(tmp_pos, tri[0]) > MAX_COLLISION_DIST)
+                    && (vector3_distance(tmp_pos, tri[1]) > MAX_COLLISION_DIST)
+                    && (vector3_distance(tmp_pos, tri[2]) > MAX_COLLISION_DIST)
+                {
+                    continue;
+                }
+
+                let closest = closest_point_to_triangle(
+                    tri,
+                    Vector3::new(tmp_pos.x, (aabb.max.y + aabb.min.y) / 2., tmp_pos.z),
+                );
+
+                if cfg!(debug_assertions) {
+                    let re = g_instance::ref_ent_from_str("icosphere").unwrap();
+                    let mat = matrix_translate(closest.x, closest.y, closest.z);
+
+                    let dc = render::DrawCall {
+                        matrix: mat,
+                        texture: re.texture_handle as u32,
+                        f1: re.frame_handles[0] as i32,
+                        f2: re.frame_handles[0] as i32,
+                        mix: 0.0,
+                        num_verts: re.num_verts,
+                        glow: Some(Vector3::new(0.7, 0.7, 0.7)),
+                    };
+                    render::draw(dc).unwrap();
+                }
+                let distance = vector3_distance(Vector3::new(tmp_pos.x, 0., tmp_pos.z), Vector3::new(closest.x, 0., closest.z));
+                // collides height-wise
+                if aabb.min.y <= closest.y &&
+                    closest.y <= aabb.max.y &&
+                    // collides width-wise
+                    distance <= width / 2.
+                {
+                    // Accumulate sanitized normals
+                    if normal.x == 0. {
+                        normal.x = -0.
+                    }
+                    if normal.y == 0. {
+                        normal.y = -0.
+                    }
+                    if normal.z == 0. {
+                        normal.z = -0.
+                    }
+                    let normal = vector3_negate(normal);
+                    let position = Vector3::new(closest.x, 0., closest.z);
+
+                    match wall_collisions.get(&position) {
+                        None => {
+
+                            wall_collisions.insert(
+                                position,
+                                Collision{
+                                    normal,
+                                    distance, 
+                                    position,
+                                }
+                            );
+                        },
+                        Some(old) => {
+                            // // // If distances are equal, sort by dot product
+                            let dot_a = vector3_dot_product(step_size, old.normal);
+                            let dot_b = vector3_dot_product(step_size, normal);
+
+                            // eprintln!("a: {dot_a} -- b: {dot_b}");
+
+                            if dot_a < dot_b {
+                                wall_collisions.insert(
+                                    position,
+                                    Collision{
+                                        normal,
+                                        distance, 
+                                        position,
+                                    }
+                                );
+                            }
+                            // if old.normal.z != 0. {
+                            // }
+                        }
+                    }
                 }
             }
         }
 
-        // if let Some((_, wall_normal)) = wall {
-        //     let wall_normal = vector3_negate(wall_normal);
-        //     let dot = vector3_dot_product(step_size, wall_normal);
-        //     if dot < 0. {
-        //         let correction = vector3_scale(wall_normal, dot);
-        //         step_size = vector3_subtract(step_size, correction);
-        //     }
+        let mut wall_coll = vec![];
+        for (_, coll) in wall_collisions {
+            wall_coll.push(coll);
+        }
 
-        //     // Enforce minimum movement in the direction away from the wall
-        //     // step_size = vector3_add(step_size, vector3_scale(wall_normal, 0.0005));
-        //     // tmp_pos = vector3_add(*position, step_size);
-        //     tmp_pos = vector3_add(
-        //         *position,
-        //         vector3_add(step_size, vector3_scale(wall_normal, 0.005)),
-        //     );
-        // }
+        let mut wall_collisions = wall_coll;
 
-        for wall_normal in wall_collisions {
-            // Project velocity onto each wall normal
-            let dot = vector3_dot_product(step_size, wall_normal);
-            if dot < 0. {
-                // Cancel out movement along the wall normal to prevent pushing into walls
-                let correction = vector3_scale(wall_normal, dot);
-                step_size = vector3_subtract(step_size, correction);
+        while wall_collisions.len() > 0 {
+            // reverse sort, nearest at end for the pop
+            wall_collisions.sort_by(|a, b| {
+                match a.distance.partial_cmp(&b.distance) {
+                    Some(std::cmp::Ordering::Greater) => std::cmp::Ordering::Less,
+                    Some(std::cmp::Ordering::Less) => std::cmp::Ordering::Greater,
+                    _ => {
+                        // // // If distances are equal, sort by dot product
+                        // let dot_a = vector3_dot_product(step_size, a.normal);
+                        // let dot_b = vector3_dot_product(step_size, b.normal);
+                
+                        // // Higher dot product should come first
+                        // match dot_b.partial_cmp(&dot_a) {
+                        //     Some(std::cmp::Ordering::Greater) => std::cmp::Ordering::Less,
+                        //     Some(std::cmp::Ordering::Less) => std::cmp::Ordering::Greater,
+                        //     _ => std::cmp::Ordering::Equal,
+                        // }
+                        eprintln!("FUCKAROOOOONIE");
+                        std::cmp::Ordering::Equal
+                    },
+                }
+            });
+
+            let collision = wall_collisions.pop().unwrap();
+
+            if collision.distance <= width / 2. {
+                eprintln!("normal: {:?}", collision.normal);
+
+                let dot = vector3_dot_product(step_size, collision.normal);
+                if dot < 0. {
+                    // Cancel out movement along the wall normal to prevent pushing into walls
+                    let correction = vector3_scale(collision.normal, dot);
+                    step_size = vector3_subtract(step_size, correction);
+                } else {
+                    // eprintln!("skip");
+                }
+                // enforce minimum movement in the direction away from the wall
+                tmp_pos = vector3_add(
+                    *position,
+                    vector3_add(step_size, vector3_scale(collision.normal, 0.005)),
+                );
             }
 
-            // Enforce minimum movement in the direction away from the wall
-            // step_size = vector3_add(step_size, vector3_scale(wall_normal, 0.0005));
-            tmp_pos = vector3_add(
-                *position,
-                vector3_add(step_size, vector3_scale(wall_normal, 0.005)),
-            );
+            // update distances based on the new `tmp_pos`
+            for collision in &mut wall_collisions {
+                collision.distance = vector3_distance(
+                    Vector3::new(tmp_pos.x, 0., tmp_pos.z),
+                    Vector3::new(collision.position.x, 0., collision.position.z),
+                );
+            }
         }
 
         *position = tmp_pos;
