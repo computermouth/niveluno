@@ -2,7 +2,7 @@ use crate::g_instance::Instance;
 use crate::map::{self, LoadedEnttReference};
 use crate::nuerror::NUError;
 use crate::text;
-use crate::{asset, g_instance};
+use crate::{asset, g_instance, time};
 
 struct GameGod {
     pub current_level: Option<map::Map>,
@@ -143,6 +143,11 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
             spawn_entity(entt_inst.unwrap())?;
         }
     }
+
+    // ensure that delta time isn't huge because of load time
+    // (it'll cause things like player movement to have one insane
+    // frame just because they were holding up after a half-second load)
+    time::update_time()?;
 
     Ok(())
 }
