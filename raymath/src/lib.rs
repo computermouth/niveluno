@@ -260,7 +260,7 @@ pub fn vector2_length_sqr(v: Vector2) -> f32 {
     (v.x * v.x) + (v.y * v.y)
 }
 
-/// Calculate distance between two vectors
+/// Calculate two vectors dot product
 pub fn vector2_dot_product(v1: Vector2, v2: Vector2) -> f32 {
     v1.x * v2.x + v1.y * v2.y
 }

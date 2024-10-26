@@ -6,7 +6,7 @@ use crate::math::Vector3;
 use crate::{g_game, render, time};
 
 pub struct Light {
-    base: Entity,
+    _base: Entity,
     r: u8,
     g: u8,
     b: u8,
@@ -59,7 +59,7 @@ impl Light {
         }
 
         Self {
-            base: entt.clone(),
+            _base: entt.clone(),
             r: rgbi[0],
             g: rgbi[1],
             b: rgbi[2],

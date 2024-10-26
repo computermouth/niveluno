@@ -4,7 +4,6 @@ use sdl2::video::{GLProfile, SwapInterval};
 
 mod asset;
 mod audio;
-mod collide_and_slide;
 mod input;
 mod map;
 mod math;

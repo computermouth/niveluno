@@ -1,25 +1,21 @@
 use core::{f32, panic};
-use std::collections::HashSet;
 
 use raymath::{
-    get_ray_collision_triangle, matrix_rotate_y, matrix_translate, vector2_add, vector2_distance,
-    vector2_dot_product, vector2_length, vector2_negate, vector2_normalize, vector2_scale,
-    vector2_subtract, vector3_add, vector3_cross_product, vector3_distance, vector3_dot_product,
-    vector3_length, vector3_multiply, vector3_negate, vector3_normalize, vector3_project,
-    vector3_scale, vector3_subtract, vector3_transform, BoundingBox, Ray, RayCollision, Vector2,
+    matrix_rotate_y, matrix_translate, vector2_add, vector2_distance, vector2_dot_product,
+    vector2_length, vector2_normalize, vector2_scale, vector2_subtract, vector3_add,
+    vector3_distance, vector3_dot_product, vector3_length, vector3_multiply, vector3_negate,
+    vector3_normalize, vector3_scale, vector3_subtract, vector3_transform, BoundingBox,
+    RayCollision, Vector2,
 };
-use sdl2::libc::{calloc, close, tm};
 
-use crate::collide_and_slide::CollisionPacket;
 use crate::g_game::TopState;
 use crate::g_instance::{get_decor_instances, Instance};
 use crate::map::{self, Entity};
 use crate::math::{
-    closest_point_to_triangle, get_ray_collision_mesh, mesh_tranform, sat_aabb_tri,
-    vec3_face_normal, Vector3,
+    closest_point_to_triangle, get_ray_collision_mesh, mesh_tranform, vec3_face_normal, Vector3,
 };
+use crate::text;
 use crate::{asset, g_game};
-use crate::{collide_and_slide, text};
 use crate::{g_instance, input};
 use crate::{render, time};
 
@@ -28,11 +24,13 @@ pub struct Player {
     pitch: f32,
     yaw: f32,
     position: Vector3,
+    last_position: Vector3,
     camera_pos: Vector3,
     hud: Box<text::TextSurface>,
     speed: f32,
     acceleration: Vector3,
     velocity: Vector3,
+    attempted_velocity: Vector3,
     on_ground: bool,
     friction: f32,
     height: f32,
@@ -72,6 +70,7 @@ impl Player {
             pitch: 0.,
             yaw: 0.,
             position: entt.location.into(),
+            last_position: entt.location.into(),
             camera_pos,
             speed: 96.,
             acceleration: Vector3 {
@@ -80,6 +79,11 @@ impl Player {
                 z: 0.,
             },
             velocity: Vector3 {
+                x: 0.,
+                y: 0.,
+                z: 0.,
+            },
+            attempted_velocity: Vector3 {
                 x: 0.,
                 y: 0.,
                 z: 0.,
@@ -184,6 +188,7 @@ impl Player {
         update_physics(
             &mut self.acceleration,
             &mut self.velocity,
+            &mut self.attempted_velocity,
             &mut self.position,
             &mut self.on_ground,
             self.height,
@@ -225,22 +230,19 @@ impl Player {
         }
 
         // Smooth camera movement for stairs and slipping off ledges
-        // todo, find a real way to detect these and only do it then
-        // particularly the vertical correction is causing problems
-        // with the camera keeping up with gravity
         let desired_camera_pos = vector3_add(self.position, Vector3::new(0., self.height, 0.));
-        let max_delta_speed = self.speed / 5. * time::get_delta_time().unwrap() as f32;
-        let desired_distance = vector3_distance(desired_camera_pos, self.camera_pos);
-        if desired_distance > 0.0 {
-            let desired_direction =
-                vector3_normalize(vector3_subtract(desired_camera_pos, self.camera_pos));
-            // Limit the movement to max_delta_speed
-            let step_distance = desired_distance.min(max_delta_speed);
-            self.camera_pos = vector3_add(
-                self.camera_pos,
-                vector3_scale(desired_direction, step_distance),
-            );
+        let mut desired_camera_diff = vector3_subtract(desired_camera_pos, self.camera_pos);
+        let frame_travel_distance = vector3_distance(self.position, self.last_position);
+        let attempted_distance = vector3_length(self.attempted_velocity);
+
+        if frame_travel_distance > attempted_distance {
+            let move_direction = vector3_normalize(desired_camera_diff);
+            desired_camera_diff = vector3_scale(move_direction, attempted_distance * 2.)
         }
+
+        // Determine how much to move the camera
+        self.camera_pos = vector3_add(self.camera_pos, desired_camera_diff);
+
         render::set_camera_pos(self.camera_pos).unwrap();
 
         self.update_hud();
@@ -260,7 +262,7 @@ const FRICTION: f32 = 10.0;
 // ~45.01 degrees -- if you change this, you'll
 // have to change a few of the height / 2. below
 pub const MAX_SLOPE: f32 = 0.707;
-pub const MAX_COLLISION_DIST: f32 = 32.;
+pub const MAX_COLLISION_DIST: f32 = 16.;
 
 const VCLOSE: f32 = 0.001;
 
@@ -415,6 +417,7 @@ fn collide_and_slide(
 pub fn update_physics(
     acceleration: &mut Vector3,
     velocity: &mut Vector3,
+    attempted_velocity: &mut Vector3,
     position: &mut Vector3,
     on_ground: &mut bool,
     height: f32,
@@ -441,9 +444,10 @@ pub fn update_physics(
     // we can probably return early here, if v3len(velocity) == 0.0 (or within epsilon)
     *on_ground = false;
 
-    let steps = 4;
+    let steps = 8;
 
     let move_dist = vector3_scale(*velocity, delta_time);
+    *attempted_velocity = move_dist;
     let step = vector3_scale(move_dist, 1. / steps as f32);
 
     let last_aabb = BoundingBox {

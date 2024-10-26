@@ -193,17 +193,10 @@ impl Pig {
         }
     }
     pub fn update(&mut self) {
-        // let dt = time::get_delta_time().unwrap() as f32;
-
-        // self.yaw += 1. * dt;
-        // self.pitch -= 3. * dt;
-
-        // let quat_y = raymath::quaternion_from_axis_angle(Vector3::new(1., 0., 0.), self.yaw);
-        // let quat_p = raymath::quaternion_from_axis_angle(Vector3::new(0., 1., 0.), self.pitch);
+        let _ = self.yaw;
+        let _ = self.pitch;
 
         self.quat = self.base.rotation.into();
-        // self.quat = raymath::quaternion_multiply(self.quat, quat_p);
-        // self.quat = raymath::quaternion_multiply(self.quat, quat_y);
     }
 
     pub fn draw_model(&mut self) {
