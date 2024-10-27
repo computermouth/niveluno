@@ -24,14 +24,13 @@ pub struct Player {
     pitch: f32,
     yaw: f32,
     position: Vector3,
-    last_position: Vector3,
-    camera_pos: Vector3,
     hud: Box<text::TextSurface>,
     speed: f32,
     acceleration: Vector3,
     velocity: Vector3,
-    attempted_velocity: Vector3,
     on_ground: bool,
+    last_floor: Vector3,
+    bid: Option<u32>,
     friction: f32,
     height: f32,
     width: f32,
@@ -62,16 +61,12 @@ impl Player {
         text::push_timed_surface(ts).unwrap();
 
         let height = 2.001; // the .001 is for climbing 1m ledges
-        let mut camera_pos: Vector3 = entt.location.into();
-        camera_pos.y += height / 2.;
 
         Self {
             base: entt.clone(),
             pitch: 0.,
             yaw: 0.,
             position: entt.location.into(),
-            last_position: entt.location.into(),
-            camera_pos,
             speed: 96.,
             acceleration: Vector3 {
                 x: 0.,
@@ -83,11 +78,12 @@ impl Player {
                 y: 0.,
                 z: 0.,
             },
-            attempted_velocity: Vector3 {
+            last_floor: Vector3 {
                 x: 0.,
                 y: 0.,
                 z: 0.,
             },
+            bid: None,
             on_ground: true,
             friction: 0.3,
             hud: match g_game::get_state().unwrap() {
@@ -188,10 +184,9 @@ impl Player {
         update_physics(
             &mut self.acceleration,
             &mut self.velocity,
-            &mut self.attempted_velocity,
             &mut self.position,
             &mut self.on_ground,
-            self.height,
+            &mut self.last_floor,
             self.width,
         );
 
@@ -210,10 +205,116 @@ impl Player {
                 bid = Some(barrier.get_id())
             }
         }
+        self.bid = bid;
 
-        if cfg!(debug_assertions) {
+        render::set_camera_pos(vector3_add(
+            self.position,
+            Vector3::new(0., self.height, 0.),
+        ))
+        .unwrap();
+
+        self.update_hud();
+    }
+
+    pub fn draw_model(&mut self) {
+        // draw cylinder
+        let re = g_instance::ref_ent_from_str("icosphere");
+        if cfg!(debug_assertions)
+            && g_game::get_state().unwrap() != g_game::TopState::Menu
+            && re.is_some()
+        {
+            let re = re.unwrap();
+
+            for i in 0..10 {
+                let mat_y = matrix_rotate_y((2. * f32::consts::PI) * i as f32 / 10.);
+                let horizontal = vector3_add(
+                    vector3_add(self.position, Vector3::new(0., self.width / 2., 0.)),
+                    vector3_transform(Vector3::new(self.width / 2., 0., 0.), mat_y),
+                );
+
+                let h_mat = matrix_translate(horizontal.x, horizontal.y, horizontal.z);
+
+                let dc = render::DrawCall {
+                    matrix: h_mat,
+                    texture: re.texture_handle as u32,
+                    f1: re.frame_handles[0] as i32,
+                    f2: re.frame_handles[0] as i32,
+                    mix: 0.0,
+                    num_verts: re.num_verts,
+                    glow: Some(Vector3::new(0., 0.7, 0.)),
+                };
+                render::draw(dc).unwrap();
+            }
+
             let mut v_text = text::create_surface(text::TextInput {
-                text: format!("barrier id: {:?}", bid),
+                text: format!(
+                    "velocity: {{{:>5.1},{:>5.1},{:>5.1}  }}",
+                    self.velocity.x, self.velocity.y, self.velocity.z
+                ),
+                mode: text::Mode::Solid {
+                    color: text::FontColor {
+                        r: 255,
+                        g: 167,
+                        b: 167,
+                        a: 255,
+                    },
+                },
+                font: g_game::get_text_font_sm().unwrap(),
+            })
+            .unwrap();
+            v_text.y = 32;
+            text::push_surface(&v_text).unwrap();
+
+            let mut v_text = text::create_surface(text::TextInput {
+                text: format!("on_ground: {:?}", self.on_ground),
+                mode: text::Mode::Solid {
+                    color: text::FontColor {
+                        r: 167,
+                        g: 255,
+                        b: 167,
+                        a: 255,
+                    },
+                },
+                font: g_game::get_text_font_sm().unwrap(),
+            })
+            .unwrap();
+            v_text.y = 16 * 3;
+            text::push_surface(&v_text).unwrap();
+
+            let mut v_text = text::create_surface(text::TextInput {
+                text: format!("position: {:?}", self.position),
+                mode: text::Mode::Solid {
+                    color: text::FontColor {
+                        r: 167,
+                        g: 167,
+                        b: 167,
+                        a: 255,
+                    },
+                },
+                font: g_game::get_text_font_sm().unwrap(),
+            })
+            .unwrap();
+            v_text.y = 16 * 4;
+            text::push_surface(&v_text).unwrap();
+
+            let mut v_text = text::create_surface(text::TextInput {
+                text: format!("last_floor: {:?}", self.last_floor),
+                mode: text::Mode::Solid {
+                    color: text::FontColor {
+                        r: 255,
+                        g: 167,
+                        b: 255,
+                        a: 255,
+                    },
+                },
+                font: g_game::get_text_font_sm().unwrap(),
+            })
+            .unwrap();
+            v_text.y = 16 * 5;
+            text::push_surface(&v_text).unwrap();
+
+            let mut v_text = text::create_surface(text::TextInput {
+                text: format!("barrier id: {:?}", self.bid),
                 mode: text::Mode::Solid {
                     color: text::FontColor {
                         r: 255,
@@ -225,29 +326,10 @@ impl Player {
                 font: g_game::get_text_font_sm().unwrap(),
             })
             .unwrap();
-            v_text.y = 16 * 8;
+            v_text.y = 16 * 6;
             text::push_surface(&v_text).unwrap();
         }
-
-        // Smooth camera movement for stairs and slipping off ledges
-        let desired_camera_pos = vector3_add(self.position, Vector3::new(0., self.height, 0.));
-        let mut desired_camera_diff = vector3_subtract(desired_camera_pos, self.camera_pos);
-        let frame_travel_distance = vector3_distance(self.position, self.last_position);
-        let attempted_distance = vector3_length(self.attempted_velocity);
-
-        if frame_travel_distance > attempted_distance {
-            let move_direction = vector3_normalize(desired_camera_diff);
-            desired_camera_diff = vector3_scale(move_direction, attempted_distance * 2.)
-        }
-
-        // Determine how much to move the camera
-        self.camera_pos = vector3_add(self.camera_pos, desired_camera_diff);
-
-        render::set_camera_pos(self.camera_pos).unwrap();
-
-        self.update_hud();
     }
-    pub fn draw_model(&mut self) {}
     pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {
         panic!("don't fetch entity meshes")
     }
@@ -262,165 +344,14 @@ const FRICTION: f32 = 10.0;
 // ~45.01 degrees -- if you change this, you'll
 // have to change a few of the height / 2. below
 pub const MAX_SLOPE: f32 = 0.707;
-pub const MAX_COLLISION_DIST: f32 = 16.;
-
-const VCLOSE: f32 = 0.001;
-
-fn collide_and_slide(
-    mut pos: Vector3,
-    mut step: Vector3,
-    last_floor: &mut Vector3,
-    velocity: &mut Vector3,
-    on_ground: &mut bool,
-    width: f32,
-    height: f32,
-    iter: usize,
-) -> Vector3 {
-    if iter >= 5 {
-        return pos;
-    }
-
-    let player_radius = width / 2.;
-
-    // FLOORS
-    // cast ray down from top of head, should be fine so long as we're never moving
-    // more than +2m/frame downward
-    let ray = raymath::Ray {
-        position: Vector3::new(pos.x, pos.y + height, pos.z),
-        direction: Vector3::new(0., -1., 0.),
-    };
-
-    let mut decs = get_decor_instances().unwrap();
-
-    // find nearest floor collision
-    // todo -- perf, only loop over floors (normal.y >= .707)
-    // pre calculate the normal, store somewhere else
-    // we're checking every triangle twice
-    let mut floor_hit: Option<RayCollision> = None;
-    for dec in &mut decs {
-        let mesh = dec.get_mesh();
-        let mat = dec.get_matrix();
-
-        let coll = get_ray_collision_mesh(ray, mesh, mat, Some((pos, MAX_COLLISION_DIST)));
-        // collides, and is closest, and is less than 45 degree slope
-        if coll.hit && coll.distance < height && -coll.normal.y >= MAX_SLOPE {
-            // If nearest collision is not set or this one is closer, update nearest_hit
-            if floor_hit.is_none() || floor_hit.unwrap().distance > coll.distance {
-                floor_hit = Some(coll);
-            }
-        }
-    }
-
-    // If we hit the floor, step back and stop vertical movement
-    if floor_hit.is_some() {
-        // Stop vertical velocity
-        step.y = 0.;
-        velocity.y = 0.;
-        let floor_collision = floor_hit.unwrap();
-        let floor_normal = floor_collision.normal;
-
-        // Ensure the player stays on or above the floor to prevent sinking
-        let floor_y = floor_collision.point.y;
-        if pos.y < floor_y {
-            pos.y = floor_y; // Adjust player position to stay on the ground
-        }
-
-        // Mark the player as on the ground
-        *on_ground = true;
-        *last_floor = floor_normal;
-    }
-
-    let mut aabb = BoundingBox {
-        min: Vector3::new(pos.x, pos.y, pos.z),
-        max: Vector3::new(pos.x, pos.y + height, pos.z),
-    };
-
-    match last_floor {
-        Vector3 {
-            x: 0.0,
-            y: -1.0,
-            z: 0.0,
-        } => {
-            // todo -- this will permit 1/2 height climb-ups -- do camera smoothing
-            aabb.min.y += height / 2.;
-        }
-        Vector3 {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        } => {}
-        _ => {
-            // lets see
-            aabb.min.y += height / 2. + ((1. + last_floor.y) / (1. - MAX_SLOPE)) / 2.;
-        }
-    };
-
-    // WALLS
-    // todo -- perf dissolve map faces to reduce triangle count
-    // todo -- height here should be divided by max slope out of 90 degrees. 45/90 == 1/2.
-    if let Some(nearest_v3) = process_intersector(&mut decs, pos, aabb, width) {
-        let nearest_v2 = Vector2 {
-            x: nearest_v3.x,
-            y: nearest_v3.z,
-        };
-        let pos_v2 = Vector2 { x: pos.x, y: pos.z };
-        let velocity_v2 = Vector2 {
-            x: velocity.x,
-            y: velocity.z,
-        };
-        let step_v2 = Vector2 {
-            x: step.x,
-            y: step.z,
-        };
-
-        let collision_normal = vector2_normalize(vector2_subtract(pos_v2, nearest_v2));
-        let closest_distance = vector2_distance(pos_v2, nearest_v2);
-
-        // Move the circle to just touch the wall
-        let penetration_depth = player_radius - closest_distance;
-        let new_pos = vector2_add(pos_v2, vector2_scale(collision_normal, penetration_depth));
-
-        // Calculate new velocity to slide along the wall
-        let mut new_velocity = vector2_subtract(
-            velocity_v2,
-            vector2_scale(
-                collision_normal,
-                vector2_dot_product(velocity_v2, collision_normal),
-            ),
-        );
-
-        if vector2_length(new_velocity) < VCLOSE {
-            new_velocity = Vector2 { x: 0., y: 0. };
-        }
-
-        // Adjust `local_step` to account for the distance already traveled
-        let remaining_distance = vector2_length(step_v2) - closest_distance;
-        let new_step = vector2_scale(vector2_normalize(new_velocity), remaining_distance);
-
-        *velocity = Vector3::new(new_velocity.x, velocity.y, new_velocity.y);
-
-        // Recursive call with updated values
-        return collide_and_slide(
-            Vector3::new(new_pos.x, pos.y, new_pos.y),
-            Vector3::new(new_step.x, step.y, new_step.y),
-            last_floor,
-            velocity,
-            on_ground,
-            width,
-            height,
-            iter + 1,
-        );
-    }
-    pos
-}
+pub const MAX_COLLISION_DIST: f32 = 8.;
 
 pub fn update_physics(
     acceleration: &mut Vector3,
     velocity: &mut Vector3,
-    attempted_velocity: &mut Vector3,
     position: &mut Vector3,
     on_ground: &mut bool,
-    height: f32,
+    last_floor: &mut Vector3,
     width: f32,
 ) {
     // Apply Gravity
@@ -447,186 +378,90 @@ pub fn update_physics(
     let steps = 8;
 
     let move_dist = vector3_scale(*velocity, delta_time);
-    *attempted_velocity = move_dist;
-    let step = vector3_scale(move_dist, 1. / steps as f32);
-
-    let last_aabb = BoundingBox {
-        min: Vector3::new(0., 0., 0.),
-        max: Vector3::new(0., 0., 0.),
-    };
-    let mut last_floor = Vector3::new(0., 0., 0.);
+    let mut step = vector3_scale(move_dist, 1. / steps as f32);
 
     for _ in 0..steps {
         let pos = vector3_add(*position, step);
-        *position = collide_and_slide(
-            pos,
-            step,
-            &mut last_floor,
-            velocity,
-            on_ground,
-            width,
-            height,
-            0,
-        );
-    }
-
-    // draw cylinder
-    if cfg!(debug_assertions) {
-        let re = g_instance::ref_ent_from_str("icosphere").unwrap();
-
-        for i in 0..10 {
-            let mat_r = matrix_rotate_y((2. * f32::consts::PI) * i as f32 / 10.);
-            let bot = vector3_add(
-                last_aabb.min,
-                vector3_transform(Vector3::new(width / 2., 0., 0.), mat_r),
-            );
-            let top = vector3_add(
-                last_aabb.max,
-                vector3_transform(Vector3::new(width / 2., 0., 0.), mat_r),
-            );
-
-            let bot_mat = matrix_translate(bot.x, bot.y, bot.z);
-            let top_mat = matrix_translate(top.x, top.y, top.z);
-
-            let dc = render::DrawCall {
-                matrix: bot_mat,
-                texture: re.texture_handle as u32,
-                f1: re.frame_handles[0] as i32,
-                f2: re.frame_handles[0] as i32,
-                mix: 0.0,
-                num_verts: re.num_verts,
-                glow: Some(Vector3::new(0., 0.7, 0.)),
-            };
-            render::draw(dc).unwrap();
-
-            let dc = render::DrawCall {
-                matrix: top_mat,
-                texture: re.texture_handle as u32,
-                f1: re.frame_handles[0] as i32,
-                f2: re.frame_handles[0] as i32,
-                mix: 0.0,
-                num_verts: re.num_verts,
-                glow: Some(Vector3::new(0., 0.7, 0.)),
-            };
-            render::draw(dc).unwrap();
-        }
-    }
-
-    if cfg!(debug_assertions) {
-        let mut v_text = text::create_surface(text::TextInput {
-            text: format!(
-                "velocity: {{{:>5.1},{:>5.1},{:>5.1}  }}",
-                velocity.x, velocity.y, velocity.z
-            ),
-            mode: text::Mode::Solid {
-                color: text::FontColor {
-                    r: 255,
-                    g: 167,
-                    b: 167,
-                    a: 255,
-                },
-            },
-            font: g_game::get_text_font_sm().unwrap(),
-        })
-        .unwrap();
-        v_text.y = 32;
-        text::push_surface(&v_text).unwrap();
-
-        let mut v_text = text::create_surface(text::TextInput {
-            text: format!("on_ground: {:?}", *on_ground),
-            mode: text::Mode::Solid {
-                color: text::FontColor {
-                    r: 167,
-                    g: 255,
-                    b: 167,
-                    a: 255,
-                },
-            },
-            font: g_game::get_text_font_sm().unwrap(),
-        })
-        .unwrap();
-        v_text.y = 16 * 3;
-        text::push_surface(&v_text).unwrap();
-
-        let mut v_text = text::create_surface(text::TextInput {
-            text: format!("position: {:?}", *position),
-            mode: text::Mode::Solid {
-                color: text::FontColor {
-                    r: 167,
-                    g: 167,
-                    b: 167,
-                    a: 255,
-                },
-            },
-            font: g_game::get_text_font_sm().unwrap(),
-        })
-        .unwrap();
-        v_text.y = 16 * 4;
-        text::push_surface(&v_text).unwrap();
-
-        let mut v_text = text::create_surface(text::TextInput {
-            text: format!(
-                "aabb.min: {{{:>5.1},{:>5.1},{:>5.1}  }}",
-                last_aabb.min.x, last_aabb.min.y, last_aabb.min.z
-            ),
-            mode: text::Mode::Solid {
-                color: text::FontColor {
-                    r: 255,
-                    g: 255,
-                    b: 167,
-                    a: 255,
-                },
-            },
-            font: g_game::get_text_font_sm().unwrap(),
-        })
-        .unwrap();
-        v_text.y = 16 * 5;
-        text::push_surface(&v_text).unwrap();
-
-        let mut v_text = text::create_surface(text::TextInput {
-            text: format!(
-                "aabb.max: {{{:>5.1},{:>5.1},{:>5.1}  }}",
-                last_aabb.max.x, last_aabb.max.y, last_aabb.max.z
-            ),
-            mode: text::Mode::Solid {
-                color: text::FontColor {
-                    r: 255,
-                    g: 255,
-                    b: 167,
-                    a: 255,
-                },
-            },
-            font: g_game::get_text_font_sm().unwrap(),
-        })
-        .unwrap();
-        v_text.y = 16 * 6;
-        text::push_surface(&v_text).unwrap();
-
-        let mut v_text = text::create_surface(text::TextInput {
-            text: format!("last_floor: {:?}", last_floor),
-            mode: text::Mode::Solid {
-                color: text::FontColor {
-                    r: 255,
-                    g: 167,
-                    b: 255,
-                    a: 255,
-                },
-            },
-            font: g_game::get_text_font_sm().unwrap(),
-        })
-        .unwrap();
-        v_text.y = 16 * 7;
-        text::push_surface(&v_text).unwrap();
+        *position = collide_and_slide_3d(pos, &mut step, last_floor, velocity, on_ground, width, 0);
     }
 }
 
-fn process_intersector(
-    decs: &mut Vec<&mut Instance>,
-    new_pos: Vector3,
-    aabb: BoundingBox,
+const VCLOSE: f32 = 0.00001;
+
+fn collide_and_slide_3d(
+    pos: Vector3,
+    step: &mut Vector3,
+    last_floor: &mut Vector3,
+    velocity: &mut Vector3,
+    on_ground: &mut bool,
     width: f32,
-) -> Option<Vector3> {
+    iter: usize,
+) -> Vector3 {
+    if iter >= 5 {
+        return pos;
+    }
+
+    let player_radius = width / 2.;
+    let player_center = vector3_add(pos, Vector3::new(0., width / 2., 0.));
+
+    // WALLS
+    // todo -- perf dissolve map faces to reduce triangle count
+    // todo -- height here should be divided by max slope out of 90 degrees. 45/90 == 1/2.
+    if let Some((nearest, norm)) = process_intersector_3d(player_center, width) {
+        let collision_normal = vector3_normalize(vector3_subtract(player_center, nearest));
+        let closest_distance = vector3_distance(player_center, nearest);
+
+        // Move the circle to just touch the wall
+        let penetration_depth = player_radius - closest_distance + VCLOSE * 2.;
+        let new_pos = vector3_add(pos, vector3_scale(collision_normal, penetration_depth));
+
+        // Determine if this is a floor or a wall
+        if norm.y > MAX_SLOPE {
+            // FLOOR LOGIC
+            *on_ground = true;
+            *last_floor = nearest;
+            velocity.y = 0.;
+            step.y = 0.;
+        }
+
+        // Calculate new velocity to slide along the wall
+        let mut new_velocity = vector3_subtract(
+            *velocity,
+            vector3_scale(
+                collision_normal,
+                vector3_dot_product(*velocity, collision_normal),
+            ),
+        );
+
+        if vector3_length(new_velocity) < VCLOSE {
+            new_velocity = Vector3::zero();
+        }
+
+        // Adjust `local_step` to account for the distance already traveled
+        let remaining_distance = vector3_length(*step) - closest_distance;
+        let mut new_step = vector3_scale(vector3_normalize(new_velocity), remaining_distance);
+
+        if vector3_length(new_step) < VCLOSE {
+            new_step = Vector3::zero();
+        }
+
+        // Recursive call with updated values
+        return collide_and_slide_3d(
+            new_pos,
+            &mut new_step,
+            last_floor,
+            velocity,
+            on_ground,
+            width,
+            iter + 1,
+        );
+    }
+    pos
+}
+
+fn process_intersector_3d(center_pos: Vector3, width: f32) -> Option<(Vector3, Vector3)> {
     let mut wall_collisions = vec![];
+    let decs = get_decor_instances().unwrap();
 
     for dec in decs {
         let mesh = dec.get_mesh();
@@ -639,19 +474,14 @@ fn process_intersector(
                 vector3_negate(vec3_face_normal(tri[0], tri[1], tri[2])),
             )
         }) {
-            if !(-normal.y < MAX_SLOPE) {
-                continue;
-            }
-
-            if (vector3_distance(new_pos, tri[0]) > MAX_COLLISION_DIST)
-                && (vector3_distance(new_pos, tri[1]) > MAX_COLLISION_DIST)
-                && (vector3_distance(new_pos, tri[2]) > MAX_COLLISION_DIST)
+            if (vector3_distance(center_pos, tri[0]) > MAX_COLLISION_DIST)
+                && (vector3_distance(center_pos, tri[1]) > MAX_COLLISION_DIST)
+                && (vector3_distance(center_pos, tri[2]) > MAX_COLLISION_DIST)
             {
                 continue;
             }
 
-            let ppos = Vector3::new(new_pos.x, (aabb.max.y + aabb.min.y) / 2., new_pos.z);
-            let closest = closest_point_to_triangle(tri, ppos);
+            let closest = closest_point_to_triangle(tri, center_pos);
 
             if cfg!(debug_assertions) {
                 let re = g_instance::ref_ent_from_str("icosphere").unwrap();
@@ -667,77 +497,28 @@ fn process_intersector(
                     glow: Some(Vector3::new(0.7, 0.7, 0.7)),
                 };
                 render::draw(dc).unwrap();
-
-                let mat = matrix_translate(ppos.x + width / 2., ppos.y, ppos.z);
-                let dc = render::DrawCall {
-                    matrix: mat,
-                    texture: re.texture_handle as u32,
-                    f1: re.frame_handles[0] as i32,
-                    f2: re.frame_handles[0] as i32,
-                    mix: 0.0,
-                    num_verts: re.num_verts,
-                    glow: Some(Vector3::new(0., 0., 0.7)),
-                };
-                render::draw(dc).unwrap();
             }
-            // collides height-wise
-            if aabb.min.y <= closest.y &&
-                closest.y <= aabb.max.y &&
-                // collides width-wise
-                vector3_distance(Vector3::new(new_pos.x, 0., new_pos.z), Vector3::new(closest.x, 0., closest.z)) <= width / 2. + VCLOSE
-            {
+            // collides inside sphere
+            if vector3_distance(center_pos, closest) <= width / 2. + VCLOSE {
                 wall_collisions.push((closest, vector3_negate(normal)));
             }
         }
     }
 
-    let coll_count = wall_collisions.len();
-
-    // todo -- perf
-    // 1, step back perfectly, using the closest collision
-    // 2, exit early out of the loop above on first collision, and don't collect any walls
-    // return to prior step's position
-    if coll_count == 0 {
-        // *position = *tmp_pos;
+    if wall_collisions.is_empty() {
         return None;
     }
-
-    let hb_center = vector3_add(
-        new_pos,
-        Vector3::new(0., (aabb.min.y + aabb.max.y) / 2., 0.),
-    );
 
     // find closest intersection point to the center of the player's hitbox
     let mut intersector = None;
     let mut closest_distance = f32::INFINITY;
     for (coll, norm) in wall_collisions {
-        let dist = vector3_distance(hb_center, coll);
+        let dist = vector3_distance(center_pos, coll);
         if dist < closest_distance {
             intersector = Some((coll, norm));
             closest_distance = dist;
         }
     }
 
-    match intersector {
-        None => {
-            if coll_count != 0 {
-                panic!("wtf");
-            }
-            None
-        }
-        Some((n, _)) => {
-            let circle_pos = Vector2 {
-                x: new_pos.x,
-                y: new_pos.z,
-            };
-            let n2 = Vector2 { x: n.x, y: n.z };
-            let ndir = vector2_normalize(vector2_subtract(circle_pos, n2));
-            let new_nearest = vector2_add(n2, vector2_scale(ndir, VCLOSE * 2.));
-            Some(Vector3 {
-                x: new_nearest.x,
-                y: new_pos.y,
-                z: new_nearest.y,
-            })
-        }
-    }
+    intersector
 }
