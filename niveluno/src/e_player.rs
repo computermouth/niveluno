@@ -344,6 +344,9 @@ const FRICTION: f32 = 10.0;
 // ~45.01 degrees -- if you change this, you'll
 // have to change a few of the height / 2. below
 pub const MAX_SLOPE: f32 = 0.707;
+// todo, add an nmcc check to output the minimum largest value here
+// before we start falling through triangles. it'd be half the largest
+// distance between two points of a decor triangle I think
 pub const MAX_COLLISION_DIST: f32 = 8.;
 
 pub fn update_physics(
