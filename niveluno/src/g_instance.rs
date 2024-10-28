@@ -55,6 +55,9 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
     match s {
         // decor
         "floor" => Some(Instance::DFloor(Floor::new(entt))),
+        "viridian_house" => Some(Instance::DFloor(Floor::new(entt))),
+        "viridian_floor" => Some(Instance::DFloor(Floor::new(entt))),
+        "tree" => Some(Instance::DFloor(Floor::new(entt))),
         "platform" => Some(Instance::DPlatform(Platform::new(entt))),
         "table" => Some(Instance::DTable(Table::new(entt))),
         // entities
