@@ -24,7 +24,7 @@ pub struct Player {
     pitch: f32,
     yaw: f32,
     position: Vector3,
-    hud: Box<text::TextSurface>,
+    hud: Box<text::OverlaySurface>,
     speed: f32,
     acceleration: Vector3,
     velocity: Vector3,
@@ -34,12 +34,17 @@ pub struct Player {
     friction: f32,
     height: f32,
     width: f32,
+    // opt_ass: Option<OptAssets>,
+}
+
+pub struct OptAssets {
+    encounter_bar: u32,
 }
 
 impl Player {
     pub fn new(entt: &Entity) -> Self {
         // timed surface on spawn
-        let mut spawn = text::create_surface(text::TextInput {
+        let mut spawn = text::create_text_overlay_surface(text::TextInput {
             text: "SPAWN".to_string(),
             mode: text::Mode::Solid {
                 color: text::FontColor {
@@ -87,7 +92,7 @@ impl Player {
             on_ground: true,
             friction: 0.3,
             hud: match g_game::get_state().unwrap() {
-                TopState::Menu => text::create_surface(text::TextInput {
+                TopState::Menu => text::create_text_overlay_surface(text::TextInput {
                     text: "MAIN MENU".to_string(),
                     mode: text::Mode::Solid {
                         color: text::FontColor {
@@ -100,7 +105,7 @@ impl Player {
                     font: g_game::get_text_font_lg().unwrap(),
                 })
                 .unwrap(),
-                TopState::Play => text::create_surface(text::TextInput {
+                TopState::Play => text::create_text_overlay_surface(text::TextInput {
                     text: "󰊠󰘉".to_string(),
                     mode: text::Mode::Solid {
                         color: text::FontColor {
@@ -246,7 +251,7 @@ impl Player {
                 render::draw(dc).unwrap();
             }
 
-            let mut v_text = text::create_surface(text::TextInput {
+            let mut v_text = text::create_text_overlay_surface(text::TextInput {
                 text: format!(
                     "velocity: {{{:>5.1},{:>5.1},{:>5.1}  }}",
                     self.velocity.x, self.velocity.y, self.velocity.z
@@ -265,7 +270,7 @@ impl Player {
             v_text.y = 32;
             text::push_surface(&v_text).unwrap();
 
-            let mut v_text = text::create_surface(text::TextInput {
+            let mut v_text = text::create_text_overlay_surface(text::TextInput {
                 text: format!("on_ground: {:?}", self.on_ground),
                 mode: text::Mode::Solid {
                     color: text::FontColor {
@@ -281,7 +286,7 @@ impl Player {
             v_text.y = 16 * 3;
             text::push_surface(&v_text).unwrap();
 
-            let mut v_text = text::create_surface(text::TextInput {
+            let mut v_text = text::create_text_overlay_surface(text::TextInput {
                 text: format!("position: {:?}", self.position),
                 mode: text::Mode::Solid {
                     color: text::FontColor {
@@ -297,7 +302,7 @@ impl Player {
             v_text.y = 16 * 4;
             text::push_surface(&v_text).unwrap();
 
-            let mut v_text = text::create_surface(text::TextInput {
+            let mut v_text = text::create_text_overlay_surface(text::TextInput {
                 text: format!("last_floor: {:?}", self.last_floor),
                 mode: text::Mode::Solid {
                     color: text::FontColor {
@@ -313,7 +318,7 @@ impl Player {
             v_text.y = 16 * 5;
             text::push_surface(&v_text).unwrap();
 
-            let mut v_text = text::create_surface(text::TextInput {
+            let mut v_text = text::create_text_overlay_surface(text::TextInput {
                 text: format!("barrier id: {:?}", self.bid),
                 mode: text::Mode::Solid {
                     color: text::FontColor {

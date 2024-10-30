@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::rc::Rc;
 
 use sdl2::pixels;
 use sdl2::rect;
@@ -49,21 +50,22 @@ pub struct BannerInput {
 }
 
 // #[derive(Clone)]
-pub struct TextSurface {
+pub struct OverlaySurface {
     pub x: u32,
     pub y: u32,
     pub w: u32,
     pub h: u32,
-    pub data: Surface<'static>,
+    pub data: Vec<u8>,
+    pub surf: Option<Surface<'static>>,
 }
 
 pub struct TimedSurface {
-    ts: Box<TextSurface>,
+    ts: Box<OverlaySurface>,
     end_time: f32,
 }
 
 impl TimedSurface {
-    pub fn new(ts: Box<TextSurface>, ms: u32) -> TimedSurface {
+    pub fn new(ts: Box<OverlaySurface>, ms: u32) -> TimedSurface {
         TimedSurface {
             ts: ts,
             end_time: time::get_run_time().unwrap() as f32 + ms as f32 / 1000.,
@@ -378,7 +380,46 @@ pub fn end_frame() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn create_surface<'a>(input: TextInput) -> Result<Box<TextSurface>, NUError> {
+pub fn create_png_overlay_surface<'a>(mut data: Vec<u8>) -> Result<Box<OverlaySurface>, NUError> {
+    let header =
+        minipng::decode_png_header(&data).map_err(|e| NUError::MiniPNGError(e.to_string()))?;
+    let mut buffer = vec![0; header.required_bytes()];
+    let (width, height) = match minipng::decode_png(&data, &mut buffer)
+        .map_err(|e| NUError::MiniPNGError(e.to_string()))
+    {
+        Ok(i) => (i.width(), i.height()),
+        Err(e) => {
+            eprintln!(
+                "create_texture failed: {} {} {}",
+                e.to_string(),
+                data.len(),
+                buffer.len()
+            );
+            data = render::PLACEHOLDER_PNG.to_vec();
+            (1, 1)
+        }
+    };
+    drop(buffer);
+
+    let oly = OverlaySurface {
+        x: 0,
+        y: 0,
+        w: width,
+        h: height,
+        data,
+        surf: None,
+    };
+
+    // let s = sdl2::surface::Surface::from_data(
+    //         &mut oly.data, width, height, 0, sdl2::pixels::PixelFormatEnum::ABGR8888)
+    //         .map_err(|s| NUError::MiscError(s))?;
+
+    // oly.surf = Some(s);
+
+    Ok(Box::new(oly))
+}
+
+pub fn create_text_overlay_surface<'a>(input: TextInput) -> Result<Box<OverlaySurface>, NUError> {
     let tg = TextGod::get()?;
 
     let font = tg
@@ -409,16 +450,19 @@ pub fn create_surface<'a>(input: TextInput) -> Result<Box<TextSurface>, NUError>
         }
     };
 
-    Ok(Box::new(TextSurface {
+    Ok(Box::new(OverlaySurface {
         x: 0,
         y: 0,
         w: tmp_fg.width(),
         h: tmp_fg.height(),
-        data: tmp_fg,
+        data: vec![],
+        surf: Some(tmp_fg),
     }))
 }
 
-pub fn create_barrier_level_surface<'a>(input: BannerInput) -> Result<Box<TextSurface>, NUError> {
+pub fn create_barrier_level_surface<'a>(
+    input: BannerInput,
+) -> Result<Box<OverlaySurface>, NUError> {
     let tg = TextGod::get()?;
 
     let render_map = &mut tg.barrier_renders;
@@ -514,12 +558,13 @@ pub fn create_barrier_level_surface<'a>(input: BannerInput) -> Result<Box<TextSu
             .unwrap();
     }
 
-    Ok(Box::new(TextSurface {
+    Ok(Box::new(OverlaySurface {
         x: 0,
         y: 0,
         w: out_surf.width(),
         h: out_surf.height(),
-        data: out_surf,
+        data: vec![],
+        surf: Some(out_surf),
     }))
 }
 
@@ -545,11 +590,13 @@ pub fn push_timed_surface(time_surf: TimedSurface) -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn push_surface(ts: &TextSurface) -> Result<(), NUError> {
+pub fn push_surface(ts: &OverlaySurface) -> Result<(), NUError> {
     let os = &mut TextGod::get()?.overlay_surface.as_mut().unwrap();
 
     let dst_rect = sdl2::rect::Rect::new(ts.x as i32, ts.y as i32, ts.w, ts.h);
-    ts.data
+    ts.surf
+        .as_ref()
+        .unwrap()
         .blit(None, os, dst_rect)
         .map_err(|e| NUError::SDLError(e))?;
 
