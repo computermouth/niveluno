@@ -55,8 +55,8 @@ pub struct OverlaySurface {
     pub y: u32,
     pub w: u32,
     pub h: u32,
-    pub data: Vec<u8>,
-    pub surf: Option<Surface<'static>>,
+    pub _data: Vec<u8>,
+    pub surf: Surface<'static>,
 }
 
 pub struct TimedSurface {
@@ -401,22 +401,28 @@ pub fn create_png_overlay_surface<'a>(mut data: Vec<u8>) -> Result<Box<OverlaySu
     };
     drop(buffer);
 
-    let oly = OverlaySurface {
+    // surf: Some(sdl2::surface::Surface::from_data(
+    //     data_slice, width, height, 0, sdl2::pixels::PixelFormatEnum::ABGR8888)
+    //     .map_err(|s| NUError::MiscError(s))?),
+    let data_ptr = data.as_mut_ptr();
+    let data_len = data.len();
+    Ok(Box::new(OverlaySurface {
         x: 0,
         y: 0,
         w: width,
         h: height,
-        data,
-        surf: None,
-    };
-
-    // let s = sdl2::surface::Surface::from_data(
-    //         &mut oly.data, width, height, 0, sdl2::pixels::PixelFormatEnum::ABGR8888)
-    //         .map_err(|s| NUError::MiscError(s))?;
-
-    // oly.surf = Some(s);
-
-    Ok(Box::new(oly))
+        _data: data,
+        surf: unsafe {
+            Surface::from_data(
+                std::slice::from_raw_parts_mut(data_ptr, data_len),
+                width,
+                height,
+                0,
+                sdl2::pixels::PixelFormatEnum::ABGR8888,
+            )
+            .map_err(|s| NUError::MiscError(s))?
+        },
+    }))
 }
 
 pub fn create_text_overlay_surface<'a>(input: TextInput) -> Result<Box<OverlaySurface>, NUError> {
@@ -455,8 +461,8 @@ pub fn create_text_overlay_surface<'a>(input: TextInput) -> Result<Box<OverlaySu
         y: 0,
         w: tmp_fg.width(),
         h: tmp_fg.height(),
-        data: vec![],
-        surf: Some(tmp_fg),
+        _data: vec![],
+        surf: tmp_fg,
     }))
 }
 
@@ -563,8 +569,8 @@ pub fn create_barrier_level_surface<'a>(
         y: 0,
         w: out_surf.width(),
         h: out_surf.height(),
-        data: vec![],
-        surf: Some(out_surf),
+        _data: vec![],
+        surf: out_surf,
     }))
 }
 
@@ -596,7 +602,6 @@ pub fn push_surface(ts: &OverlaySurface) -> Result<(), NUError> {
     let dst_rect = sdl2::rect::Rect::new(ts.x as i32, ts.y as i32, ts.w, ts.h);
     ts.surf
         .as_ref()
-        .unwrap()
         .blit(None, os, dst_rect)
         .map_err(|e| NUError::SDLError(e))?;
 

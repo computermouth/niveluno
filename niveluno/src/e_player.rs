@@ -14,7 +14,7 @@ use crate::map::{self, Entity};
 use crate::math::{
     closest_point_to_triangle, get_ray_collision_mesh, mesh_tranform, vec3_face_normal, Vector3,
 };
-use crate::text;
+use crate::text::{self, OverlaySurface};
 use crate::{asset, g_game};
 use crate::{g_instance, input};
 use crate::{render, time};
@@ -34,11 +34,12 @@ pub struct Player {
     friction: f32,
     height: f32,
     width: f32,
-    // opt_ass: Option<OptAssets>,
+    opt_ass: Option<OptAssets>,
 }
 
 pub struct OptAssets {
-    encounter_bar: u32,
+    encounter_bar: Box<text::OverlaySurface>,
+    encounter_bar_frame: Box<text::OverlaySurface>,
 }
 
 impl Player {
@@ -121,6 +122,24 @@ impl Player {
             },
             height,
             width: 3.,
+            opt_ass: match g_game::get_state().unwrap() {
+                TopState::Menu => None,
+                TopState::Play => {
+                    eprintln!("some");
+                    Some(OptAssets {
+                        encounter_bar: text::create_png_overlay_surface(
+                            asset::get_file("img/encounter_bar.png").unwrap().unwrap(),
+                        )
+                        .unwrap(),
+                        encounter_bar_frame: text::create_png_overlay_surface(
+                            asset::get_file("img/encounter_bar_frame.png")
+                                .unwrap()
+                                .unwrap(),
+                        )
+                        .unwrap(),
+                    })
+                }
+            },
         }
     }
 
@@ -333,6 +352,15 @@ impl Player {
             .unwrap();
             v_text.y = 16 * 6;
             text::push_surface(&v_text).unwrap();
+        }
+
+        match g_game::get_state().unwrap() {
+            TopState::Play => {
+                if self.opt_ass.is_some() {
+                    text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar).unwrap();
+                }
+            }
+            _ => {}
         }
     }
     pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {
