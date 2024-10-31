@@ -358,6 +358,7 @@ impl Player {
             TopState::Play => {
                 if self.opt_ass.is_some() {
                     text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar).unwrap();
+                    text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar_frame).unwrap();
                 }
             }
             _ => {}

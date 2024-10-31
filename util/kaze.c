@@ -1,3 +1,27 @@
+// This rewrite increases the collision detection accuracy by using raycasts
+// and ensures smooth movement on various terrain types, reducing clipping
+// through steep surfaces and adjusting Mario’s position to prevent intersections
+// with floors, walls, and ceilings. This approach aligns with Unreal
+// Engine's MoveUpdatedComponent function, and it provides a more precise and
+// consistent movement experience.
+
+
+// perform_ground_step
+
+// This function is responsible for moving Mario while he's grounded, factoring in slopes to adjust his movement.
+
+//     Slope Factor Calculation:
+//         Calculates Mario’s horizontal (XZ) velocity magnitude.
+//         Uses a dot product to find the effect of the slope on his velocity.
+//         Applies a slopeFactor, which adjusts Mario's movement based on the slope's angle, ensuring he moves up or down appropriately on sloped surfaces.
+
+//     Updating Mario's Position:
+//         After determining the slopeFactor, the code calculates intendedPos, adjusting Mario’s position along the XZ plane and moving him up or down the slope.
+
+//     Step Execution:
+//         Calls PerformStep to determine if Mario's intendedPos is valid based on collision checks. If it's not, adjustments will be made.
+//         Copies m->pos to update the actual game object position.
+
 s32 perform_ground_step(struct MarioState *m) {
     u32 stepResult;
     Vec3f intendedPos;
@@ -29,6 +53,18 @@ s32 perform_ground_step(struct MarioState *m) {
 }
  
  
+// perform_air_step
+
+// This function manages Mario’s position updates while he’s in the air.
+
+//     Intended Position Calculation:
+//         Calculates intendedPos based on Mario’s velocity components (XYZ).
+
+//     Step Execution and Gravity:
+//         Calls PerformStep to verify and finalize Mario's position.
+//         If Mario isn't in a gravity-free state, gravity is applied.
+
+
 s32 perform_air_step(struct MarioState *m, u32 stepArg) {
     Vec3f intendedPos;
     s32 j;
@@ -67,7 +103,16 @@ s32 perform_air_step(struct MarioState *m, u32 stepArg) {
 // 6. Consistent between swimming, aerial and ground step
 // 7. Gets rid of quarterstep oddities
 // todo: mario warps down into ceilings
- 
+
+//  MoveData
+
+// This struct encapsulates information relevant to Mario’s movement:
+
+//     Contains surfaces for walls, floor, and ceiling collisions.
+//     GoalPos stores Mario’s desired destination.
+//     IntendedPos holds the final valid position Mario can move to.
+//     BiggestValidMove records how much Mario successfully moved.
+
 // Movedata lets us pass by struct to reduce arg passing overhead
 struct MoveData {
     struct Surface *HitSurface; // Raycast hit result
@@ -82,6 +127,20 @@ struct MoveData {
     s32 StepArgs;
     f32 BiggestValidMove; // How much we managed to move
 };
+
+
+// CheckMoveEndPosition
+
+// This function checks Mario's final position for collisions.
+
+//     Collision Adjustment:
+//         Calculates MoveVector, the vector from Mario’s position to IntendedPos.
+//         If MoveVector is non-zero, scales it to account for Mario's hitbox width.
+//         Adjusts Mario’s Y position for accurate collision checking based on Mario’s height.
+//     Raycasting for Collision:
+//         Raycasts from Mario's position to ClipVector to detect potential collisions.
+//         If a collision is detected, adjusts IntendedPos based on the collision normal to prevent Mario from clipping through walls or floors.
+
 // Snap to the first collision in direction
 ALWAYS_INLINE void CheckMoveEndPosition(struct MarioState *m, struct MoveData *MoveResult) {
     MoveResult->HitSurface = 0;
@@ -131,6 +190,15 @@ ALWAYS_INLINE void CheckMoveEndPosition(struct MarioState *m, struct MoveData *M
         }
     }
 }
+
+// FinishMove
+
+// This final function updates Mario’s state based on the collision results from MoveData.
+
+//     Updating Mario's Position and Collision State:
+//         Sets Mario's floor, ceiling, and wall collision data.
+//         Checks if Mario hits a ceiling during upward movement and removes his velocity if the ceiling is sloped toward him.
+//         If IntendedPos is a valid ground position, finalizes Mario’s location there; otherwise, he remains airborne.
  
 // Checks if the new position is valid.
 s32 CheckMoveValid(struct MarioState *m, struct MoveData *MoveResult) {

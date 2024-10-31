@@ -152,7 +152,7 @@ pub fn init() -> Result<(), NUError> {
         Surface::new(
             render::INTERNAL_W as u32,
             render::INTERNAL_H as u32,
-            pixels::PixelFormatEnum::ABGR8888,
+            pixels::PixelFormatEnum::RGBA32,
         )
         .map_err(|e| NUError::SDLError(e))?,
     );
@@ -380,7 +380,7 @@ pub fn end_frame() -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn create_png_overlay_surface<'a>(mut data: Vec<u8>) -> Result<Box<OverlaySurface>, NUError> {
+pub fn create_png_overlay_surface<'a>(data: Vec<u8>) -> Result<Box<OverlaySurface>, NUError> {
     let header =
         minipng::decode_png_header(&data).map_err(|e| NUError::MiniPNGError(e.to_string()))?;
     let mut buffer = vec![0; header.required_bytes()];
@@ -395,30 +395,26 @@ pub fn create_png_overlay_surface<'a>(mut data: Vec<u8>) -> Result<Box<OverlaySu
                 data.len(),
                 buffer.len()
             );
-            data = render::PLACEHOLDER_PNG.to_vec();
+            buffer = render::PLACEHOLDER_PNG.to_vec();
             (1, 1)
         }
     };
-    drop(buffer);
 
-    // surf: Some(sdl2::surface::Surface::from_data(
-    //     data_slice, width, height, 0, sdl2::pixels::PixelFormatEnum::ABGR8888)
-    //     .map_err(|s| NUError::MiscError(s))?),
-    let data_ptr = data.as_mut_ptr();
-    let data_len = data.len();
+    let data_ptr = buffer.as_mut_ptr();
+    let data_len = buffer.len();
     Ok(Box::new(OverlaySurface {
         x: 0,
         y: 0,
         w: width,
         h: height,
-        _data: data,
+        _data: buffer,
         surf: unsafe {
             Surface::from_data(
                 std::slice::from_raw_parts_mut(data_ptr, data_len),
                 width,
                 height,
-                0,
-                sdl2::pixels::PixelFormatEnum::ABGR8888,
+                width * 4,
+                sdl2::pixels::PixelFormatEnum::RGBA32,
             )
             .map_err(|s| NUError::MiscError(s))?
         },
@@ -502,7 +498,7 @@ pub fn create_barrier_level_surface<'a>(
     let mut out_surf = sdl2::surface::Surface::new(
         letter_w * digit_string.len() as u32 + letter_w / 2,
         letter_h,
-        pixels::PixelFormatEnum::ABGR8888,
+        pixels::PixelFormatEnum::RGBA32,
     )
     .unwrap();
     let w = out_surf.width();
