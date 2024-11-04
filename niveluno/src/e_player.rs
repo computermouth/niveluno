@@ -7,6 +7,7 @@ use raymath::{
     vector3_normalize, vector3_scale, vector3_subtract, vector3_transform, BoundingBox,
     RayCollision, Vector2,
 };
+use sdl2::rect::Point;
 
 use crate::g_game::TopState;
 use crate::g_instance::{get_decor_instances, Instance};
@@ -59,8 +60,8 @@ impl Player {
         })
         .unwrap();
 
-        spawn.x = 100;
-        spawn.y = 100;
+        spawn.dst_rect.set_x(100);
+        spawn.dst_rect.set_y(100);
 
         let ts = text::TimedSurface::new(spawn, 1000);
 
@@ -125,26 +126,57 @@ impl Player {
             opt_ass: match g_game::get_state().unwrap() {
                 TopState::Menu => None,
                 TopState::Play => {
-                    eprintln!("some");
+                    let mut encounter_bar = text::create_png_overlay_surface(
+                        asset::get_file("img/encounter_bar.png").unwrap().unwrap(),
+                    )
+                    .unwrap();
+
+                    let mut encounter_bar_frame = text::create_png_overlay_surface(
+                        asset::get_file("img/encounter_bar_frame.png")
+                            .unwrap()
+                            .unwrap(),
+                    )
+                    .unwrap();
+                    encounter_bar_frame
+                        .dst_rect
+                        .set_x(render::INTERNAL_W / 2 - encounter_bar_frame.w as i32 / 2);
+                    encounter_bar_frame
+                        .dst_rect
+                        .set_y(render::INTERNAL_H - 2 * encounter_bar_frame.h as i32);
+
+                    encounter_bar
+                        .dst_rect
+                        .set_x(encounter_bar_frame.dst_rect.x() + 3);
+                    encounter_bar
+                        .dst_rect
+                        .set_y(encounter_bar_frame.dst_rect.y() + 6);
+
                     Some(OptAssets {
-                        encounter_bar: text::create_png_overlay_surface(
-                            asset::get_file("img/encounter_bar.png").unwrap().unwrap(),
-                        )
-                        .unwrap(),
-                        encounter_bar_frame: text::create_png_overlay_surface(
-                            asset::get_file("img/encounter_bar_frame.png")
-                                .unwrap()
-                                .unwrap(),
-                        )
-                        .unwrap(),
+                        encounter_bar,
+                        encounter_bar_frame,
                     })
                 }
             },
         }
     }
 
-    pub fn update_hud(&self) {
+    pub fn update_hud(&mut self) {
         text::push_surface(&self.hud).unwrap();
+
+        match g_game::get_state().unwrap() {
+            TopState::Play => {
+                if self.opt_ass.is_some() {
+                    let eb = &mut self.opt_ass.as_mut().unwrap().encounter_bar;
+                    let w = eb.w as f64 * (time::get_run_time().unwrap() % 20.) / 20.;
+                    eb.src_rect.set_width(w as u32);
+                    eb.dst_rect.set_width(w as u32);
+                    text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar).unwrap();
+                    text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar_frame)
+                        .unwrap();
+                }
+            }
+            _ => {}
+        }
     }
 
     pub fn update(&mut self) {
@@ -286,7 +318,7 @@ impl Player {
                 font: g_game::get_text_font_sm().unwrap(),
             })
             .unwrap();
-            v_text.y = 32;
+            v_text.dst_rect.set_y(32);
             text::push_surface(&v_text).unwrap();
 
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
@@ -302,7 +334,7 @@ impl Player {
                 font: g_game::get_text_font_sm().unwrap(),
             })
             .unwrap();
-            v_text.y = 16 * 3;
+            v_text.dst_rect.set_y(16 * 3);
             text::push_surface(&v_text).unwrap();
 
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
@@ -318,7 +350,7 @@ impl Player {
                 font: g_game::get_text_font_sm().unwrap(),
             })
             .unwrap();
-            v_text.y = 16 * 4;
+            v_text.dst_rect.set_y(16 * 4);
             text::push_surface(&v_text).unwrap();
 
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
@@ -334,7 +366,7 @@ impl Player {
                 font: g_game::get_text_font_sm().unwrap(),
             })
             .unwrap();
-            v_text.y = 16 * 5;
+            v_text.dst_rect.set_y(16 * 5);
             text::push_surface(&v_text).unwrap();
 
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
@@ -350,7 +382,7 @@ impl Player {
                 font: g_game::get_text_font_sm().unwrap(),
             })
             .unwrap();
-            v_text.y = 16 * 6;
+            v_text.dst_rect.set_y(16 * 6);
             text::push_surface(&v_text).unwrap();
         }
 
@@ -358,7 +390,8 @@ impl Player {
             TopState::Play => {
                 if self.opt_ass.is_some() {
                     text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar).unwrap();
-                    text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar_frame).unwrap();
+                    text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar_frame)
+                        .unwrap();
                 }
             }
             _ => {}

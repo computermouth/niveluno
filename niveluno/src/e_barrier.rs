@@ -160,8 +160,8 @@ impl Barrier {
                     return;
                 }
 
-                v_text.x = (pos_x - vtx_w / 2) as u32;
-                v_text.y = (pos_y - vtx_h / 2) as u32;
+                v_text.dst_rect.x = pos_x - vtx_w / 2;
+                v_text.dst_rect.y = pos_y - vtx_h / 2;
                 text::push_surface(&v_text).unwrap();
             }
         }

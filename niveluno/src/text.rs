@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use sdl2::pixels;
 use sdl2::rect;
+use sdl2::rect::Rect;
 use sdl2::rwops::RWops;
 use sdl2::surface::Surface;
 use sdl2::ttf::{Font, Sdl2TtfContext};
@@ -51,8 +52,8 @@ pub struct BannerInput {
 
 // #[derive(Clone)]
 pub struct OverlaySurface {
-    pub x: u32,
-    pub y: u32,
+    pub src_rect: Rect,
+    pub dst_rect: Rect,
     pub w: u32,
     pub h: u32,
     pub _data: Vec<u8>,
@@ -403,8 +404,8 @@ pub fn create_png_overlay_surface<'a>(data: Vec<u8>) -> Result<Box<OverlaySurfac
     let data_ptr = buffer.as_mut_ptr();
     let data_len = buffer.len();
     Ok(Box::new(OverlaySurface {
-        x: 0,
-        y: 0,
+        src_rect: Rect::new(0, 0, width, height),
+        dst_rect: Rect::new(0, 0, width, height),
         w: width,
         h: height,
         _data: buffer,
@@ -452,11 +453,14 @@ pub fn create_text_overlay_surface<'a>(input: TextInput) -> Result<Box<OverlaySu
         }
     };
 
+    let w = tmp_fg.width();
+    let h = tmp_fg.height();
+
     Ok(Box::new(OverlaySurface {
-        x: 0,
-        y: 0,
-        w: tmp_fg.width(),
-        h: tmp_fg.height(),
+        src_rect: Rect::new(0, 0, w, h),
+        dst_rect: Rect::new(0, 0, w, h),
+        w: w,
+        h: h,
         _data: vec![],
         surf: tmp_fg,
     }))
@@ -561,10 +565,10 @@ pub fn create_barrier_level_surface<'a>(
     }
 
     Ok(Box::new(OverlaySurface {
-        x: 0,
-        y: 0,
-        w: out_surf.width(),
-        h: out_surf.height(),
+        src_rect: Rect::new(0, 0, w, h),
+        dst_rect: Rect::new(0, 0, w, h),
+        w: w,
+        h: h,
         _data: vec![],
         surf: out_surf,
     }))
@@ -595,10 +599,9 @@ pub fn push_timed_surface(time_surf: TimedSurface) -> Result<(), NUError> {
 pub fn push_surface(ts: &OverlaySurface) -> Result<(), NUError> {
     let os = &mut TextGod::get()?.overlay_surface.as_mut().unwrap();
 
-    let dst_rect = sdl2::rect::Rect::new(ts.x as i32, ts.y as i32, ts.w, ts.h);
     ts.surf
         .as_ref()
-        .blit(None, os, dst_rect)
+        .blit(ts.src_rect, os, ts.dst_rect)
         .map_err(|e| NUError::SDLError(e))?;
 
     Ok(())
