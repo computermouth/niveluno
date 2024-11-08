@@ -43,6 +43,18 @@ pub struct OptAssets {
     encounter_bar_frame: Box<text::OverlaySurface>,
 }
 
+const GRAVITY: f32 = 1.0;
+const FRICTION: f32 = 10.0;
+// ~45.01 degrees -- if you change this, you'll
+// have to change a few of the height / 2. below
+pub const MAX_SLOPE: f32 = 0.707;
+// todo, add an nmcc check to output the minimum largest value here
+// before we start falling through triangles. it'd be half the largest
+// distance between two points of a decor triangle I think
+pub const MAX_COLLISION_DIST: f32 = 8.;
+
+const VCLOSE: f32 = 0.00001;
+
 impl Player {
     pub fn new(entt: &Entity) -> Self {
         // timed surface on spawn
@@ -237,14 +249,7 @@ impl Player {
             false => 2.5,
         };
 
-        update_physics(
-            &mut self.acceleration,
-            &mut self.velocity,
-            &mut self.position,
-            &mut self.on_ground,
-            &mut self.last_floor,
-            self.width,
-        );
+        self.update_physics();
 
         let mut bid = None;
         let bis = g_instance::get_barrier_instances().unwrap();
@@ -301,7 +306,14 @@ impl Player {
                 };
                 render::draw(dc).unwrap();
             }
+        }
 
+        self.draw_hud();
+    }
+
+    pub fn draw_hud(&mut self) {
+        // draw debug hud
+        if cfg!(debug_assertions) && g_game::get_state().unwrap() != g_game::TopState::Menu {
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
                 text: format!(
                     "velocity: {{{:>5.1},{:>5.1},{:>5.1}  }}",
@@ -397,6 +409,7 @@ impl Player {
             _ => {}
         }
     }
+
     pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {
         panic!("don't fetch entity meshes")
     }
@@ -404,59 +417,48 @@ impl Player {
     pub fn get_matrix(&self) -> raymath::Matrix {
         panic!("don't fetch entity meshes")
     }
-}
 
-const GRAVITY: f32 = 1.0;
-const FRICTION: f32 = 10.0;
-// ~45.01 degrees -- if you change this, you'll
-// have to change a few of the height / 2. below
-pub const MAX_SLOPE: f32 = 0.707;
-// todo, add an nmcc check to output the minimum largest value here
-// before we start falling through triangles. it'd be half the largest
-// distance between two points of a decor triangle I think
-pub const MAX_COLLISION_DIST: f32 = 8.;
+    pub fn update_physics(&mut self) {
+        // Apply Gravity
+        self.acceleration.y = -36. * GRAVITY;
 
-pub fn update_physics(
-    acceleration: &mut Vector3,
-    velocity: &mut Vector3,
-    position: &mut Vector3,
-    on_ground: &mut bool,
-    last_floor: &mut Vector3,
-    width: f32,
-) {
-    // Apply Gravity
-    acceleration.y = -36. * GRAVITY;
+        let delta_time = time::get_delta_time().unwrap() as f32;
 
-    let delta_time = time::get_delta_time().unwrap() as f32;
+        // Integrate acceleration & friction into velocity
+        let df = 1.0f32.min(FRICTION * delta_time);
+        let af = vector3_scale(self.acceleration, delta_time);
+        let vf = vector3_multiply(
+            self.velocity,
+            Vector3 {
+                x: df,
+                y: 0.,
+                z: df,
+            },
+        );
+        self.velocity = vector3_add(self.velocity, vector3_subtract(af, vf));
+        // todo -- perf
+        // we can probably return early here, if v3len(velocity) == 0.0 (or within epsilon)
+        self.on_ground = false;
 
-    // Integrate acceleration & friction into velocity
-    let df = 1.0f32.min(FRICTION * delta_time);
-    let af = vector3_scale(*acceleration, delta_time);
-    let vf = vector3_multiply(
-        *velocity,
-        Vector3 {
-            x: df,
-            y: 0.,
-            z: df,
-        },
-    );
-    *velocity = vector3_add(*velocity, vector3_subtract(af, vf));
-    // todo -- perf
-    // we can probably return early here, if v3len(velocity) == 0.0 (or within epsilon)
-    *on_ground = false;
+        let steps = 8;
 
-    let steps = 8;
+        let move_dist = vector3_scale(self.velocity, delta_time);
+        let mut step = vector3_scale(move_dist, 1. / steps as f32);
 
-    let move_dist = vector3_scale(*velocity, delta_time);
-    let mut step = vector3_scale(move_dist, 1. / steps as f32);
-
-    for _ in 0..steps {
-        let pos = vector3_add(*position, step);
-        *position = collide_and_slide_3d(pos, &mut step, last_floor, velocity, on_ground, width, 0);
+        for _ in 0..steps {
+            let pos = vector3_add(self.position, step);
+            self.position = collide_and_slide_3d(
+                pos,
+                &mut step,
+                &mut self.last_floor,
+                &mut self.velocity,
+                &mut self.on_ground,
+                self.width,
+                0,
+            );
+        }
     }
 }
-
-const VCLOSE: f32 = 0.00001;
 
 fn collide_and_slide_3d(
     pos: Vector3,
