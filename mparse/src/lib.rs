@@ -7,6 +7,8 @@ use types::*;
 use rmp::decode;
 use rmp::encode;
 
+use msgpacker::prelude::*;
+
 pub fn marshal(
     floats: &Vec<f32>,
     img_data: &Vec<Vec<u8>>,
@@ -16,13 +18,31 @@ pub fn marshal(
     map_ref_entt: &Vec<EntityReference>,
     map_ins_entt: &Vec<EntityInstance>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+
+    // let ern_data = vec![ern_data[0].clone()];
+
+    // let p = MpPayload {
+    //     // version: 1_000_000,
+    //     // floats: floats.clone(),
+    //     // img_data: img_data.clone().into_iter().map(|i| i.into_boxed_slice()).collect(),
+    //     ern_data: ern_data.clone(),
+    //     // kvs_data: kvs_data.clone(),
+    //     // fn_data: frame_data.clone(),
+    //     // map_ref_ents: map_ref_entt.clone(),
+    //     // map_ins_ents: map_ins_entt.clone(),
+    // };
+
+    // let mut buf1 = vec![];
+
+    // let s = p.pack(&mut buf1);
+
     let mut buf = vec![];
 
     // top-level array
     encode::write_array_len(&mut buf, 8)?;
 
     // version
-    encode::write_u32(&mut buf, 0)?;
+    encode::write_u32(&mut buf, 1_000_000)?;
 
     {
         // floats
@@ -44,16 +64,21 @@ pub fn marshal(
         // ern_data
         encode::write_array_len(&mut buf, ern_data.len() as u32)?;
         for ern in ern_data {
-            encode::write_str_len(&mut buf, (ern.len() + 1) as u32)?;
             encode::write_str(&mut buf, ern)?;
         }
     }
+
+    // eprintln!("str: {}", ern_data[0]);
+    // eprintln!("b1: {:?}", buf1);
+    // eprintln!("b0: {:?}", buf);
+
+    // assert_eq!(buf1, buf);
+    // panic!("ok");
 
     {
         // kvs_data
         encode::write_array_len(&mut buf, kvs_data.len() as u32)?;
         for kvs in kvs_data {
-            encode::write_str_len(&mut buf, (kvs.len() + 1) as u32)?;
             encode::write_str(&mut buf, kvs)?;
         }
     }
@@ -62,7 +87,6 @@ pub fn marshal(
         // frame_data
         encode::write_array_len(&mut buf, frame_data.len() as u32)?;
         for frame in frame_data {
-            encode::write_str_len(&mut buf, (frame.len() + 1) as u32)?;
             encode::write_str(&mut buf, frame)?;
         }
     }
@@ -159,10 +183,12 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
 
     // version
     let version = read_u32_from_marker(&mut cur)?;
-    assert_eq!(0, version);
+    assert_eq!(1000000, version);
 
     {
         // floats
+        // let mut t = [99];
+        // let s = cur.read_exact(&mut t).unwrap();
         let flen = decode::read_array_len(&mut cur)?;
         for _ in 0..flen {
             floats.push(decode::read_f32(&mut cur)?);
@@ -184,12 +210,11 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
         // ern_data
         let ern_len = decode::read_array_len(&mut cur)?;
         for _ in 0..ern_len {
-            let slen = decode::read_str_len(&mut cur)?;
             // remove the null terminator
-            let mut ern_str = vec![0u8; (slen - 1) as usize];
-            decode::read_str(&mut cur, &mut ern_str)
+            let mut ern_str = vec![0u8; 500];
+            let r = decode::read_str(&mut cur, &mut ern_str)
                 .map_err(|_| MparseError("failed to read_str"))?;
-            ern_data.push(std::str::from_utf8(&ern_str)?.to_string());
+            ern_data.push(r.to_string());
         }
     }
 
@@ -197,12 +222,11 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
         // kvs_data
         let kvs_len = decode::read_array_len(&mut cur)?;
         for _ in 0..kvs_len {
-            let slen = decode::read_str_len(&mut cur)?;
             // remove the null terminator
-            let mut kvs_str = vec![0u8; (slen - 1) as usize];
-            decode::read_str(&mut cur, &mut kvs_str)
+            let mut kvs_str = vec![0u8; 500];
+            let r = decode::read_str(&mut cur, &mut kvs_str)
                 .map_err(|_| MparseError("failed to read_str"))?;
-            kvs_data.push(std::str::from_utf8(&kvs_str)?.to_string());
+            kvs_data.push(r.to_string());
         }
     }
 
@@ -210,12 +234,11 @@ pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
         // frame_data
         let frame_len = decode::read_array_len(&mut cur)?;
         for _ in 0..frame_len {
-            let slen = decode::read_str_len(&mut cur)?;
             // remove the null terminator
-            let mut frame_str = vec![0u8; (slen - 1) as usize];
-            decode::read_str(&mut cur, &mut frame_str)
+            let mut frame_str = vec![0u8; 500];
+            let r = decode::read_str(&mut cur, &mut frame_str)
                 .map_err(|_| MparseError("failed to read_str"))?;
-            fn_data.push(std::str::from_utf8(&frame_str)?.to_string());
+            fn_data.push(r.to_string());
         }
     }
 

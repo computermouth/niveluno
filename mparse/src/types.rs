@@ -1,3 +1,5 @@
+use msgpacker::prelude::*;
+
 #[derive(Debug)]
 pub struct MparseError<'a>(pub &'a str);
 impl<'a> std::fmt::Display for MparseError<'a> {
@@ -7,7 +9,7 @@ impl<'a> std::fmt::Display for MparseError<'a> {
 }
 impl<'a> std::error::Error for MparseError<'a> {}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, MsgPacker, PartialEq, Clone)]
 pub struct EntityReference {
     pub name: u32,
     pub is_decor: bool,
@@ -17,7 +19,7 @@ pub struct EntityReference {
     pub uvs: Vec<u32>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, MsgPacker, PartialEq, Clone)]
 pub struct EntityInstance {
     pub index: u32,
     // if has_ref, follow index into references
@@ -28,7 +30,7 @@ pub struct EntityInstance {
     pub scale: u32,       // u32 -> [f32;3]
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, MsgPacker, PartialEq)]
 pub struct DecorInstance {
     pub index: u32,
     pub location: u32, // u32 -> [f32;3]
@@ -36,7 +38,7 @@ pub struct DecorInstance {
     pub scale: u32,    // u32 -> [f32;3]
 }
 
-#[derive(Debug)]
+#[derive(Debug, MsgPacker)]
 pub struct Payload {
     pub floats: Vec<f32>,
     pub img_data: Vec<Vec<u8>>,
@@ -45,4 +47,16 @@ pub struct Payload {
     pub fn_data: Vec<String>,
     pub map_ref_ents: Vec<EntityReference>,
     pub map_ins_ents: Vec<EntityInstance>,
+}
+
+#[derive(Debug, MsgPacker)]
+pub struct MpPayload {
+    // pub version: u32,
+    // pub floats: Vec<f32>,
+    // pub img_data: Vec<Box<[u8]>>,
+    pub ern_data: Vec<String>,
+    // pub kvs_data: Vec<String>,
+    // pub fn_data: Vec<String>,
+    // pub map_ref_ents: Vec<EntityReference>,
+    // pub map_ins_ents: Vec<EntityInstance>,
 }

@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 rmp = "0.8.14"
+msgpacker = { git = "https://github.com/computermouth/msgpacker.git", rev = "9fd4b386ce5e6b70143b8eac5f2c68bf77b1ad5a" }
