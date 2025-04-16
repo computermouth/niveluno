@@ -51,12 +51,12 @@ pub struct Payload {
 
 #[derive(Debug, MsgPacker)]
 pub struct MpPayload {
-    // pub version: u32,
-    // pub floats: Vec<f32>,
-    // pub img_data: Vec<Box<[u8]>>,
+    pub version: u32,
+    pub floats: Vec<f32>,
+    pub img_data: Vec<Box<[u8]>>,
     pub ern_data: Vec<String>,
-    // pub kvs_data: Vec<String>,
-    // pub fn_data: Vec<String>,
-    // pub map_ref_ents: Vec<EntityReference>,
-    // pub map_ins_ents: Vec<EntityInstance>,
+    pub kvs_data: Vec<String>,
+    pub fn_data: Vec<String>,
+    pub map_ref_ents: Vec<EntityReference>,
+    pub map_ins_ents: Vec<EntityInstance>,
 }

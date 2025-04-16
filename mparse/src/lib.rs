@@ -1,11 +1,5 @@
-use std::io::Cursor;
-use std::io::Read;
-
 pub mod types;
 use types::*;
-
-use rmp::decode;
-use rmp::encode;
 
 use msgpacker::prelude::*;
 
@@ -19,310 +13,36 @@ pub fn marshal(
     map_ins_entt: &Vec<EntityInstance>,
 ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
 
-    // let ern_data = vec![ern_data[0].clone()];
-
-    // let p = MpPayload {
-    //     // version: 1_000_000,
-    //     // floats: floats.clone(),
-    //     // img_data: img_data.clone().into_iter().map(|i| i.into_boxed_slice()).collect(),
-    //     ern_data: ern_data.clone(),
-    //     // kvs_data: kvs_data.clone(),
-    //     // fn_data: frame_data.clone(),
-    //     // map_ref_ents: map_ref_entt.clone(),
-    //     // map_ins_ents: map_ins_entt.clone(),
-    // };
-
-    // let mut buf1 = vec![];
-
-    // let s = p.pack(&mut buf1);
+    let p = MpPayload {
+        version: 0,
+        floats: floats.clone(),
+        img_data: img_data.clone().into_iter().map(|i| i.into_boxed_slice()).collect(),
+        ern_data: ern_data.clone(),
+        kvs_data: kvs_data.clone(),
+        fn_data: frame_data.clone(),
+        map_ref_ents: map_ref_entt.clone(),
+        map_ins_ents: map_ins_entt.clone(),
+    };
 
     let mut buf = vec![];
 
-    // top-level array
-    encode::write_array_len(&mut buf, 8)?;
-
-    // version
-    encode::write_u32(&mut buf, 1_000_000)?;
-
-    {
-        // floats
-        encode::write_array_len(&mut buf, floats.len() as u32)?;
-        for f in floats {
-            encode::write_f32(&mut buf, *f)?;
-        }
-    }
-
-    {
-        // img_data
-        encode::write_array_len(&mut buf, img_data.len() as u32)?;
-        for img in img_data {
-            encode::write_bin(&mut buf, img)?;
-        }
-    }
-
-    {
-        // ern_data
-        encode::write_array_len(&mut buf, ern_data.len() as u32)?;
-        for ern in ern_data {
-            encode::write_str(&mut buf, ern)?;
-        }
-    }
-
-    // eprintln!("str: {}", ern_data[0]);
-    // eprintln!("b1: {:?}", buf1);
-    // eprintln!("b0: {:?}", buf);
-
-    // assert_eq!(buf1, buf);
-    // panic!("ok");
-
-    {
-        // kvs_data
-        encode::write_array_len(&mut buf, kvs_data.len() as u32)?;
-        for kvs in kvs_data {
-            encode::write_str(&mut buf, kvs)?;
-        }
-    }
-
-    {
-        // frame_data
-        encode::write_array_len(&mut buf, frame_data.len() as u32)?;
-        for frame in frame_data {
-            encode::write_str(&mut buf, frame)?;
-        }
-    }
-
-    {
-        // map_ref_entt
-        encode::write_array_len(&mut buf, map_ref_entt.len() as u32)?;
-        for entt in map_ref_entt {
-            encode::write_array_len(&mut buf, 6)?;
-            encode::write_u32(&mut buf, entt.name)?;
-            {
-                // frame name ids
-                encode::write_array_len(&mut buf, entt.frame_names.len() as u32)?;
-                for i in &entt.frame_names {
-                    encode::write_u32(&mut buf, *i)?;
-                }
-            }
-            encode::write_bool(&mut buf, entt.is_decor)?;
-            encode::write_u32(&mut buf, entt.texture)?;
-            {
-                // verts
-                encode::write_array_len(&mut buf, entt.vertices.len() as u32)?;
-                for frame in &entt.vertices {
-                    encode::write_array_len(&mut buf, frame.len() as u32)?;
-                    for i in frame {
-                        encode::write_u32(&mut buf, *i)?;
-                    }
-                }
-            }
-            {
-                // uvs
-                encode::write_array_len(&mut buf, entt.uvs.len() as u32)?;
-                for i in &entt.uvs {
-                    encode::write_u32(&mut buf, *i)?;
-                }
-            }
-        }
-    }
-
-    {
-        // map_ins_entt
-        encode::write_array_len(&mut buf, map_ins_entt.len() as u32)?;
-        for entt in map_ins_entt {
-            encode::write_array_len(&mut buf, 6)?;
-
-            encode::write_u32(&mut buf, entt.index)?;
-            encode::write_bool(&mut buf, entt.has_ref)?;
-
-            encode::write_array_len(&mut buf, entt.params.len() as u32)?;
-            for i in &entt.params {
-                encode::write_u32(&mut buf, *i)?;
-            }
-
-            encode::write_u32(&mut buf, entt.location)?;
-            encode::write_u32(&mut buf, entt.rotation)?;
-            encode::write_u32(&mut buf, entt.scale)?;
-        }
-    }
+    p.pack(&mut buf);
 
     Ok(buf)
 }
 
-fn read_u32_from_marker(cur: &mut Cursor<&Vec<u8>>) -> Result<u32, Box<dyn std::error::Error>> {
-    let pos = cur.position();
-    let marker = decode::read_marker(cur).map_err(|_| MparseError("failed to read_marker"))?;
-    cur.set_position(pos);
-
-    match marker {
-        rmp::Marker::FixPos(val) => Ok(val as u32),
-        rmp::Marker::U8 => Ok(decode::read_u8(cur)? as u32),
-        rmp::Marker::U16 => Ok(decode::read_u16(cur)? as u32),
-        rmp::Marker::U32 => Ok(decode::read_u32(cur)?),
-        marker => {
-            eprintln!("Unexpected marker: {:?}", marker);
-            Err(Box::new(MparseError("unexpected marker for u32 value")))
-        }
-    }
-}
-
 pub fn unmarshal(buf: &Vec<u8>) -> Result<Payload, Box<dyn std::error::Error>> {
-    let mut floats = vec![];
-    let mut img_data = vec![];
-    let mut ern_data = vec![];
-    let mut kvs_data = vec![];
-    let mut fn_data = vec![];
-    let mut map_ref_ents = vec![];
-    let mut map_ins_ents = vec![];
-
-    let mut cur = Cursor::new(buf);
-
-    // top-level array
-    let len = decode::read_array_len(&mut cur)?;
-    assert_eq!(8, len);
-
-    // version
-    let version = read_u32_from_marker(&mut cur)?;
-    assert_eq!(1000000, version);
-
-    {
-        // floats
-        // let mut t = [99];
-        // let s = cur.read_exact(&mut t).unwrap();
-        let flen = decode::read_array_len(&mut cur)?;
-        for _ in 0..flen {
-            floats.push(decode::read_f32(&mut cur)?);
+    let (_, t) = MpPayload::unpack(&buf).map_err(|_| MparseError("failed to read_str"))?;
+    assert_eq!(t.version, 0);
+    Ok(
+        Payload {
+            floats: t.floats,
+            img_data: t.img_data.into_iter().map(|i| i.into_vec()).collect(),
+            ern_data: t.ern_data,
+            kvs_data: t.kvs_data,
+            fn_data: t.fn_data,
+            map_ref_ents: t.map_ref_ents,
+            map_ins_ents: t.map_ins_ents
         }
-    }
-
-    {
-        // img_data
-        let ilen = decode::read_array_len(&mut cur)?;
-        for _ in 0..ilen {
-            let blen = decode::read_bin_len(&mut cur)?;
-            let mut img = vec![0u8; blen as usize];
-            cur.read_exact(&mut img)?;
-            img_data.push(img);
-        }
-    }
-
-    {
-        // ern_data
-        let ern_len = decode::read_array_len(&mut cur)?;
-        for _ in 0..ern_len {
-            // remove the null terminator
-            let mut ern_str = vec![0u8; 500];
-            let r = decode::read_str(&mut cur, &mut ern_str)
-                .map_err(|_| MparseError("failed to read_str"))?;
-            ern_data.push(r.to_string());
-        }
-    }
-
-    {
-        // kvs_data
-        let kvs_len = decode::read_array_len(&mut cur)?;
-        for _ in 0..kvs_len {
-            // remove the null terminator
-            let mut kvs_str = vec![0u8; 500];
-            let r = decode::read_str(&mut cur, &mut kvs_str)
-                .map_err(|_| MparseError("failed to read_str"))?;
-            kvs_data.push(r.to_string());
-        }
-    }
-
-    {
-        // frame_data
-        let frame_len = decode::read_array_len(&mut cur)?;
-        for _ in 0..frame_len {
-            // remove the null terminator
-            let mut frame_str = vec![0u8; 500];
-            let r = decode::read_str(&mut cur, &mut frame_str)
-                .map_err(|_| MparseError("failed to read_str"))?;
-            fn_data.push(r.to_string());
-        }
-    }
-
-    {
-        // map_ref_entt
-        let mre_len = decode::read_array_len(&mut cur)?;
-        for _ in 0..mre_len {
-            assert_eq!(6, decode::read_array_len(&mut cur)?);
-            let name = read_u32_from_marker(&mut cur)?;
-            let mut frame_names = vec![];
-            {
-                // frame_names
-                let frame_names_len = decode::read_array_len(&mut cur)?;
-                for _ in 0..frame_names_len {
-                    frame_names.push(read_u32_from_marker(&mut cur)?);
-                }
-            }
-            let is_decor = decode::read_bool(&mut cur)?;
-            let texture = read_u32_from_marker(&mut cur)?;
-            let mut vertices = vec![];
-            let mut uvs = vec![];
-            {
-                // verts
-                let framecount = decode::read_array_len(&mut cur)?;
-                for _ in 0..framecount {
-                    let vertcount = decode::read_array_len(&mut cur)?;
-                    let mut v = vec![];
-                    for _ in 0..vertcount {
-                        v.push(read_u32_from_marker(&mut cur)?);
-                    }
-                    vertices.push(v);
-                }
-            }
-            {
-                // uvs
-                let uv_len = decode::read_array_len(&mut cur)?;
-                for _ in 0..uv_len {
-                    uvs.push(read_u32_from_marker(&mut cur)?);
-                }
-            }
-            map_ref_ents.push(EntityReference {
-                name,
-                is_decor,
-                frame_names,
-                texture,
-                vertices,
-                uvs,
-            })
-        }
-    }
-
-    {
-        // map_ins_entt
-        let entt_len = decode::read_array_len(&mut cur)?;
-        for _ in 0..entt_len {
-            assert_eq!(6, decode::read_array_len(&mut cur)?);
-            let index = read_u32_from_marker(&mut cur)?;
-            let has_ref = decode::read_bool(&mut cur)?;
-            let plen = decode::read_array_len(&mut cur)?;
-            let mut params = vec![];
-            for _ in 0..plen {
-                params.push(read_u32_from_marker(&mut cur)?);
-            }
-            let location = read_u32_from_marker(&mut cur)?;
-            let rotation = read_u32_from_marker(&mut cur)?;
-            let scale = read_u32_from_marker(&mut cur)?;
-            map_ins_ents.push(EntityInstance {
-                index,
-                has_ref,
-                params,
-                location,
-                rotation,
-                scale,
-            });
-        }
-    }
-
-    Ok(Payload {
-        floats,
-        img_data,
-        ern_data,
-        kvs_data,
-        fn_data,
-        map_ref_ents,
-        map_ins_ents,
-    })
+    )
 }

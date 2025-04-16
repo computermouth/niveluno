@@ -569,7 +569,6 @@ name = "mparse"
 version = "0.1.0"
 dependencies = [
  "msgpacker",
- "rmp",
 ]
 
 [[package]]
@@ -896,17 +895,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade4539f42266ded9e755c605bdddf546242b2c961b03b06a7375260788a0523"
 dependencies = [
  "bytemuck",
-]
-
-[[package]]
-name = "rmp"
-version = "0.8.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "228ed7c16fa39782c3b3468e974aec2795e9089153cd08ee2e9aefb3613334c4"
-dependencies = [
- "byteorder",
- "num-traits",
- "paste",
 ]
 
 [[package]]
