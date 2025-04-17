@@ -1,11 +1,13 @@
 
 fn f32_to_f24(x: f32) -> f32 {
     let mut bytes = x.to_be_bytes();
+    // bytes[2] = bytes[2] & 0xF0;
     bytes[3] = 0;
     f32::from_be_bytes(bytes)
 }
 
 fn main() {
+    // let original = f32::from_be_bytes(u32::MAX.to_be_bytes());
     let original = std::f32::consts::PI;
     let truncated = f32_to_f24(original);
 
