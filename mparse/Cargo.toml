@@ -6,4 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-msgpacker = { git = "https://github.com/computermouth/msgpacker.git", rev = "9fd4b386ce5e6b70143b8eac5f2c68bf77b1ad5a" }
+msgpacker = { git = "https://github.com/computermouth/msgpacker.git", rev = "9074f28ad3da7ada789aedda67d56808242aeea0" }
