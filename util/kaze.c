@@ -16,16 +16,24 @@
 typedef float Vec3f[3];
 typedef int16_t Vec3s[3];
 
-void *vec3s_set(Vec3s dest, uint16_t x, uint16_t y, uint16_t z);
-void *vec3f_copy(Vec3f dest, Vec3f src);
-float sqr(float f);
-
 struct Surface {
     struct {
         float x;
         float y;
         float z;
     } normal;
+    int16_t vertex1[3];
+    int16_t vertex2[3];
+    int16_t vertex3[3];
+    // pre-caclulated vertical bounds
+    float lowerY;
+    float upperY;
+};
+
+struct SurfaceNode {
+    struct Surface *surface;
+    uint32_t SurfaceIndex;
+    uint32_t NextIndex;
 };
 
 struct Object {
@@ -49,9 +57,55 @@ struct MarioState {
     float peakHeight;
 };
 
+struct MarioState * gMarioState;
+int32_t gSurfacePartitions[1][1][1][1];
+
+float vec3f_length(Vec3f dest);
+void *vec3s_set(Vec3s dest, uint16_t x, uint16_t y, uint16_t z);
+void *vec3f_copy(Vec3f dest, Vec3f src);
+float vec3f_find_ceil(Vec3f pos, struct Surface **ceil);
+float sqr(float f);
+float absf(float f);
+void find_surface_on_ray(Vec3f orig, Vec3f dir, struct Surface **hit_surface, Vec3f hit_pos,
+                         int32_t cellFlags);
+float find_floor(float xPos, float yPos, float zPos, struct Surface **pfloor);
+float find_floor_marioair(float xPos, float yPos, float zPos, struct Surface **pfloor, float yVel);
+int32_t absi(int32_t x);
+int16_t atan2s(float y, float x);
+void *vec3f_cross(Vec3f dest, Vec3f a, Vec3f b);
+float vec3f_dot(Vec3f, float *);
+void *vec3f_sum(Vec3f dest, Vec3f a, Vec3f b);
+
+struct SurfaceNode * NODEFROMID(int32_t);
+struct Surface * SURFACEFROMID(uint32_t);
+uint32_t SURFACETYPE(struct Surface*);
+
 #define EPSILON 0.000001f
 #define MARIOHEIGHT 3.0f
 #define MARIOWIDENESS 2.0f
+
+#define WALLMAXNORMAL 0.000001f
+#define FLOOR_SNAP_OFFSET 0.000001f
+#define CEILING_BONK_DOT 0.000001f
+#define WALLKICK_MIN_VEL 0.000001f
+#define STEP_HIT_WALL 1
+#define STEP_ON_GROUND 1
+#define MAX_ANGLE_DIFF_FOR_WALL_COLLISION_IN_AIR 0.000001f
+#define MAX_ANGLE_DIFF_FOR_WALL_COLLISION_ON_GROUND 0.000001f
+#define STEP_IN_AIR 1
+#define ACT_FLAG_SHORT_HITBOX 1
+#define MARIO_VANISH_CAP 1
+#define SPATIAL_PARTITION_WALLS 0
+#define STATIC_COLLISION 0
+#define DYNAMIC_COLLISION 0
+#define SPATIAL_PARTITION_CEILS 0
+#define SPATIAL_PARTITION_FLOORS 0
+
+#define LEVEL_BOUNDARY_MAX  0
+#define CELL_SIZE 0
+#define ONE 1
+
+int32_t PerformStep(struct MarioState *m, Vec3f GoalPos, bool SnapToFloor);
 
 // perform_ground_step
 
@@ -335,11 +389,12 @@ int32_t FinishMove(struct MarioState *m, struct MoveData *MoveResult) {
     return m->pos[1] <= m->floorHeight ? STEP_ON_GROUND : STEP_IN_AIR;
 }
 // Scales the move. The Y is assumed to always be valid (if not, we are ceiling bonking anyway)
-int32_t ScaleMove(struct MarioState *m, struct MoveData *MoveResult, float Scale) {
+void ScaleMove(struct MarioState *m, struct MoveData *MoveResult, float Scale) {
     MoveResult->IntendedPos[0] = (MoveResult->GoalPos[0] - m->pos[0]) * Scale + m->pos[0];
     MoveResult->IntendedPos[1] = MoveResult->GoalPos[1];
     MoveResult->IntendedPos[2] = (MoveResult->GoalPos[2] - m->pos[2]) * Scale + m->pos[2];
 }
+
 // Performs a generic step and returns the step result
 // [SnapToFloor] checks for special interactions like ceilings, ledges and floor snapping
 int32_t PerformStep(struct MarioState *m, Vec3f GoalPos, bool SnapToFloor) {
@@ -402,4 +457,215 @@ DoItAgain:
     }
     // We've moved, but not the full distance.
     return FinishMove(m, &MoveResult);
+}
+
+
+void vec3f_vec3s_diff(float *dest, int16_t *a, int16_t *b) {
+    dest[0] = (a[0]) - b[0];
+    dest[1] = (a[1]) - b[1];
+    dest[2] = (a[2]) - b[2];
+}
+
+// Checks whether a given ray (starting at orig and extending in dir up to dir_length) intersects with the 
+// specified triangle surface. If it does, the intersection point is stored in hit_pos, and the distance 
+// from the ray origin to the hit point is returned. If no intersection occurs, returns 0.
+
+//     Uses the Möller–Trumbore ray-triangle intersection algorithm.
+//     Performs bounds checks to ensure the intersection lies within the triangle and is in front of the ray origin.
+
+float ray_surf_intersect(Vec3f orig, Vec3f dir, float dir_length, Vec3f hit_pos,
+                                     struct Surface *surface) {
+    float length;
+    int32_t i;
+    Vec3f e1, e2, h, s;
+    vec3f_vec3s_diff(e1, surface->vertex2, surface->vertex1);
+    vec3f_vec3s_diff(e2, surface->vertex3, surface->vertex1);
+    // Reject if determinant is too small or surface is facing away from the ray's direction
+    vec3f_cross(h, dir, e2);
+    float det = vec3f_dot(e1, h);
+    if (det < EPSILON)
+        return 0;
+    s[0] = orig[0] - surface->vertex1[0];
+    s[1] = orig[1] - surface->vertex1[1];
+    s[2] = orig[2] - surface->vertex1[2];
+    float u = vec3f_dot(s, h);
+    // Reject if the intersection point is outside the triangle
+    if ((u < 0.0f) || (u > det))
+        return 0;
+    vec3f_cross(h, s, e1);
+    float v = vec3f_dot(dir, h);
+    // Reject if the intersection point is outside the triangle
+    if ((v < 0.0f) || ((u + v) > det)) {
+        return 0;
+    }
+    // Reject if the intersection distance is beyond the ray's length
+    length = vec3f_dot(e2, h) / det;
+    if ((length > dir_length)) {
+        return 0;
+    }
+    for (i = 0; i < 3; i++) {
+        hit_pos[i] = orig[i] + dir[i] * length;
+    }
+    return length;
+}
+
+// Iterates over a list of surfaces (triangles) starting from NodeIndex,
+// checking for intersections with a ray defined by orig, dir, and capped by *max_length.
+// If a closer hit is found, updates *hit_surface, hit_pos, and *max_length accordingly.
+
+// This filters and tests potential hit surfaces in one spatial partition cell.
+void find_surface_on_ray_list(int32_t NodeIndex, Vec3f orig, Vec3f dir, struct Surface **hit_surface,
+                              Vec3f hit_pos, float *max_length) {
+    float length;
+    Vec3f chk_hit_pos;
+    float top, bottom;
+ 
+    // Get upper and lower bounds of ray
+    if (dir[1] >= 0.0f) {
+        top = orig[1] + dir[1] * *max_length;
+        bottom = orig[1];
+    } else {
+        top = orig[1];
+        bottom = orig[1] + dir[1] * *max_length;
+    }
+ 
+    // Iterate through every surface of the list
+    for (; NodeIndex != 0xFFFF;) {
+        struct SurfaceNode *list = NODEFROMID(NodeIndex);
+        struct Surface *Surface = SURFACEFROMID(list->SurfaceIndex);
+        NodeIndex = list->NextIndex;
+        // Reject surface if out of vertical bounds
+        if (Surface->lowerY > top || Surface->upperY < bottom)
+            continue;
+ 
+        if (((SURFACETYPE(Surface) != 0x00AD) || (gMarioState->flags & MARIO_VANISH_CAP))) {
+            if ((length = ray_surf_intersect(orig, dir, *max_length, chk_hit_pos, Surface) > 0)) {
+                if (length <= *max_length) {
+                    *hit_surface = Surface;
+                    vec3f_copy(hit_pos, chk_hit_pos);
+                    *max_length = length;
+                }
+            }
+        }
+    }
+}
+
+// Performs ray-surface intersection checks for all surfaces within the specified spatial grid cell
+// (cellX, cellZ) using find_surface_on_ray_list, depending on cellFlags (bitmask of floor, wall, and ceiling surface types).
+// Updates the closest hit accordingly.
+// Used as part of a broader ray traversal through the spatial partition grid.
+void find_surface_on_ray_cell(int32_t cellX, int32_t cellZ, Vec3f orig, Vec3f normalized_dir,
+                                     struct Surface **hit_surface, Vec3f hit_pos, float *max_length,
+                                     uint8_t cellFlags) {
+    // Skip if OOB
+    if (((cellX & 0x3F) == cellX) && ((cellZ & 0x3F) == cellZ)) {
+        // Iterate through each surface in this partition
+        if (cellFlags & 2) {
+            find_surface_on_ray_list(
+                (gSurfacePartitions[cellZ][cellX][SPATIAL_PARTITION_WALLS][STATIC_COLLISION]), orig,
+                normalized_dir, hit_surface, hit_pos, max_length);
+            find_surface_on_ray_list(
+                (gSurfacePartitions[cellZ][cellX][SPATIAL_PARTITION_WALLS][DYNAMIC_COLLISION]), orig,
+                normalized_dir, hit_surface, hit_pos, max_length);
+        }
+        if (cellFlags & 4) {
+            find_surface_on_ray_list(
+                (gSurfacePartitions[cellZ][cellX][SPATIAL_PARTITION_CEILS][STATIC_COLLISION]), orig,
+                normalized_dir, hit_surface, hit_pos, max_length);
+            find_surface_on_ray_list(
+                (gSurfacePartitions[cellZ][cellX][SPATIAL_PARTITION_CEILS][DYNAMIC_COLLISION]), orig,
+                normalized_dir, hit_surface, hit_pos, max_length);
+        }
+        if (cellFlags & 1) {
+            find_surface_on_ray_list(
+                (gSurfacePartitions[cellZ][cellX][SPATIAL_PARTITION_FLOORS][STATIC_COLLISION]), orig,
+                normalized_dir, hit_surface, hit_pos, max_length);
+            find_surface_on_ray_list(
+                (gSurfacePartitions[cellZ][cellX][SPATIAL_PARTITION_FLOORS][DYNAMIC_COLLISION]), orig,
+                normalized_dir, hit_surface, hit_pos, max_length);
+        }
+    }
+}
+ 
+/// Make 'dest' the sum of vectors a and b.
+void vec3f_sum_coll(Vec3f dest, Vec3f a, Vec3f b) {
+    register float *temp = dest;
+    register float x, y;
+    while (temp < dest + 3) {
+        x = *a;
+        a++;
+        y = *b;
+        b++;
+        *temp = x + y;
+        temp++;
+    }
+}
+
+// Performs a raycast from orig in the direction dir, using a grid traversal algorithm 
+// (similar to Amanatides and Woo's voxel traversal) to test for surface intersections along the ray path.
+// It updates *hit_surface and hit_pos with the first valid intersection found, considering the given
+// cellFlags for filtering floor/wall/ceiling surfaces.
+
+//    Normalize direction.
+//    Calculate ray length and convert positions to cell-space.
+//    Traverse the grid, cell by cell, using DDA (Digital Differential Analyzer)-style stepping.
+//    Within each cell, call find_surface_on_ray_cell to test for collisions.
+
+void find_surface_on_ray(Vec3f orig, Vec3f dir, struct Surface **hit_surface, Vec3f hit_pos,
+                         int32_t cellFlags) {
+    Vec3f normalized_dir;
+ 
+    // Set that no surface has been hit
+    *hit_surface = NULL;
+    vec3f_sum(hit_pos, orig, dir);
+ 
+    // Get normalized direction
+    float max_length = vec3f_length(dir);
+    if (max_length == 0.f)
+        return;
+    normalized_dir[0] = dir[0] / max_length;
+    normalized_dir[1] = dir[1] / max_length;
+    normalized_dir[2] = dir[2] / max_length;
+ 
+    // Get the start and end coords converted to cell-space
+    float start_cell_coord_x = (orig[0] + LEVEL_BOUNDARY_MAX) / (float) CELL_SIZE;
+    float start_cell_coord_z = (orig[2] + LEVEL_BOUNDARY_MAX) / (float) CELL_SIZE;
+ 
+    // "A Fast Voxel Traversal Algorithm for Ray Tracing" - John Amanatides & Andrew Woo
+    // Adapted from implementation at https://www.shadertoy.com/view/XddcWn
+    float rdinv_x;
+    if (absf(dir[0]) > EPSILON)
+        rdinv_x = (float) CELL_SIZE / dir[0];
+    else
+        rdinv_x = 65536.f;
+    float rdinv_z;
+    if (absf(dir[2]) > EPSILON)
+        rdinv_z = (float) CELL_SIZE / dir[2];
+    else
+        rdinv_z = 65536.f;
+    float p_x = (int32_t) start_cell_coord_x;
+    float p_z = (int32_t) start_cell_coord_z;
+    float stp_x = rdinv_x > 0.f ? ONE : -ONE;
+    float stp_z = rdinv_z > 0.f ? ONE : -ONE;
+    float delta_x = MIN(absf(rdinv_x), ONE);
+    float delta_z = MIN(absf(rdinv_z), ONE);
+    float t_max_x = absf((p_x + MAX(stp_x, 0.0f) - start_cell_coord_x) * rdinv_x);
+    float t_max_z = absf((p_z + MAX(stp_z, 0.0f) - start_cell_coord_z) * rdinv_z);
+ 
+    while (1) {
+        find_surface_on_ray_cell((int32_t) p_x, (int32_t) p_z, orig, normalized_dir, hit_surface, hit_pos,
+                                 &max_length, cellFlags);
+        float t_next = MIN(t_max_x, t_max_z);
+        if (t_next > ONE) {
+            break;
+        }
+ 
+        if (t_max_x < t_max_z) {
+            t_max_x += delta_x;
+            p_x += stp_x;
+        } else {
+            t_max_z += delta_z;
+            p_z += stp_z;
+        }
+    }
 }
