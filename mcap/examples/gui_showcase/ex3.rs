@@ -1,5 +1,5 @@
+use crate::{Example, Shape, ToVec3, ToVector3, at_origin};
 use raylib::prelude::*;
-use crate::{Example, ToVec3, ToVector3, at_origin, Shape};
 
 pub struct State {
     sphere_pos: Vector3,
@@ -73,8 +73,20 @@ impl Example for State {
         d.draw_rectangle(10, 10, 300, 100, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 100, Color::BLUE);
         d.draw_text(&format!("Floor Slide"), 20, 20, 20, Color::BLACK);
-        d.draw_text(&format!("Sphere.y: {:.4}", self.sphere_pos.y), 20, 40, 20, Color::BLACK);
+        d.draw_text(
+            &format!("Sphere.y: {:.4}", self.sphere_pos.y),
+            20,
+            40,
+            20,
+            Color::BLACK,
+        );
 
-        d.draw_text(&format!("(R)eset (N)ext (P)revious"), 20, 80, 20, Color::BLACK);
+        d.draw_text(
+            &format!("(R)eset (N)ext (P)revious"),
+            20,
+            80,
+            20,
+            Color::BLACK,
+        );
     }
 }
