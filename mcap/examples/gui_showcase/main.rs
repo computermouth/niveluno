@@ -32,13 +32,13 @@ pub fn at_origin(v: Vector3) -> Vector3 {
 }
 
 enum Shape {
-    Cylinder(Vector3, f32, f32),
-    CylinderWires(Vector3, f32, f32),
+    Cylinder{pos: Vector3, height: f32, radius: f32},
+    CylinderWires{pos: Vector3, height: f32, radius: f32},
     Triangle([Vector3;3])
 }
 
 trait Example {
-    fn update(&mut self, fd: f32, reset: bool) -> Vec<(Shape, Color)>;
+    fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)>;
     fn draw_2d(&mut self, d: RaylibDrawHandle<'_>);
 }
 
@@ -49,7 +49,7 @@ fn main() {
         .title("gui showcase")
         .build();
 
-    let c_position = at_origin(Vector3::new(0., 2., -5.));
+    let c_position = at_origin(Vector3::new(0., 5., -5.));
 
     let camera = Camera3D::perspective(
         c_position,
@@ -64,6 +64,7 @@ fn main() {
     while !rl.window_should_close() {
 
     let fd = rl.get_frame_time();
+    let time = rl.get_time();
     let reset = rl.is_key_pressed(KeyboardKey::KEY_R);
     let prev = rl.is_key_pressed(KeyboardKey::KEY_P);
     let next = rl.is_key_pressed(KeyboardKey::KEY_N);
@@ -86,24 +87,27 @@ fn main() {
             }
         }
 
-        let draws = example.update(fd, reset);
+        let draws = example.update(fd, time, reset);
 
         d.clear_background(Color::new(16, 16, 32, 255));
         d.draw_mode3D(camera, |mut d3d, _| {
 
             for (shape, color) in &draws {
                 match shape {
-                    Shape::Triangle(tri) => d3d.draw_triangle3D(tri[0], tri[1], tri[2], color),
-                    Shape::Cylinder(pos, height, radius) => {
+                    Shape::Triangle(tri) => {
+                        // eat shit, normals
+                        d3d.draw_triangle3D(tri[0], tri[1], tri[2], color);
+                        d3d.draw_triangle3D(tri[2], tri[1], tri[0], color);
+                    },
+                    Shape::Cylinder{pos, height, radius} => {
                         d3d.draw_cylinder(pos, *radius, *radius, *height, 16, color);
                     }
-                    Shape::CylinderWires(pos, height, radius) => {
+                    Shape::CylinderWires{pos, height, radius} => {
                         d3d.draw_cylinder_wires(pos, *radius, *radius, *height, 16, color);
                     }
                 }
             }
-
-            d3d.draw_triangle3D(Vector3::zero(), Vector3::one(), Vector3::new(0., 5., 0.), Color::YELLOW);
+            
         });
 
         example.draw_2d(d);

@@ -1,5 +1,5 @@
 use raylib::prelude::*;
-use crate::{Example, ToVec3, ToVector3, at_origin};
+use crate::{Example, ToVec3, ToVector3, at_origin, Shape};
 
 pub struct State {
     sphere_pos: Vector3,
@@ -14,7 +14,7 @@ impl State {
 }
 
 impl Example for State {
-    fn update(&mut self, fd: f32, reset: bool) -> Vec<(crate::Shape, Color)> {
+    fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
         if reset {

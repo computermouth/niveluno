@@ -1,5 +1,5 @@
 use raylib::prelude::*;
-use crate::{Example, ToVec3, ToVector3, at_origin};
+use crate::{Example, ToVec3, ToVector3, at_origin, Shape};
 
 pub struct State {
     start_pos: Vector3,
@@ -16,12 +16,24 @@ impl State {
 }
 
 impl Example for State {
-    fn update(&mut self, fd: f32, reset: bool) -> Vec<(crate::Shape, Color)> {
+    fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
         if reset {
             *self = Self::new();
         }
+
+        if (time % 1.0) < 0.5 {
+            out.push((Shape::Cylinder{pos: self.start_pos, height: 3., radius: 1.}, Color::YELLOW));
+        }
+
+        out.push((Shape::CylinderWires{pos: self.start_pos, height: 3., radius: 1.}, Color::GRAY));
+        out.push((Shape::Triangle([
+            at_origin(Vector3::zero()),
+            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::new(3., 0., 0.)),
+            ]), Color::WHITE));
+
 
         // // create floor cube, and push to out vec
         // let Vector3{x, y, z} = at_origin(Vector3::new(0., -5., 2.));
