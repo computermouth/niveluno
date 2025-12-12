@@ -1,14 +1,17 @@
 use crate::{Example, Shape, ToVec3, ToVector3, at_origin};
+use mcap::{Surface, Wall, check_wall_collision, get_face_normal};
 use raylib::prelude::*;
 
 pub struct State {
-    sphere_pos: Vector3,
+    start_pos: Vector3,
+    update_pos: Vector3,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
-            sphere_pos: at_origin(Vector3::new(0., 5., 2.)),
+            start_pos: at_origin(Vector3::zero()),
+            update_pos: at_origin(Vector3::zero()),
         }
     }
 }
@@ -21,44 +24,123 @@ impl Example for State {
             *self = Self::new();
         }
 
-        // // create floor cube, and push to out vec
-        // let Vector3{x, y, z} = at_origin(Vector3::new(0., -5., 2.));
-        // let cube_scale = Matrix::scale(10., 1., 10.);
-        // let cube_translate = Matrix::translate(x, y, z);
-        // let cube_mat = cube_scale * cube_translate;
-        // out.push((Shape::Cube, cube_mat));
+        // blinking start position
+        if (time % 1.0) < 0.5 {
+            out.push((
+                Shape::Cylinder {
+                    pos: self.start_pos,
+                    height: 3.,
+                    radius: 1.,
+                },
+                Color::YELLOW,
+            ));
+        }
 
-        // // get cube collision data
-        // let cube_tris = transform_triangles(&meshes.cube, &cube_mat);
+        let tpos1 = [
+            at_origin(Vector3::zero()),
+            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::new(3., 0., 0.)),
+        ];
 
-        // // prep parameters for sphere_sweep
-        // let position = self.sphere_pos.to_sscv3();
-        // let velocity = Vec3::new(0., -5. * fd, 0.);
-        // let e_rad = Vec3::new(1.0, 3.0, 1.0);
+        let tpos2 = [
+            at_origin(Vector3::new(-1., 0., -3.)),
+            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::zero()),
+        ];
 
-        // let sweep_res = sphere_sweep(position, velocity, e_rad, &cube_tris, None);
-        // let final_pos = sweep_res.position.to_rayv3();
+        // push triangles at origin
+        out.push((Shape::Triangle(tpos1), Color::WHITE));
+        out.push((Shape::Triangle(tpos2), Color::PINK));
 
-        // self.sphere_pos = final_pos;
+        let surf1 = Surface::new(
+            [
+                tpos1[0].to_mcapv3(),
+                tpos1[1].to_mcapv3(),
+                tpos1[2].to_mcapv3(),
+            ],
+            get_face_normal(
+                tpos1[0].to_mcapv3(),
+                tpos1[1].to_mcapv3(),
+                tpos1[2].to_mcapv3(),
+            ),
+        );
 
-        // // now that we have final position, get the final matrix for the sphere
-        // let Vector3{x, y, z} = self.sphere_pos;
-        // let sphere_scale = Matrix::scale(e_rad.x, e_rad.y, e_rad.z);
-        // let sphere_translate = Matrix::translate(x, y, z);
-        // let sphere_mat = sphere_scale * sphere_translate;
-        // out.push((Shape::Sphere, sphere_mat));
+        let surf2 = Surface::new(
+            [
+                tpos2[0].to_mcapv3(),
+                tpos2[1].to_mcapv3(),
+                tpos2[2].to_mcapv3(),
+            ],
+            get_face_normal(
+                tpos2[0].to_mcapv3(),
+                tpos2[1].to_mcapv3(),
+                tpos2[2].to_mcapv3(),
+            ),
+        );
+
+        let wall1 = match surf1 {
+            Surface::Wall(w) => w,
+            _ => panic!(),
+        };
+
+        let wall2 = match surf2 {
+            Surface::Wall(w) => w,
+            _ => panic!(),
+        };
+
+        let walls = [wall1, wall2];
+
+        // reset positions
+        let mut base = Vector3::new(self.start_pos.x, self.start_pos.y - 1.5, self.start_pos.z);
+
+        for wall in walls {
+            let push = check_wall_collision(base.to_mcapv3(), 1., 3., wall);
+
+            match push {
+                None => panic!(),
+                Some(p) => {
+                    base += p.to_rayv3();
+                }
+            }
+        }
+
+        self.update_pos.x = base.x;
+        self.update_pos.z = base.z;
+
+        // push wires at final position
+        out.push((
+            Shape::CylinderWires {
+                pos: self.update_pos,
+                height: 3.,
+                radius: 1.,
+            },
+            Color::GRAY,
+        ));
 
         out
     }
 
     fn draw_2d(&mut self, mut d: RaylibDrawHandle<'_>) {
-        d.draw_rectangle(10, 10, 300, 100, Color::SKYBLUE);
-        d.draw_rectangle_lines(10, 10, 300, 100, Color::BLUE);
-        d.draw_text(&format!("Ellipsoid Floor"), 20, 20, 20, Color::BLACK);
+        d.draw_rectangle(10, 10, 300, 120, Color::SKYBLUE);
+        d.draw_rectangle_lines(10, 10, 300, 120, Color::BLUE);
+        d.draw_text(&format!("Corner Wall Collision"), 20, 20, 20, Color::BLACK);
         d.draw_text(
-            &format!("Sphere.y: {:.4}", self.sphere_pos.y),
+            &format!(
+                "p1: {:.1} {:.1} {:.1}",
+                self.start_pos.x, self.start_pos.y, self.start_pos.z
+            ),
             20,
             40,
+            20,
+            Color::BLACK,
+        );
+        d.draw_text(
+            &format!(
+                "p2: {:.1} {:.1} {:.1}",
+                self.update_pos.x, self.update_pos.y, self.update_pos.z
+            ),
+            20,
+            60,
             20,
             Color::BLACK,
         );
@@ -66,7 +148,7 @@ impl Example for State {
         d.draw_text(
             &format!("(R)eset (N)ext (P)revious"),
             20,
-            80,
+            100,
             20,
             Color::BLACK,
         );
