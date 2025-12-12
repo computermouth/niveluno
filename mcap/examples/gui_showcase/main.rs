@@ -42,6 +42,10 @@ enum Shape {
         radius: f32,
     },
     Triangle([Vector3; 3]),
+    Line {
+        start: Vector3,
+        end: Vector3,
+    }
 }
 
 trait Example {
@@ -97,7 +101,6 @@ fn main() {
             for (shape, color) in &draws {
                 match shape {
                     Shape::Triangle(tri) => {
-                        // eat shit, normals
                         d3d.draw_triangle3D(tri[0], tri[1], tri[2], color);
                     }
                     Shape::Cylinder {
@@ -113,6 +116,12 @@ fn main() {
                         radius,
                     } => {
                         d3d.draw_cylinder_wires(pos, *radius, *radius, *height, 16, color);
+                    }
+                    Shape::Line {
+                        start,
+                        end,
+                    } => {
+                        d3d.draw_line_3D(start, end, color);
                     }
                 }
             }

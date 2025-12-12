@@ -4,13 +4,15 @@ use raylib::prelude::*;
 
 pub struct State {
     start_pos: Vector3,
+    velocity: Vector3,
     update_pos: Vector3,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
-            start_pos: at_origin(Vector3::zero()),
+            start_pos: at_origin(Vector3::new(-2., 0., -2.)),
+            velocity: Vector3::new(3., 0., 3.),
             update_pos: at_origin(Vector3::zero()),
         }
     }
@@ -84,6 +86,11 @@ impl Example for State {
                 radius: 1.,
             },
             Color::GRAY,
+        ));
+
+        out.push((
+            Shape::Line { start: self.start_pos, end: self.start_pos + self.velocity },
+            Color::RED
         ));
 
         out
