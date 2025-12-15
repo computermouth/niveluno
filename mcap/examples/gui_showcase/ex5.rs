@@ -11,8 +11,8 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         Self {
-            start_pos: at_origin(Vector3::new(-2., 0., -2.)),
-            velocity: Vector3::new(3., 0., 3.),
+            start_pos: at_origin(Vector3::new(-1., 0., -3.)),
+            velocity: Vector3::new(5., 0., 5.),
             update_pos: at_origin(Vector3::zero()),
         }
     }
@@ -36,27 +36,49 @@ impl Example for State {
             ));
         }
 
-        let tpos = [
+        let tpos1 = [
             at_origin(Vector3::zero()),
             at_origin(Vector3::new(0., 3., 0.)),
             at_origin(Vector3::new(3., 0., 0.)),
         ];
 
-        // push triangle at origin
-        out.push((Shape::Triangle(tpos), Color::WHITE));
+        let tpos2 = [
+            at_origin(Vector3::new(0., 0., 3.)),
+            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::zero()),
+        ];
 
-        let surf = Surface::new(
+        // push triangles at origin
+        out.push((Shape::Triangle(tpos1), Color::WHITE));
+        out.push((Shape::Triangle(tpos2), Color::PINK));
+
+        let surf1 = Surface::new(
             [
-                tpos[0].to_mcapv3(),
-                tpos[1].to_mcapv3(),
-                tpos[2].to_mcapv3(),
+                tpos1[0].to_mcapv3(),
+                tpos1[1].to_mcapv3(),
+                tpos1[2].to_mcapv3(),
             ],
             get_face_normal(
-                tpos[0].to_mcapv3(),
-                tpos[1].to_mcapv3(),
-                tpos[2].to_mcapv3(),
+                tpos1[0].to_mcapv3(),
+                tpos1[1].to_mcapv3(),
+                tpos1[2].to_mcapv3(),
             ),
         );
+
+        let surf2 = Surface::new(
+            [
+                tpos2[0].to_mcapv3(),
+                tpos2[1].to_mcapv3(),
+                tpos2[2].to_mcapv3(),
+            ],
+            get_face_normal(
+                tpos2[0].to_mcapv3(),
+                tpos2[1].to_mcapv3(),
+                tpos2[2].to_mcapv3(),
+            ),
+        );
+
+        let surfs = [surf1, surf2];
 
         let iterations = 8;
         let v_chunk = self.velocity.scale_by(1. / iterations as f32);
@@ -64,7 +86,7 @@ impl Example for State {
         let mut new_pos = self.start_pos;
 
         for i in 0..iterations {
-            let out_diff = get_step_push(new_pos.to_mcapv3(), v_chunk.to_mcapv3(), 1., 3., &[surf]);
+            let out_diff = get_step_push(new_pos.to_mcapv3(), v_chunk.to_mcapv3(), 1., 3., &surfs);
 
             let diff = match out_diff {
                 Some(v) => v.to_rayv3(),
@@ -123,7 +145,7 @@ impl Example for State {
     fn draw_2d(&mut self, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 120, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 120, Color::BLUE);
-        d.draw_text(&format!("Stepped Wall Collision"), 20, 20, 20, Color::BLACK);
+        d.draw_text(&format!("Convex Stepped Corner"), 20, 20, 20, Color::BLACK);
         d.draw_text(
             &format!(
                 "p1: {:.1} {:.1} {:.1}",

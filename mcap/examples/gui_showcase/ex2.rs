@@ -90,32 +90,40 @@ impl Example for State {
 
         let walls = [wall1, wall2];
 
-        // reset positions
-        let mut base = Vector3::new(self.start_pos.x, self.start_pos.y - 1.5, self.start_pos.z);
-
+        let mut new_pos = self.start_pos;
         for wall in walls {
-            let push = check_wall_collision(base.to_mcapv3(), 1., 3., wall);
+            let push = check_wall_collision(self.start_pos.to_mcapv3(), 1., 3., &wall);
 
             match push {
                 None => panic!(),
                 Some(p) => {
-                    base += p.to_rayv3();
+                    new_pos += p.to_rayv3();
                 }
             }
+
+            out.push((
+                Shape::CylinderWires {
+                    pos: new_pos,
+                    height: 3.,
+                    radius: 1.,
+                },
+                Color::GRAY,
+            ));
         }
 
-        self.update_pos.x = base.x;
-        self.update_pos.z = base.z;
+        self.update_pos = new_pos;
 
-        // push wires at final position
-        out.push((
-            Shape::CylinderWires {
-                pos: self.update_pos,
-                height: 3.,
-                radius: 1.,
-            },
-            Color::GRAY,
-        ));
+        // blinking final position
+        if (time % 1.0) > 0.5 {
+            out.push((
+                Shape::Cylinder {
+                    pos: self.update_pos,
+                    height: 3.,
+                    radius: 1.,
+                },
+                Color::GREEN,
+            ));
+        }
 
         out
     }

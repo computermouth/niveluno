@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'gui_showcase'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=gui_showcase",
+                    "--package=mcap"
+                ],
+                "filter": {
+                    "name": "gui_showcase",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

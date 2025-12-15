@@ -1,3 +1,5 @@
+use std::f32;
+
 use mcap::{Surface, Vec3, check_wall_collision};
 use raylib::prelude::*;
 
@@ -5,6 +7,7 @@ mod ex1;
 mod ex2;
 mod ex3;
 mod ex4;
+mod ex5;
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -42,10 +45,11 @@ enum Shape {
         radius: f32,
     },
     Triangle([Vector3; 3]),
-    Line {
+    Arrow {
         start: Vector3,
         end: Vector3,
-    }
+        radius: f32,
+    },
 }
 
 trait Example {
@@ -56,18 +60,20 @@ trait Example {
 fn main() {
     let (mut rl, thread) = raylib::init().size(640, 480).title("gui showcase").build();
 
-    let c_position = at_origin(Vector3::new(0., 5., -5.));
-
-    let camera = Camera3D::perspective(
-        c_position,
+    let mut camera = Camera3D::perspective(
+        at_origin(Vector3::new(0., 5., -5.)),
         at_origin(Vector3::zero()),
         Vector3::new(0.0, 1.0, 0.0),
         90.0,
     );
 
-    const NUM_EXAMPLES: usize = 4;
     let mut example_id: usize = 0;
     let mut example: Box<dyn Example> = Box::new(ex1::State::new());
+
+    let mut cam_angle = Vector2::new(0., 0.);
+    let cam_radius = ((camera.position.x - camera.target.x).powi(2)
+        + (camera.position.z - camera.target.z).powi(2))
+    .sqrt();
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -77,8 +83,16 @@ fn main() {
         let next = rl.is_key_pressed(KeyboardKey::KEY_N);
         let change = prev as i8 - next as i8;
 
+        cam_angle.x = (cam_angle.x + 1.0 * (rl.get_frame_time() / 0.01667)) % 360.;
+
+        camera.position.x =
+            camera.target.x + cam_radius * (cam_angle.x * f32::consts::PI / 180.).cos();
+        camera.position.z =
+            camera.target.z + cam_radius * (cam_angle.x * f32::consts::PI / 180.).sin();
+
         let mut d = rl.begin_drawing(&thread);
 
+        const NUM_EXAMPLES: usize = 5;
         if change != 0 {
             if prev {
                 example_id = example_id.checked_sub(1).unwrap_or(NUM_EXAMPLES - 1);
@@ -90,6 +104,7 @@ fn main() {
                 1 => Box::new(ex2::State::new()),
                 2 => Box::new(ex3::State::new()),
                 3 => Box::new(ex4::State::new()),
+                4 => Box::new(ex5::State::new()),
                 _ => panic!(),
             }
         }
@@ -98,9 +113,12 @@ fn main() {
 
         d.clear_background(Color::new(16, 16, 32, 255));
         d.draw_mode3D(camera, |mut d3d, _| {
+            d3d.draw_sphere(at_origin(Vector3::zero()), 0.1, Color::GREEN);
+
             for (shape, color) in &draws {
                 match shape {
                     Shape::Triangle(tri) => {
+                        d3d.draw_triangle3D(tri[2], tri[1], tri[0], color.brightness(-0.5));
                         d3d.draw_triangle3D(tri[0], tri[1], tri[2], color);
                     }
                     Shape::Cylinder {
@@ -115,13 +133,30 @@ fn main() {
                         height,
                         radius,
                     } => {
+                        // billboard which cylinder
+                        // d3d.draw_billboard(camera, texture, center, size, tint);
                         d3d.draw_cylinder_wires(pos, *radius, *radius, *height, 16, color);
                     }
-                    Shape::Line {
-                        start,
-                        end,
-                    } => {
-                        d3d.draw_line_3D(start, end, color);
+                    Shape::Arrow { start, end, radius } => {
+                        let direction = (*end - *start).normalized();
+                        let arrow_len = start.distance_to(*end);
+
+                        d3d.draw_cylinder_ex(
+                            start,
+                            *start + direction.scale_by(arrow_len * 0.8),
+                            *radius,
+                            *radius,
+                            16,
+                            color,
+                        );
+                        d3d.draw_cylinder_ex(
+                            *start + direction.scale_by(arrow_len * 0.8),
+                            end,
+                            *radius * 2.,
+                            0.,
+                            16,
+                            color,
+                        );
                     }
                 }
             }

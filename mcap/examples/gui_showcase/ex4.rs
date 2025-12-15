@@ -1,14 +1,19 @@
 use crate::{Example, Shape, ToVec3, ToVector3, at_origin};
+use mcap::{Surface, Wall, check_wall_collision, get_face_normal, get_step_push};
 use raylib::prelude::*;
 
 pub struct State {
-    sphere_pos: Vector3,
+    start_pos: Vector3,
+    velocity: Vector3,
+    update_pos: Vector3,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
-            sphere_pos: at_origin(Vector3::new(0., 5., 2.)),
+            start_pos: at_origin(Vector3::new(4., 0., -2.)),
+            velocity: Vector3::new(-6., 0., 6.),
+            update_pos: at_origin(Vector3::zero()),
         }
     }
 }
@@ -17,70 +22,147 @@ impl Example for State {
     fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
-        if reset {
-            *self = Self::new();
+        *self = Self::new();
+
+        // blinking start position
+        if (time % 1.0) < 0.5 {
+            out.push((
+                Shape::Cylinder {
+                    pos: self.start_pos,
+                    height: 3.,
+                    radius: 1.,
+                },
+                Color::YELLOW,
+            ));
         }
 
-        // create diagonal floor cube, and push to out vec
-        // let Vector3{x, y, z} = at_origin(Vector3::new(0., -2., 2.));
-        // let cube_rotation = Matrix::rotate_z(45f32.to_radians());
-        // let cube_scale = Matrix::scale(4., 1., 4.);
-        // let cube_translate = Matrix::translate(x, y, z);
-        // let cube_mat = cube_scale * cube_rotation * cube_translate;
-        // out.push((Shape::Cube, cube_mat));
+        let tpos1 = [
+            at_origin(Vector3::zero()),
+            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::new(3., 0., 0.)),
+        ];
 
-        // // get cube collision data
-        // let cube_tris = transform_triangles(&meshes.cube, &cube_mat);
+        let tpos2 = [
+            at_origin(Vector3::new(-1., 0., -3.)),
+            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::zero()),
+        ];
 
-        // // prep parameters for sphere_sweep
-        // let position = self.sphere_pos.to_sscv3();
-        // let velocity = Vec3::new(0., -5. * fd, 0.);
-        // let e_rad = Vec3::new(1.0, 3.0, 1.0);
-        // // Note: The ellipsoid will fall/slide slower than a sphere due to Y-axis scaling.
-        // // This is correct physics - the ellipsoid space transformation affects all movement.
+        // push triangles at origin
+        out.push((Shape::Triangle(tpos1), Color::WHITE));
+        out.push((Shape::Triangle(tpos2), Color::PINK));
 
-        // let sweep_res = sphere_sweep(position, velocity, e_rad, &cube_tris, None);
-        // let final_pos = sweep_res.position.to_rayv3();
+        let surf1 = Surface::new(
+            [
+                tpos1[0].to_mcapv3(),
+                tpos1[1].to_mcapv3(),
+                tpos1[2].to_mcapv3(),
+            ],
+            get_face_normal(
+                tpos1[0].to_mcapv3(),
+                tpos1[1].to_mcapv3(),
+                tpos1[2].to_mcapv3(),
+            ),
+        );
 
-        // // Debug: log all collision info when y is around the stuck position
-        // // if self.sphere_pos.y > 95.0 && self.sphere_pos.y < 96.0 {
-        // //     eprintln!("Y={:.4} | Contacts: {}, dist: {:.6}, vel_in: {:.6}, vel_out: {:.6}",
-        // //         self.sphere_pos.y,
-        // //         sweep_res.contacts.len(),
-        // //         sweep_res.distance_traveled,
-        // //         sweep_res.original_velocity.norm(),
-        // //         sweep_res.final_velocity.norm()
-        // //     );
-        // //     if !sweep_res.contacts.is_empty() {
-        // //         for (i, contact) in sweep_res.contacts.iter().enumerate() {
-        // //             eprintln!("  C{}: normal=[{:.3}, {:.3}, {:.3}], vloss={:.3}, vafter_len={:.6}",
-        // //                 i, contact.normal.x, contact.normal.y, contact.normal.z,
-        // //                 contact.velocity_loss, contact.velocity_after.norm());
-        // //         }
-        // //         panic!();
-        // //     }
-        // // }
+        let surf2 = Surface::new(
+            [
+                tpos2[0].to_mcapv3(),
+                tpos2[1].to_mcapv3(),
+                tpos2[2].to_mcapv3(),
+            ],
+            get_face_normal(
+                tpos2[0].to_mcapv3(),
+                tpos2[1].to_mcapv3(),
+                tpos2[2].to_mcapv3(),
+            ),
+        );
 
-        // self.sphere_pos = final_pos;
+        let surfs = [surf1, surf2];
 
-        // // now that we have final position, get the final matrix for the sphere
-        // let Vector3{x, y, z} = self.sphere_pos;
-        // let sphere_scale = Matrix::scale(e_rad.x, e_rad.y, e_rad.z);
-        // let sphere_translate = Matrix::translate(x, y, z);
-        // let sphere_mat = sphere_scale * sphere_translate;
-        // out.push((Shape::Sphere, sphere_mat));
+        let iterations = 8;
+        let v_chunk = self.velocity.scale_by(1. / iterations as f32);
+
+        let mut new_pos = self.start_pos;
+
+        for i in 0..iterations {
+            let out_diff = get_step_push(new_pos.to_mcapv3(), v_chunk.to_mcapv3(), 1., 3., &surfs);
+
+            let diff = match out_diff {
+                Some(v) => v.to_rayv3(),
+                None => v_chunk,
+            };
+
+            new_pos += diff;
+
+            // push wires at updated position
+            out.push((
+                Shape::CylinderWires {
+                    pos: new_pos,
+                    height: 3.,
+                    radius: 1.,
+                },
+                Color::YELLOW.lerp(Color::GREEN, i as f32 / iterations as f32),
+            ));
+        }
+
+        self.update_pos = new_pos;
+
+        // blinking final position
+        if (time % 1.0) > 0.5 {
+            out.push((
+                Shape::Cylinder {
+                    pos: self.update_pos,
+                    height: 3.,
+                    radius: 1.,
+                },
+                Color::GREEN,
+            ));
+        }
+
+        // push wires at original intended position
+        out.push((
+            Shape::CylinderWires {
+                pos: self.start_pos + self.velocity,
+                height: 3.,
+                radius: 1.,
+            },
+            Color::RED,
+        ));
+
+        out.push((
+            Shape::Arrow {
+                start: self.start_pos,
+                end: self.start_pos + self.velocity,
+                radius: 0.1,
+            },
+            Color::RED,
+        ));
 
         out
     }
 
     fn draw_2d(&mut self, mut d: RaylibDrawHandle<'_>) {
-        d.draw_rectangle(10, 10, 300, 100, Color::SKYBLUE);
-        d.draw_rectangle_lines(10, 10, 300, 100, Color::BLUE);
-        d.draw_text(&format!("Ellipsoid Floor Slide"), 20, 20, 20, Color::BLACK);
+        d.draw_rectangle(10, 10, 300, 120, Color::SKYBLUE);
+        d.draw_rectangle_lines(10, 10, 300, 120, Color::BLUE);
+        d.draw_text(&format!("Corner Stepped Wall"), 20, 20, 20, Color::BLACK);
         d.draw_text(
-            &format!("Ellipsoid.y: {:.4}", self.sphere_pos.y),
+            &format!(
+                "p1: {:.1} {:.1} {:.1}",
+                self.start_pos.x, self.start_pos.y, self.start_pos.z
+            ),
             20,
             40,
+            20,
+            Color::BLACK,
+        );
+        d.draw_text(
+            &format!(
+                "p2: {:.1} {:.1} {:.1}",
+                self.update_pos.x, self.update_pos.y, self.update_pos.z
+            ),
+            20,
+            60,
             20,
             Color::BLACK,
         );
@@ -88,7 +170,7 @@ impl Example for State {
         d.draw_text(
             &format!("(R)eset (N)ext (P)revious"),
             20,
-            80,
+            100,
             20,
             Color::BLACK,
         );

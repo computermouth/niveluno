@@ -4,15 +4,13 @@ use raylib::prelude::*;
 
 pub struct State {
     start_pos: Vector3,
-    velocity: Vector3,
     update_pos: Vector3,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
-            start_pos: at_origin(Vector3::new(-2., 0., -2.)),
-            velocity: Vector3::new(3., 0., 3.),
+            start_pos: at_origin(Vector3::zero()),
             update_pos: at_origin(Vector3::zero()),
         }
     }
@@ -21,10 +19,6 @@ impl State {
 impl Example for State {
     fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)> {
         let mut out = vec![];
-
-        if reset {
-            *self = Self::new();
-        }
 
         // blinking start position
         if (time % 1.0) < 0.5 {
@@ -65,20 +59,26 @@ impl Example for State {
             _ => panic!(),
         };
 
-        let mut base = Vector3::new(self.start_pos.x, self.start_pos.y - 1.5, self.start_pos.z);
-        let push = check_wall_collision(base.to_mcapv3(), 1., 3., wall);
+        let push = check_wall_collision(self.start_pos.to_mcapv3(), 1., 3., &wall);
 
         match push {
             None => panic!(),
             Some(p) => {
-                base += p.to_rayv3();
+                self.update_pos = self.start_pos + p.to_rayv3();
             }
         }
 
-        self.update_pos.x = base.x;
-        self.update_pos.z = base.z;
-
-        // push wires at final position
+        // blinking final position
+        if (time % 1.0) > 0.5 {
+            out.push((
+                Shape::Cylinder {
+                    pos: self.update_pos,
+                    height: 3.,
+                    radius: 1.,
+                },
+                Color::GREEN,
+            ));
+        }
         out.push((
             Shape::CylinderWires {
                 pos: self.update_pos,
@@ -86,11 +86,6 @@ impl Example for State {
                 radius: 1.,
             },
             Color::GRAY,
-        ));
-
-        out.push((
-            Shape::Line { start: self.start_pos, end: self.start_pos + self.velocity },
-            Color::RED
         ));
 
         out
