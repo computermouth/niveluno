@@ -1,4 +1,4 @@
-use crate::{Example, Shape, ToVec3, ToVector3, at_origin};
+use crate::{Example, Shape, ToVec3, ToVector3, at_origin, Args};
 use mcap::{Surface, Wall, check_wall_collision, get_face_normal};
 use raylib::prelude::*;
 
@@ -17,11 +17,19 @@ impl State {
 }
 
 impl Example for State {
-    fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)> {
+    fn update(&mut self, args: Args) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
+        out.push((
+            Shape::Sphere {
+                pos: at_origin(Vector3::zero()),
+                radius: 0.1,
+            },
+            Color::GREEN,
+        ));
+
         // blinking start position
-        if (time % 1.0) < 0.5 {
+        if (args.time % 1.0) < 0.5 {
             out.push((
                 Shape::Cylinder {
                     pos: self.start_pos,
@@ -69,7 +77,7 @@ impl Example for State {
         }
 
         // blinking final position
-        if (time % 1.0) > 0.5 {
+        if (args.time % 1.0) > 0.5 {
             out.push((
                 Shape::Cylinder {
                     pos: self.update_pos,
@@ -91,10 +99,16 @@ impl Example for State {
         out
     }
 
-    fn draw_2d(&mut self, mut d: RaylibDrawHandle<'_>) {
-        d.draw_rectangle(10, 10, 300, 120, Color::SKYBLUE);
-        d.draw_rectangle_lines(10, 10, 300, 120, Color::BLUE);
-        d.draw_text(&format!("Basic Wall Collision"), 20, 20, 20, Color::BLACK);
+    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+        d.draw_rectangle(10, 10, 300, 140, Color::SKYBLUE);
+        d.draw_rectangle_lines(10, 10, 300, 140, Color::BLUE);
+        d.draw_text(
+            &format!("1. Basic Wall Collision"),
+            20,
+            20,
+            20,
+            Color::BLACK,
+        );
         d.draw_text(
             &format!(
                 "p1: {:.1} {:.1} {:.1}",
@@ -116,12 +130,8 @@ impl Example for State {
             Color::BLACK,
         );
 
-        d.draw_text(
-            &format!("(R)eset (N)ext (P)revious"),
-            20,
-            100,
-            20,
-            Color::BLACK,
-        );
+        d.draw_text(&format!("(S)top (F)lip cam"), 20, 100, 20, Color::BLACK);
+
+        d.draw_text(&format!("(N)ext (P)revious"), 20, 120, 20, Color::BLACK);
     }
 }

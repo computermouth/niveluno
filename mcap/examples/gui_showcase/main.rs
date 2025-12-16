@@ -8,6 +8,7 @@ mod ex2;
 mod ex3;
 mod ex4;
 mod ex5;
+mod ex6;
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -50,11 +51,26 @@ enum Shape {
         end: Vector3,
         radius: f32,
     },
+    Sphere {
+        pos: Vector3,
+        radius: f32,
+    },
+    SphereWires {
+        pos: Vector3,
+        radius: f32,
+    },
+}
+
+#[derive(Copy, Clone)]
+struct Args {
+    fd: f32,
+    time: f64,
+    reset: bool
 }
 
 trait Example {
-    fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)>;
-    fn draw_2d(&mut self, d: RaylibDrawHandle<'_>);
+    fn update(&mut self, args: Args) -> Vec<(Shape, Color)>;
+    fn draw_2d(&mut self, args: Args, d: RaylibDrawHandle<'_>);
 }
 
 fn main() {
@@ -75,15 +91,31 @@ fn main() {
         + (camera.position.z - camera.target.z).powi(2))
     .sqrt();
 
+    let mut cam_dir = 1.0;
+    let mut cam_mov = true;
+
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
         let time = rl.get_time();
+
+        let cam_stop = rl.is_key_pressed(KeyboardKey::KEY_S);
+        let cam_flip = rl.is_key_pressed(KeyboardKey::KEY_F);
         let reset = rl.is_key_pressed(KeyboardKey::KEY_R);
         let prev = rl.is_key_pressed(KeyboardKey::KEY_P);
         let next = rl.is_key_pressed(KeyboardKey::KEY_N);
         let change = prev as i8 - next as i8;
 
-        cam_angle.x = (cam_angle.x + 1.0 * (rl.get_frame_time() / 0.01667)) % 360.;
+        if cam_stop {
+            cam_mov = !cam_mov;
+        }
+
+        if cam_flip {
+            cam_dir *= -1.;
+        }
+
+        cam_angle.x = (360.
+            + (cam_angle.x + (cam_dir * cam_mov as i32 as f32) * (rl.get_frame_time() / 0.01667)))
+            % 360.;
 
         camera.position.x =
             camera.target.x + cam_radius * (cam_angle.x * f32::consts::PI / 180.).cos();
@@ -92,7 +124,7 @@ fn main() {
 
         let mut d = rl.begin_drawing(&thread);
 
-        const NUM_EXAMPLES: usize = 5;
+        const NUM_EXAMPLES: usize = 6;
         if change != 0 {
             if prev {
                 example_id = example_id.checked_sub(1).unwrap_or(NUM_EXAMPLES - 1);
@@ -105,16 +137,17 @@ fn main() {
                 2 => Box::new(ex3::State::new()),
                 3 => Box::new(ex4::State::new()),
                 4 => Box::new(ex5::State::new()),
+                5 => Box::new(ex6::State::new()),
                 _ => panic!(),
             }
         }
 
-        let draws = example.update(fd, time, reset);
+        let args = Args { fd, time, reset };
+
+        let draws = example.update(args);
 
         d.clear_background(Color::new(16, 16, 32, 255));
         d.draw_mode3D(camera, |mut d3d, _| {
-            d3d.draw_sphere(at_origin(Vector3::zero()), 0.1, Color::GREEN);
-
             for (shape, color) in &draws {
                 match shape {
                     Shape::Triangle(tri) => {
@@ -158,10 +191,16 @@ fn main() {
                             color,
                         );
                     }
+                    Shape::Sphere { pos, radius } => {
+                        d3d.draw_sphere(pos, *radius, color);
+                    }
+                    Shape::SphereWires { pos, radius } => {
+                        d3d.draw_sphere_wires(pos, *radius, 5, 5, color);
+                    }
                 }
             }
         });
 
-        example.draw_2d(d);
+        example.draw_2d(args, d);
     }
 }

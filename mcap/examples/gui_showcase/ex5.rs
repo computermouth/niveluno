@@ -1,4 +1,4 @@
-use crate::{Example, Shape, ToVec3, ToVector3, at_origin};
+use crate::{Example, Shape, ToVec3, ToVector3, at_origin, Args};
 use mcap::{Surface, Wall, check_wall_collision, get_face_normal, get_step_push};
 use raylib::prelude::*;
 
@@ -11,7 +11,7 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         Self {
-            start_pos: at_origin(Vector3::new(-1., 0., -3.)),
+            start_pos: at_origin(Vector3::new(-3., 0., -3.)),
             velocity: Vector3::new(5., 0., 5.),
             update_pos: at_origin(Vector3::zero()),
         }
@@ -19,13 +19,21 @@ impl State {
 }
 
 impl Example for State {
-    fn update(&mut self, fd: f32, time: f64, reset: bool) -> Vec<(Shape, Color)> {
+    fn update(&mut self, args: Args) -> Vec<(Shape, Color)> {
         let mut out = vec![];
+
+        out.push((
+            Shape::Sphere {
+                pos: at_origin(Vector3::zero()),
+                radius: 0.1,
+            },
+            Color::GREEN,
+        ));
 
         *self = Self::new();
 
         // blinking start position
-        if (time % 1.0) < 0.5 {
+        if (args.time % 1.0) < 0.5 {
             out.push((
                 Shape::Cylinder {
                     pos: self.start_pos,
@@ -109,7 +117,7 @@ impl Example for State {
         self.update_pos = new_pos;
 
         // blinking final position
-        if (time % 1.0) > 0.5 {
+        if (args.time % 1.0) > 0.5 {
             out.push((
                 Shape::Cylinder {
                     pos: self.update_pos,
@@ -142,10 +150,16 @@ impl Example for State {
         out
     }
 
-    fn draw_2d(&mut self, mut d: RaylibDrawHandle<'_>) {
-        d.draw_rectangle(10, 10, 300, 120, Color::SKYBLUE);
-        d.draw_rectangle_lines(10, 10, 300, 120, Color::BLUE);
-        d.draw_text(&format!("Convex Stepped Corner"), 20, 20, 20, Color::BLACK);
+    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+        d.draw_rectangle(10, 10, 300, 140, Color::SKYBLUE);
+        d.draw_rectangle_lines(10, 10, 300, 140, Color::BLUE);
+        d.draw_text(
+            &format!("5. Convex Stepped Corner"),
+            20,
+            20,
+            20,
+            Color::BLACK,
+        );
         d.draw_text(
             &format!(
                 "p1: {:.1} {:.1} {:.1}",

@@ -1,4 +1,5 @@
 use core::f32;
+use std::f32::{INFINITY, NEG_INFINITY};
 
 pub use glam::Vec3;
 
@@ -90,10 +91,37 @@ pub fn get_step_push(
     }
 }
 
-pub fn check_wall_collision(pos: Vec3, radius: f32, height: f32, wall: &Wall) -> Option<Vec3> {
-    // distance from pos to wall
-    let offset = wall.normal.dot(pos) + wall.origin_offset;
+// this could be vec2, but might actually be faster with Vec3A
+fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+    let ab = b - a;
+    let ap = p - a;
 
+    let proj = ap.dot(ab);
+    let ab_len_sq = ab.length().powi(2);
+    let d = proj / ab_len_sq;
+
+    match d {
+        NEG_INFINITY..=0f32 => a,
+        1f32..=INFINITY => b,
+        d => a + ab * d,
+    }
+}
+
+// is it ok to do this check in 3d, despite plane being in 2d?
+fn cylinder_intersects_segment(pos: Vec3, radius: f32, tri: &[Vec3; 3]) -> bool {
+    // get closest for each segment
+    let c_edge0 = closest_point_on_segment(pos, tri[0], tri[1]);
+    let c_edge1 = closest_point_on_segment(pos, tri[1], tri[2]);
+    let c_edge2 = closest_point_on_segment(pos, tri[2], tri[0]);
+
+    (pos - c_edge0).length() <= radius
+        || (pos - c_edge1).length() <= radius
+        || (pos - c_edge2).length() <= radius
+}
+
+pub fn check_wall_collision(pos: Vec3, radius: f32, height: f32, wall: &Wall) -> Option<Vec3> {
+    // cylinder intersection with infinite plane
+    let offset = wall.normal.dot(pos) + wall.origin_offset;
     if offset.abs() >= radius {
         return None;
     }
@@ -105,8 +133,13 @@ pub fn check_wall_collision(pos: Vec3, radius: f32, height: f32, wall: &Wall) ->
     let bot = pos.y;
     let top = pos.y + height;
 
-    // too low or too high
+    // skip due to height
     if top < min_y || bot > max_y {
+        return None;
+    }
+
+    // skip due to distance to segments
+    if !cylinder_intersects_segment(pos, radius, &wall.tri) {
         return None;
     }
 
