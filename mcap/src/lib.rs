@@ -71,7 +71,7 @@ pub fn get_step_push(
             Surface::Wall(w) => Some(w),
             _ => None,
         }) {
-            if let Some(push) = check_wall_collision(target_pos, radius, height, wall) {
+            if let Some(push) = check_cylinder_wall_collision(target_pos, radius, height, wall) {
                 collided = true;
                 has_diff = true;
                 target_pos += push;
@@ -91,7 +91,6 @@ pub fn get_step_push(
     }
 }
 
-// this could be vec2, but might actually be faster with Vec3A
 fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     let ab = b - a;
     let ap = p - a;
@@ -107,19 +106,30 @@ fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     }
 }
 
-// is it ok to do this check in 3d, despite plane being in 2d?
-fn cylinder_intersects_segment(pos: Vec3, radius: f32, tri: &[Vec3; 3]) -> bool {
-    // get closest for each segment
-    let c_edge0 = closest_point_on_segment(pos, tri[0], tri[1]);
-    let c_edge1 = closest_point_on_segment(pos, tri[1], tri[2]);
-    let c_edge2 = closest_point_on_segment(pos, tri[2], tri[0]);
+// flatten on y, if nearest point on edge_xz is within radius of pos_xz
+// (this would also be sphere_intersects_segment if we didn't flatten y)
+pub fn flattened_cylinder_intersects_flattened_triangle(
+    pos: Vec3,
+    radius: f32,
+    tri: &[Vec3; 3],
+) -> bool {
+    let pos_xz = pos.with_y(0.);
 
-    (pos - c_edge0).length() <= radius
-        || (pos - c_edge1).length() <= radius
-        || (pos - c_edge2).length() <= radius
+    let edge_xz0 = closest_point_on_segment(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
+    let edge_xz1 = closest_point_on_segment(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
+    let edge_xz2 = closest_point_on_segment(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));
+
+    (pos_xz - edge_xz0).length() <= radius
+        || (pos_xz - edge_xz1).length() <= radius
+        || (pos_xz - edge_xz2).length() <= radius
 }
 
-pub fn check_wall_collision(pos: Vec3, radius: f32, height: f32, wall: &Wall) -> Option<Vec3> {
+pub fn check_cylinder_wall_collision(
+    pos: Vec3,
+    radius: f32,
+    height: f32,
+    wall: &Wall,
+) -> Option<Vec3> {
     // cylinder intersection with infinite plane
     let offset = wall.normal.dot(pos) + wall.origin_offset;
     if offset.abs() >= radius {
@@ -139,7 +149,7 @@ pub fn check_wall_collision(pos: Vec3, radius: f32, height: f32, wall: &Wall) ->
     }
 
     // skip due to distance to segments
-    if !cylinder_intersects_segment(pos, radius, &wall.tri) {
+    if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.tri) {
         return None;
     }
 

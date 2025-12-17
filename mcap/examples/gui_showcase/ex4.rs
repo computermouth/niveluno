@@ -1,8 +1,10 @@
-use crate::{Example, Shape, ToVec3, ToVector3, at_origin, Args};
-use mcap::{Surface, Wall, check_wall_collision, get_face_normal, get_step_push};
+use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
+use mcap::{Surface, Wall, check_cylinder_wall_collision, get_face_normal, get_step_push};
 use raylib::prelude::*;
 
 pub struct State {
+    cam_start_pos: Vector3,
+    cam_start_tgt: Vector3,
     start_pos: Vector3,
     velocity: Vector3,
     update_pos: Vector3,
@@ -11,6 +13,8 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         Self {
+            cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
+            cam_start_tgt: at_origin(Vector3::zero()),
             start_pos: at_origin(Vector3::new(4., 0., -2.)),
             velocity: Vector3::new(-6., 0., 6.),
             update_pos: at_origin(Vector3::zero()),
@@ -19,6 +23,14 @@ impl State {
 }
 
 impl Example for State {
+    fn camera_start_pos(&mut self) -> Vector3 {
+        self.cam_start_pos
+    }
+
+    fn camera_start_tgt(&mut self) -> Vector3 {
+        self.cam_start_tgt
+    }
+
     fn update(&mut self, args: Args) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
@@ -174,9 +186,7 @@ impl Example for State {
             20,
             Color::BLACK,
         );
-
         d.draw_text(&format!("(S)top (F)lip cam"), 20, 100, 20, Color::BLACK);
-
         d.draw_text(&format!("(N)ext (P)revious"), 20, 120, 20, Color::BLACK);
     }
 }

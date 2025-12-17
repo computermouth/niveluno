@@ -1,6 +1,6 @@
 use std::f32;
 
-use mcap::{Surface, Vec3, check_wall_collision};
+use mcap::{Surface, Vec3, check_cylinder_wall_collision};
 use raylib::prelude::*;
 
 mod ex1;
@@ -65,10 +65,12 @@ enum Shape {
 struct Args {
     fd: f32,
     time: f64,
-    reset: bool
+    reset: bool,
 }
 
 trait Example {
+    fn camera_start_pos(&mut self) -> Vector3;
+    fn camera_start_tgt(&mut self) -> Vector3;
     fn update(&mut self, args: Args) -> Vec<(Shape, Color)>;
     fn draw_2d(&mut self, args: Args, d: RaylibDrawHandle<'_>);
 }
@@ -87,9 +89,6 @@ fn main() {
     let mut example: Box<dyn Example> = Box::new(ex1::State::new());
 
     let mut cam_angle = Vector2::new(0., 0.);
-    let cam_radius = ((camera.position.x - camera.target.x).powi(2)
-        + (camera.position.z - camera.target.z).powi(2))
-    .sqrt();
 
     let mut cam_dir = 1.0;
     let mut cam_mov = true;
@@ -117,6 +116,9 @@ fn main() {
             + (cam_angle.x + (cam_dir * cam_mov as i32 as f32) * (rl.get_frame_time() / 0.01667)))
             % 360.;
 
+        let cam_radius = ((camera.position.x - camera.target.x).powi(2)
+            + (camera.position.z - camera.target.z).powi(2))
+        .sqrt();
         camera.position.x =
             camera.target.x + cam_radius * (cam_angle.x * f32::consts::PI / 180.).cos();
         camera.position.z =
@@ -139,7 +141,10 @@ fn main() {
                 4 => Box::new(ex5::State::new()),
                 5 => Box::new(ex6::State::new()),
                 _ => panic!(),
-            }
+            };
+
+            camera.position = example.camera_start_pos();
+            camera.target = example.camera_start_tgt();
         }
 
         let args = Args { fd, time, reset };
@@ -195,7 +200,7 @@ fn main() {
                         d3d.draw_sphere(pos, *radius, color);
                     }
                     Shape::SphereWires { pos, radius } => {
-                        d3d.draw_sphere_wires(pos, *radius, 5, 5, color);
+                        d3d.draw_sphere_wires(pos, *radius, 7, 7, color);
                     }
                 }
             }
