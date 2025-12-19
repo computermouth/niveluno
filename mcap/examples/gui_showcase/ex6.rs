@@ -1,10 +1,7 @@
 use std::f64::consts::PI;
 
-use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{
-    Surface, Wall, check_cylinder_wall_collision, flattened_cylinder_intersects_flattened_triangle,
-    get_face_normal, get_step_push,
-};
+use crate::{Args, Example, Shape, ToVec3, at_origin};
+use mcap::flattened_cylinder_intersects_flattened_triangle;
 use raylib::prelude::*;
 
 pub struct State {

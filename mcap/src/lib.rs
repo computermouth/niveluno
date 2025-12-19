@@ -4,39 +4,47 @@ use std::f32::{INFINITY, NEG_INFINITY};
 pub use glam::Vec3;
 
 #[derive(Debug, Clone, Copy)]
-pub struct Wall {
-    tri: [Vec3; 3],
+pub struct Triangle {
+    verts: [Vec3; 3],
     normal: Vec3,
     origin_offset: f32,
 }
-#[derive(Debug, Clone, Copy)]
-pub struct Floor {
-    tri: [Vec3; 3],
-    normal: Vec3,
-}
-#[derive(Debug, Clone, Copy)]
-pub struct Cieling {
-    tri: [Vec3; 3],
-    normal: Vec3,
+
+impl Triangle {
+    pub fn verts(&self) -> [Vec3; 3] {
+        self.verts
+    }
+    pub fn normal(&self) -> Vec3 {
+        self.normal
+    }
+    pub fn offset(&self) -> f32 {
+        self.origin_offset
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum Surface {
-    Wall(Wall),
-    Floor(Floor),
-    Cieling(Cieling),
+    Wall(Triangle),
+    Floor(Triangle),
+    Slide(Triangle),
+    Cieling(Triangle),
 }
 
 impl Surface {
-    pub fn new(tri: [Vec3; 3], normal: Vec3) -> Self {
+    pub fn new(verts: [Vec3; 3], normal: Vec3) -> Self {
+        let t = Triangle {
+            verts,
+            normal,
+            origin_offset: -normal.dot(verts[0]),
+        };
+
+        let slide_deg = 60f32.to_radians().cos();
+
         match normal.y {
-            y if (-f32::INFINITY..-0.01).contains(&y) => Surface::Cieling(Cieling { tri, normal }),
-            y if (0.01..f32::INFINITY).contains(&y) => Surface::Floor(Floor { tri, normal }),
-            _ => Surface::Wall(Wall {
-                tri,
-                normal,
-                origin_offset: -normal.dot(tri[0]),
-            }),
+            y if y.abs() < 0.01 => Surface::Wall(t),
+            y if y > slide_deg => Surface::Floor(t),
+            y if y > 0.01 => Surface::Slide(t),
+            _ => Surface::Cieling(t),
         }
     }
 }
@@ -58,35 +66,36 @@ pub fn get_step_push(
     surfaces: &[Surface],
 ) -> Option<Vec3> {
     let mut target_pos = pos + diff;
-    let mut has_diff = false;
-    let mut out_diff = Vec3::ZERO;
+    let mut collided = false;
 
-    // max wall checks, break on no collisions
+    // max wall checks, break on no collisionsb
     // todo, pass in max count, or make this a method on a
     // config object that has a member of max_hits
+    //
+    // or check a 2d capsule to see where it intersects the triangle
+    // and skip the stepping
     for _ in 0..4 {
-        let mut collided = false;
+        let mut collided_step = false;
 
         for wall in surfaces.iter().filter_map(|s| match s {
             Surface::Wall(w) => Some(w),
             _ => None,
         }) {
             if let Some(push) = check_cylinder_wall_collision(target_pos, radius, height, wall) {
+                collided_step = true;
                 collided = true;
-                has_diff = true;
                 target_pos += push;
-                out_diff = target_pos - pos;
             }
         }
 
         // no collisions, skip other checks
-        if !collided {
+        if !collided_step {
             break;
         }
     }
 
-    match has_diff {
-        true => Some(out_diff),
+    match collided {
+        true => Some(target_pos - pos),
         false => None,
     }
 }
@@ -128,7 +137,7 @@ pub fn check_cylinder_wall_collision(
     pos: Vec3,
     radius: f32,
     height: f32,
-    wall: &Wall,
+    wall: &Triangle,
 ) -> Option<Vec3> {
     // cylinder intersection with infinite plane
     let offset = wall.normal.dot(pos) + wall.origin_offset;
@@ -137,8 +146,8 @@ pub fn check_cylinder_wall_collision(
     }
 
     // triangle's min and max y
-    let min_y = wall.tri[0].y.min(wall.tri[1].y).min(wall.tri[2].y);
-    let max_y = wall.tri[0].y.max(wall.tri[1].y).max(wall.tri[2].y);
+    let min_y = wall.verts[0].y.min(wall.verts[1].y).min(wall.verts[2].y);
+    let max_y = wall.verts[0].y.max(wall.verts[1].y).max(wall.verts[2].y);
 
     let bot = pos.y;
     let top = pos.y + height;
@@ -149,7 +158,7 @@ pub fn check_cylinder_wall_collision(
     }
 
     // skip due to distance to segments
-    if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.tri) {
+    if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
         return None;
     }
 

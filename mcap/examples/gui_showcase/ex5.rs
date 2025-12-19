@@ -1,5 +1,5 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, Wall, check_cylinder_wall_collision, get_face_normal, get_step_push};
+use mcap::{Surface, get_face_normal, get_step_push};
 use raylib::prelude::*;
 
 pub struct State {
@@ -16,7 +16,7 @@ impl State {
             cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
             cam_start_tgt: at_origin(Vector3::zero()),
             start_pos: at_origin(Vector3::new(-3., 0., -3.)),
-            velocity: Vector3::new(5., 0., 5.),
+            velocity: Vector3::new(5., 0., 5.9),
             update_pos: at_origin(Vector3::zero()),
         }
     }
@@ -98,7 +98,7 @@ impl Example for State {
             ),
         );
 
-        let surfs = [surf2, surf1];
+        let surfs = [surf1, surf2];
 
         let iterations = 8;
         let v_chunk = self.velocity.scale_by(1. / iterations as f32);

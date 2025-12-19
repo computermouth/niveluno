@@ -1,5 +1,5 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, Wall, check_cylinder_wall_collision, get_face_normal, get_step_push};
+use mcap::{Surface, check_cylinder_wall_collision, get_face_normal, get_step_push};
 use raylib::prelude::*;
 
 pub struct State {
