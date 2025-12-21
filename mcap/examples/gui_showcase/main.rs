@@ -1,6 +1,6 @@
 use std::f32;
 
-use mcap::{Surface, Vec3, check_cylinder_wall_collision};
+use mcap::{Surface, Vec3, check_circle_tri_collision};
 use raylib::prelude::*;
 
 mod ex1;
@@ -11,6 +11,7 @@ mod ex5;
 mod ex6;
 mod ex7;
 mod ex8;
+mod ex9;
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -144,6 +145,7 @@ fn main() {
                 5 => Box::new(ex6::State::new()),
                 6 => Box::new(ex7::State::new()),
                 7 => Box::new(ex8::State::new()),
+                8 => Box::new(ex9::State::new()),
                 _ => panic!(),
             };
 
@@ -175,8 +177,6 @@ fn main() {
                         height,
                         radius,
                     } => {
-                        // billboard which cylinder
-                        // d3d.draw_billboard(camera, texture, center, size, tint);
                         d3d.draw_cylinder_wires(pos, *radius, *radius, *height, 16, color);
                     }
                     Shape::Arrow { start, end, radius } => {

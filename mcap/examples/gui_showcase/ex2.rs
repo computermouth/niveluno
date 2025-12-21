@@ -1,5 +1,5 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, check_cylinder_wall_collision, get_face_normal};
+use mcap::{Surface, check_circle_tri_collision, get_face_normal};
 use raylib::prelude::*;
 
 pub struct State {
@@ -110,7 +110,7 @@ impl Example for State {
 
         let mut new_pos = self.start_pos;
         for wall in walls {
-            let push = check_cylinder_wall_collision(self.start_pos.to_mcapv3(), 1., 3., &wall);
+            let push = check_circle_tri_collision(self.start_pos.to_mcapv3(), 1., &wall);
 
             match push {
                 None => panic!(),

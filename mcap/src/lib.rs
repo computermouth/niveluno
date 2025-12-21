@@ -10,6 +10,10 @@ pub struct Triangle {
     origin_offset: f32,
 }
 
+const FLOOR_EPS: f32 = 0.01;
+// todo, make configurable
+const FLOOR_SNAP_HEIGHT: f32 = 0.4;
+
 impl Triangle {
     pub fn verts(&self) -> [Vec3; 3] {
         self.verts
@@ -41,9 +45,9 @@ impl Surface {
         let slide_deg = 60f32.to_radians().cos();
 
         match normal.y {
-            y if y.abs() < 0.01 => Surface::Wall(t),
+            y if y.abs() < FLOOR_EPS => Surface::Wall(t),
             y if y > slide_deg => Surface::Floor(t),
-            y if y > 0.01 => Surface::Slide(t),
+            y if y > FLOOR_EPS => Surface::Slide(t),
             _ => Surface::Cieling(t),
         }
     }
@@ -56,16 +60,31 @@ pub fn get_face_normal(v1_pos: Vec3, v2_pos: Vec3, v3_pos: Vec3) -> Vec3 {
     edge1.cross(edge2).normalize()
 }
 
+pub struct StepResult {
+    collided: bool,
+    collisions: Vec<Surface>,
+    // can't really do this, as we just get the 2d point
+    collision_points: Vec<Vec3>,
+
+}
+
 // ground_step vs air_step?
 // todo, add some kind of event pump to return?
+//
+// todo, always return vec3 of diff, optional list of collisions,
+// also whether or not we've stopped short and changed state
+//
+// todo, have one step function, set callbacks for each or groups
+// of surface type?
 pub fn get_step_push(
+    // pos is feet position
     pos: Vec3,
-    diff: Vec3,
+    step: Vec3,
     radius: f32,
-    height: f32,
+    chest_height: f32,
     surfaces: &[Surface],
 ) -> Option<Vec3> {
-    let mut target_pos = pos + diff;
+    let mut target_pos = pos + step;
     let mut collided = false;
 
     // max wall checks, break on no collisionsb
@@ -81,7 +100,7 @@ pub fn get_step_push(
             Surface::Wall(w) => Some(w),
             _ => None,
         }) {
-            if let Some(push) = check_cylinder_wall_collision(target_pos, radius, height, wall) {
+            if let Some(push) = check_circle_tri_collision(target_pos.with_y(target_pos.y + chest_height), radius, wall) {
                 collided_step = true;
                 collided = true;
                 target_pos += push;
@@ -133,10 +152,9 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
         || (pos_xz - edge_xz2).length() <= radius
 }
 
-pub fn check_cylinder_wall_collision(
+pub fn check_circle_tri_collision(
     pos: Vec3,
     radius: f32,
-    height: f32,
     wall: &Triangle,
 ) -> Option<Vec3> {
     // cylinder intersection with infinite plane
@@ -149,11 +167,8 @@ pub fn check_cylinder_wall_collision(
     let min_y = wall.verts[0].y.min(wall.verts[1].y).min(wall.verts[2].y);
     let max_y = wall.verts[0].y.max(wall.verts[1].y).max(wall.verts[2].y);
 
-    let bot = pos.y;
-    let top = pos.y + height;
-
-    // skip due to height
-    if top < min_y || bot > max_y {
+    // check if posy is within miny/maxy of triangle
+    if !(pos.y >= min_y) || !(pos.y <= max_y) {
         return None;
     }
 
