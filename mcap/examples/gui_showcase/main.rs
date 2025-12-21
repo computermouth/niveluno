@@ -11,7 +11,6 @@ mod ex5;
 mod ex6;
 mod ex7;
 mod ex8;
-mod ex9;
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -129,7 +128,7 @@ fn main() {
 
         let mut d = rl.begin_drawing(&thread);
 
-        const NUM_EXAMPLES: usize = 8;
+        const NUM_EXAMPLES: usize = 7;
         if change != 0 {
             if prev {
                 example_id = example_id.checked_sub(1).unwrap_or(NUM_EXAMPLES - 1);
@@ -145,7 +144,6 @@ fn main() {
                 5 => Box::new(ex6::State::new()),
                 6 => Box::new(ex7::State::new()),
                 7 => Box::new(ex8::State::new()),
-                8 => Box::new(ex9::State::new()),
                 _ => panic!(),
             };
 

@@ -65,7 +65,6 @@ pub struct StepResult {
     collisions: Vec<Surface>,
     // can't really do this, as we just get the 2d point
     collision_points: Vec<Vec3>,
-
 }
 
 // ground_step vs air_step?
@@ -100,7 +99,11 @@ pub fn get_step_push(
             Surface::Wall(w) => Some(w),
             _ => None,
         }) {
-            if let Some(push) = check_circle_tri_collision(target_pos.with_y(target_pos.y + chest_height), radius, wall) {
+            if let Some(push) = check_circle_tri_collision(
+                target_pos.with_y(target_pos.y + chest_height),
+                radius,
+                wall,
+            ) {
                 collided_step = true;
                 collided = true;
                 target_pos += push;
@@ -152,11 +155,7 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
         || (pos_xz - edge_xz2).length() <= radius
 }
 
-pub fn check_circle_tri_collision(
-    pos: Vec3,
-    radius: f32,
-    wall: &Triangle,
-) -> Option<Vec3> {
+pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Option<Vec3> {
     // cylinder intersection with infinite plane
     let offset = wall.normal.dot(pos) + wall.origin_offset;
     if offset.abs() >= radius {
