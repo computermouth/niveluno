@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 
-use crate::{Args, Example, Shape, ToVec3, at_origin};
-use mcap::flattened_cylinder_intersects_flattened_triangle;
+use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
+use mcap::{closest_point_on_segment, flattened_cylinder_intersects_flattened_triangle};
 use raylib::prelude::*;
 
 pub struct State {
@@ -78,6 +78,10 @@ impl Example for State {
         };
         out.push(res);
 
+        // closest blue point
+        let pos = closest_point_on_segment(pos.to_mcapv3(), arrow_start.to_mcapv3(), arrow_end.to_mcapv3()).to_rayv3();
+        out.push((Shape::Sphere { pos, radius }, Color::BLUE));
+
         // horizontal x path through center, should sometimes be solid
         let pos = Vector3::new(
             origin.x + 4. * ((args.time + PI * 1. / 3.).sin()) as f32,
@@ -102,6 +106,10 @@ impl Example for State {
         };
         out.push(res);
 
+        // closest ORANGE point
+        let pos = closest_point_on_segment(pos.to_mcapv3(), arrow_start.to_mcapv3(), arrow_end.to_mcapv3()).to_rayv3();
+        out.push((Shape::Sphere { pos, radius }, Color::ORANGE));
+
         // horizontal z path through center, should sometimes be solid
         let pos = Vector3::new(
             origin.x,
@@ -125,6 +133,10 @@ impl Example for State {
             ),
         };
         out.push(res);
+
+        // closest GREEN point
+        let pos = closest_point_on_segment(pos.to_mcapv3(), arrow_start.to_mcapv3(), arrow_end.to_mcapv3()).to_rayv3();
+        out.push((Shape::Sphere { pos, radius: radius / 2. }, Color::GREEN));
 
         out
     }

@@ -128,7 +128,7 @@ fn main() {
 
         let mut d = rl.begin_drawing(&thread);
 
-        const NUM_EXAMPLES: usize = 7;
+        const NUM_EXAMPLES: usize = 8;
         if change != 0 {
             if prev {
                 example_id = example_id.checked_sub(1).unwrap_or(NUM_EXAMPLES - 1);

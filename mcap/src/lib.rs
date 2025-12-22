@@ -122,7 +122,7 @@ pub fn get_step_push(
     }
 }
 
-fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+pub fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     let ab = b - a;
     let ap = p - a;
 

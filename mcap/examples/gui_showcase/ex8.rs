@@ -112,6 +112,16 @@ impl Example for State {
         // for updating 2d ui
         self.current_surf = surf;
 
+        // push normal arrow
+        let center = (tpos[0].to_mcapv3() + tpos[1].to_mcapv3() + tpos[2].to_mcapv3()) / 3.;
+        let norm = 
+            get_face_normal(
+                tpos[0].to_mcapv3(),
+                tpos[1].to_mcapv3(),
+                tpos[2].to_mcapv3(),
+            );
+        out.push((Shape::Arrow{start: center.to_rayv3(), end: (center + norm).to_rayv3(), radius: 0.1 }, Color::GRAY));
+
         out
     }
 
