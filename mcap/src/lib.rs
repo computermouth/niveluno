@@ -139,6 +139,8 @@ pub fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
 
 // flatten on y, if nearest point on edge_xz is within radius of pos_xz
 // (this would also be sphere_intersects_segment if we didn't flatten y)
+//
+// todo, also check with unflattened??
 pub fn flattened_cylinder_intersects_flattened_triangle(
     pos: Vec3,
     radius: f32,
@@ -181,4 +183,12 @@ pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Op
     let push = depth * offset.signum();
 
     Some(Vec3::new(wall.normal.x * push, 0., wall.normal.z * push))
+}
+
+pub fn solve_plane_y(normal: Vec3, origin_offset: f32, x: f32, z: f32) -> f32 {
+    //   Ax + By + Cz + D   = 0
+    //   Ax + Cz + D        = -By
+    //  (Ax + Cz + D) / B   = -y
+    // -(Ax + Cz + D) / B   = y
+    -(normal.x * x + normal.z * z + origin_offset) / normal.y
 }
