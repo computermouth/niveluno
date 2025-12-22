@@ -79,7 +79,12 @@ impl Example for State {
         out.push(res);
 
         // closest blue point
-        let pos = closest_point_on_segment(pos.to_mcapv3(), arrow_start.to_mcapv3(), arrow_end.to_mcapv3()).to_rayv3();
+        let pos = closest_point_on_segment(
+            pos.to_mcapv3(),
+            arrow_start.to_mcapv3(),
+            arrow_end.to_mcapv3(),
+        )
+        .to_rayv3();
         out.push((Shape::Sphere { pos, radius }, Color::BLUE));
 
         // horizontal x path through center, should sometimes be solid
@@ -107,7 +112,12 @@ impl Example for State {
         out.push(res);
 
         // closest ORANGE point
-        let pos = closest_point_on_segment(pos.to_mcapv3(), arrow_start.to_mcapv3(), arrow_end.to_mcapv3()).to_rayv3();
+        let pos = closest_point_on_segment(
+            pos.to_mcapv3(),
+            arrow_start.to_mcapv3(),
+            arrow_end.to_mcapv3(),
+        )
+        .to_rayv3();
         out.push((Shape::Sphere { pos, radius }, Color::ORANGE));
 
         // horizontal z path through center, should sometimes be solid
@@ -135,8 +145,19 @@ impl Example for State {
         out.push(res);
 
         // closest GREEN point
-        let pos = closest_point_on_segment(pos.to_mcapv3(), arrow_start.to_mcapv3(), arrow_end.to_mcapv3()).to_rayv3();
-        out.push((Shape::Sphere { pos, radius: radius / 2. }, Color::GREEN));
+        let pos = closest_point_on_segment(
+            pos.to_mcapv3(),
+            arrow_start.to_mcapv3(),
+            arrow_end.to_mcapv3(),
+        )
+        .to_rayv3();
+        out.push((
+            Shape::Sphere {
+                pos,
+                radius: radius / 2.,
+            },
+            Color::GREEN,
+        ));
 
         out
     }

@@ -146,6 +146,7 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
 ) -> bool {
     let pos_xz = pos.with_y(0.);
 
+    // could return immediately after each of these, if one is <= radius
     let edge_xz0 = closest_point_on_segment(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
     let edge_xz1 = closest_point_on_segment(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
     let edge_xz2 = closest_point_on_segment(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));

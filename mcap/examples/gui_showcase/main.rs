@@ -1,4 +1,4 @@
-use std::f32;
+use std::f32::{self, consts::PI};
 
 use mcap::{Surface, Vec3, check_circle_tri_collision};
 use raylib::prelude::*;
@@ -11,6 +11,7 @@ mod ex5;
 mod ex6;
 mod ex7;
 mod ex8;
+mod ex9;
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -58,6 +59,10 @@ enum Shape {
         radius: f32,
     },
     SphereWires {
+        pos: Vector3,
+        radius: f32,
+    },
+    Circle {
         pos: Vector3,
         radius: f32,
     },
@@ -128,7 +133,7 @@ fn main() {
 
         let mut d = rl.begin_drawing(&thread);
 
-        const NUM_EXAMPLES: usize = 8;
+        const NUM_EXAMPLES: usize = 9;
         if change != 0 {
             if prev {
                 example_id = example_id.checked_sub(1).unwrap_or(NUM_EXAMPLES - 1);
@@ -144,6 +149,7 @@ fn main() {
                 5 => Box::new(ex6::State::new()),
                 6 => Box::new(ex7::State::new()),
                 7 => Box::new(ex8::State::new()),
+                8 => Box::new(ex9::State::new()),
                 _ => panic!(),
             };
 
@@ -203,6 +209,9 @@ fn main() {
                     }
                     Shape::SphereWires { pos, radius } => {
                         d3d.draw_sphere_wires(pos, *radius, 7, 7, color);
+                    }
+                    Shape::Circle { pos, radius } => {
+                        d3d.draw_circle_3D(pos, *radius, Vector3::new(1., 0., 0.), 90., color);
                     }
                 }
             }
