@@ -131,7 +131,7 @@ impl Example for State {
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         let t: Vector3;
 
         let surf_str = match self.current_surf {

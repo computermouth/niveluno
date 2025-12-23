@@ -7,9 +7,6 @@ use raylib::prelude::*;
 pub struct State {
     cam_start_pos: Vector3,
     cam_start_tgt: Vector3,
-    start_pos: Vector3,
-    velocity: Vector3,
-    update_pos: Vector3,
 }
 
 impl State {
@@ -17,9 +14,6 @@ impl State {
         Self {
             cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
             cam_start_tgt: at_origin(Vector3::zero()),
-            start_pos: at_origin(Vector3::new(-3., 0., -3.)),
-            velocity: Vector3::new(5., 0., 5.),
-            update_pos: at_origin(Vector3::zero()),
         }
     }
 }
@@ -85,7 +79,13 @@ impl Example for State {
             arrow_end.to_mcapv3(),
         )
         .to_rayv3();
-        out.push((Shape::Sphere { pos, radius }, Color::BLUE));
+        out.push((
+            Shape::Sphere {
+                pos,
+                radius: radius / 2.,
+            },
+            Color::BLUE,
+        ));
 
         // horizontal x path through center, should sometimes be solid
         let pos = Vector3::new(
@@ -118,7 +118,13 @@ impl Example for State {
             arrow_end.to_mcapv3(),
         )
         .to_rayv3();
-        out.push((Shape::Sphere { pos, radius }, Color::ORANGE));
+        out.push((
+            Shape::Sphere {
+                pos,
+                radius: radius / 2.,
+            },
+            Color::ORANGE,
+        ));
 
         // horizontal z path through center, should sometimes be solid
         let pos = Vector3::new(
@@ -162,7 +168,7 @@ impl Example for State {
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 100, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 100, Color::BLUE);
         d.draw_text(&format!("6. Closest Point"), 20, 20, 20, Color::BLACK);

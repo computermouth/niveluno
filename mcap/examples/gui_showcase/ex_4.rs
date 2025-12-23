@@ -106,14 +106,15 @@ impl Example for State {
         let mut new_pos = self.start_pos;
 
         for i in 0..iterations {
-            let out_diff = get_step_push(new_pos.to_mcapv3(), v_chunk.to_mcapv3(), 1., 3., &surfs);
-
-            let diff = match out_diff {
-                Some(v) => v.to_rayv3(),
-                None => v_chunk,
-            };
-
-            new_pos += diff;
+            let res = get_step_push(
+                new_pos.to_mcapv3(),
+                v_chunk.to_mcapv3(),
+                1.,
+                3.,
+                0.4,
+                &surfs,
+            );
+            new_pos = res.final_pos.to_rayv3();
 
             // push wires at updated position
             out.push((

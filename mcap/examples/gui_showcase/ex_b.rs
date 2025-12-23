@@ -1,5 +1,5 @@
-use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, check_circle_tri_collision, get_face_normal};
+use crate::{Args, Example, Shape, ToVec3, at_origin};
+use mcap::{Surface, flattened_point_inside_flattened_triangle, get_face_normal};
 use raylib::prelude::*;
 
 pub struct State {
@@ -42,7 +42,7 @@ impl Example for State {
 
         let tpos = [
             at_origin(Vector3::zero()),
-            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::new(0., 3., 3.)),
             at_origin(Vector3::new(3., 0., 0.)),
         ];
 
@@ -51,7 +51,7 @@ impl Example for State {
         // push triangle at origin
         out.push((Shape::Triangle(tpos), Color::WHITE));
 
-        let surf1 = Surface::new(
+        let surf = Surface::new(
             [
                 tpos[0].to_mcapv3(),
                 tpos[1].to_mcapv3(),
@@ -64,22 +64,28 @@ impl Example for State {
             ),
         );
 
-        let w = match surf1 {
-            Surface::Wall(triangle) => triangle,
-            _ => panic!(),
+        let w = match surf {
+            Surface::Wall(w) => w,
+            Surface::Cieling(w) => w,
+            Surface::Floor(w) => w,
+            Surface::Slide(w) => w,
         };
-
         // vertical path
         let pos = Vector3::new(
             center.x,
             center.y + 4. * (args.time / 2.).sin() as f32,
             center.z,
         );
-        let circle = match check_circle_tri_collision(pos.to_mcapv3(), 1., &w) {
-            Some(_) => (Shape::Circle { pos, radius: 1. }, Color::RED),
-            None => (Shape::Circle { pos, radius: 1. }, Color::BLUE),
+        let sphere = match flattened_point_inside_flattened_triangle(
+            pos.to_mcapv3(),
+            w.verts()[0],
+            w.verts()[1],
+            w.verts()[2],
+        ) {
+            true => (Shape::Sphere { pos, radius: 0.5 }, Color::RED),
+            false => (Shape::SphereWires { pos, radius: 0.5 }, Color::BLUE),
         };
-        out.push(circle);
+        out.push(sphere);
 
         // horizontal x
         let pos = Vector3::new(
@@ -87,11 +93,16 @@ impl Example for State {
             center.y,
             center.z,
         );
-        let circle = match check_circle_tri_collision(pos.to_mcapv3(), 1., &w) {
-            Some(_) => (Shape::Circle { pos, radius: 1. }, Color::RED),
-            None => (Shape::Circle { pos, radius: 1. }, Color::ORANGE),
+        let sphere = match flattened_point_inside_flattened_triangle(
+            pos.to_mcapv3(),
+            w.verts()[0],
+            w.verts()[1],
+            w.verts()[2],
+        ) {
+            true => (Shape::Sphere { pos, radius: 0.5 }, Color::RED),
+            false => (Shape::SphereWires { pos, radius: 0.5 }, Color::ORANGE),
         };
-        out.push(circle);
+        out.push(sphere);
 
         // horizontal z
         let pos = Vector3::new(
@@ -99,20 +110,25 @@ impl Example for State {
             center.y,
             center.z + 4. * (((args.time / 2.) + PI * 2. / 3.).sin()) as f32,
         );
-        let circle = match check_circle_tri_collision(pos.to_mcapv3(), 1., &w) {
-            Some(_) => (Shape::Circle { pos, radius: 1. }, Color::RED),
-            None => (Shape::Circle { pos, radius: 1. }, Color::GREEN),
+        let sphere = match flattened_point_inside_flattened_triangle(
+            pos.to_mcapv3(),
+            w.verts()[0],
+            w.verts()[1],
+            w.verts()[2],
+        ) {
+            true => (Shape::Sphere { pos, radius: 0.5 }, Color::RED),
+            false => (Shape::SphereWires { pos, radius: 0.5 }, Color::GREEN),
         };
-        out.push(circle);
+        out.push(sphere);
 
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 140, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 140, Color::BLUE);
         d.draw_text(
-            &format!("1. Basic Wall Collision"),
+            &format!("B. Flattened Point Collision"),
             20,
             20,
             20,

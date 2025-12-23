@@ -1,5 +1,5 @@
-use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, check_circle_tri_collision, get_face_normal, solve_plane_y};
+use crate::{Args, Example, Shape, ToVec3, at_origin};
+use mcap::{Surface, check_circle_tri_collision, get_face_normal};
 use raylib::prelude::*;
 
 pub struct State {
@@ -42,14 +42,16 @@ impl Example for State {
 
         let tpos = [
             at_origin(Vector3::zero()),
-            at_origin(Vector3::new(0., 3., 3.)),
+            at_origin(Vector3::new(0., 3., 0.)),
             at_origin(Vector3::new(3., 0., 0.)),
         ];
+
+        let center = (tpos[0].to_mcapv3() + tpos[1].to_mcapv3() + tpos[2].to_mcapv3()) / 3.;
 
         // push triangle at origin
         out.push((Shape::Triangle(tpos), Color::WHITE));
 
-        let surf = Surface::new(
+        let surf1 = Surface::new(
             [
                 tpos[0].to_mcapv3(),
                 tpos[1].to_mcapv3(),
@@ -62,36 +64,55 @@ impl Example for State {
             ),
         );
 
-        let wall = match surf {
-            Surface::Wall(w) => w,
-            Surface::Cieling(w) => w,
-            Surface::Floor(w) => w,
-            Surface::Slide(w) => w,
+        let w = match surf1 {
+            Surface::Wall(triangle) => triangle,
+            _ => panic!(),
         };
 
-        let center = (tpos[0].to_mcapv3() + tpos[1].to_mcapv3() + tpos[2].to_mcapv3()) / 3.;
-        let height = solve_plane_y(wall.normal(), wall.offset(), center.x, center.z);
-        assert_eq!(height, center.y);
+        // vertical path
+        let pos = Vector3::new(
+            center.x,
+            center.y + 4. * (args.time / 2.).sin() as f32,
+            center.z,
+        );
+        let circle = match check_circle_tri_collision(pos.to_mcapv3(), 1., &w) {
+            Some(_) => (Shape::Circle { pos, radius: 1. }, Color::RED),
+            None => (Shape::Circle { pos, radius: 1. }, Color::BLUE),
+        };
+        out.push(circle);
 
-        let start = center + wall.normal();
+        // horizontal x
+        let pos = Vector3::new(
+            center.x + 4. * (((args.time / 2.) + PI * 1. / 3.).sin()) as f32,
+            center.y,
+            center.z,
+        );
+        let circle = match check_circle_tri_collision(pos.to_mcapv3(), 1., &w) {
+            Some(_) => (Shape::Circle { pos, radius: 1. }, Color::RED),
+            None => (Shape::Circle { pos, radius: 1. }, Color::ORANGE),
+        };
+        out.push(circle);
 
-        out.push((
-            Shape::Arrow {
-                start: start.to_rayv3(),
-                end: center.to_rayv3(),
-                radius: 0.1,
-            },
-            Color::RED,
-        ));
+        // horizontal z
+        let pos = Vector3::new(
+            center.x,
+            center.y,
+            center.z + 4. * (((args.time / 2.) + PI * 2. / 3.).sin()) as f32,
+        );
+        let circle = match check_circle_tri_collision(pos.to_mcapv3(), 1., &w) {
+            Some(_) => (Shape::Circle { pos, radius: 1. }, Color::RED),
+            None => (Shape::Circle { pos, radius: 1. }, Color::GREEN),
+        };
+        out.push(circle);
 
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 140, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 140, Color::BLUE);
         d.draw_text(
-            &format!("1. Basic Wall Collision"),
+            &format!("9. Circle Wall Collision"),
             20,
             20,
             20,

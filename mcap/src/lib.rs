@@ -11,8 +11,6 @@ pub struct Triangle {
 }
 
 const FLOOR_EPS: f32 = 0.01;
-// todo, make configurable
-const FLOOR_SNAP_HEIGHT: f32 = 0.4;
 
 impl Triangle {
     pub fn verts(&self) -> [Vec3; 3] {
@@ -61,10 +59,13 @@ pub fn get_face_normal(v1_pos: Vec3, v2_pos: Vec3, v3_pos: Vec3) -> Vec3 {
 }
 
 pub struct StepResult {
-    collided: bool,
-    collisions: Vec<Surface>,
-    // can't really do this, as we just get the 2d point
-    collision_points: Vec<Vec3>,
+    pub collided: bool,
+    pub collisions: Vec<Surface>,
+    pub collision_points: Vec<Vec3>,
+    pub final_pos: Vec3,
+    pub out_step: Vec3,
+    pub became_airborne: bool,
+    pub landed: bool,
 }
 
 // ground_step vs air_step?
@@ -81,44 +82,57 @@ pub fn get_step_push(
     step: Vec3,
     radius: f32,
     chest_height: f32,
+    floor_snap_dist: f32,
     surfaces: &[Surface],
-) -> Option<Vec3> {
+) -> StepResult {
     let mut target_pos = pos + step;
     let mut collided = false;
+    let mut step = step;
+    let mut airborne = false;
 
     // max wall checks, break on no collisionsb
     // todo, pass in max count, or make this a method on a
     // config object that has a member of max_hits
     //
-    // or check a 2d capsule to see where it intersects the triangle
+    // or check a 2d capsule (hotddog) to see where it intersects the triangle
     // and skip the stepping
     for _ in 0..4 {
-        let mut collided_step = false;
-
         for wall in surfaces.iter().filter_map(|s| match s {
             Surface::Wall(w) => Some(w),
             _ => None,
         }) {
+            // naive push, but maybe it should do the projection like with floor height below
             if let Some(push) = check_circle_tri_collision(
                 target_pos.with_y(target_pos.y + chest_height),
                 radius,
                 wall,
             ) {
-                collided_step = true;
                 collided = true;
                 target_pos += push;
             }
         }
 
-        // no collisions, skip other checks
-        if !collided_step {
+        if let Some((floor, y)) = find_floor_height(pos, floor_snap_dist, surfaces) {
+            target_pos.y = y;
+            step.y = 0.;
+            // project step onto floor normal
+            step -= floor.normal * step.dot(floor.normal);
+            continue;
+        } else {
+            // walked off ledge, become airborne
+            airborne = true;
             break;
         }
     }
 
-    match collided {
-        true => Some(target_pos - pos),
-        false => None,
+    StepResult {
+        collided: collided,
+        collisions: vec![],
+        collision_points: vec![],
+        final_pos: target_pos,
+        out_step: step,
+        became_airborne: airborne,
+        landed: false,
     }
 }
 
@@ -191,4 +205,64 @@ pub fn solve_plane_y(normal: Vec3, origin_offset: f32, x: f32, z: f32) -> f32 {
     //  (Ax + Cz + D) / B   = -y
     // -(Ax + Cz + D) / B   = y
     -(normal.x * x + normal.z * z + origin_offset) / normal.y
+}
+
+// pos here is the feet/bottom
+pub fn find_floor_height(
+    pos: Vec3,
+    floor_snap_dist: f32,
+    surfaces: &[Surface],
+) -> Option<(Triangle, f32)> {
+    let mut best_y = f32::NEG_INFINITY;
+    let mut best_tri = None;
+
+    for s in surfaces {
+        // all upward facing normals
+        let tri = match s {
+            Surface::Floor(t) | Surface::Slide(t) => t,
+            _ => continue,
+        };
+
+        // todo, could swap this with flattened_cylinder_intersects_flattened_triangle(very_small_radius)
+        // to ensure that we don't floating point raycast down between the seam of 2 neighboring triangles
+        if !flattened_point_inside_flattened_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2])
+        {
+            continue;
+        }
+
+        // get y at xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
+
+        // within floor snap range both below and above pos (bottom)
+        if (pos.y - floor_snap_dist..=pos.y + floor_snap_dist).contains(&y) && y > best_y {
+            best_y = y;
+            best_tri = Some(*tri);
+        }
+    }
+
+    if best_tri.is_some() {
+        Some((best_tri.unwrap(), best_y))
+    } else {
+        None
+    }
+}
+
+// raylib's function for - Check if point is inside a triangle defined by three points (p1, p2, p3)
+pub fn flattened_point_inside_flattened_triangle(
+    point: Vec3,
+    p1: Vec3,
+    p2: Vec3,
+    p3: Vec3,
+) -> bool {
+    let alpha = ((p2.z - p3.z) * (point.x - p3.x) + (p3.x - p2.x) * (point.z - p3.z))
+        / ((p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z));
+
+    let beta = ((p3.z - p1.z) * (point.x - p3.x) + (p1.x - p3.x) * (point.z - p3.z))
+        / ((p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z));
+
+    let gamma = 1. - alpha - beta;
+
+    let collision = (alpha > 0.) && (beta > 0.) && (gamma > 0.);
+
+    return collision;
 }

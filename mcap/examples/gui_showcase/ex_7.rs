@@ -1,12 +1,10 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, check_circle_tri_collision, get_face_normal};
+use mcap::{Surface, get_face_normal};
 use raylib::prelude::*;
 
 pub struct State {
     cam_start_pos: Vector3,
     cam_start_tgt: Vector3,
-    start_pos: Vector3,
-    update_pos: Vector3,
 }
 
 impl State {
@@ -14,8 +12,6 @@ impl State {
         Self {
             cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
             cam_start_tgt: at_origin(Vector3::zero()),
-            start_pos: at_origin(Vector3::zero()),
-            update_pos: at_origin(Vector3::zero()),
         }
     }
 }
@@ -29,7 +25,7 @@ impl Example for State {
         self.cam_start_tgt
     }
 
-    fn update(&mut self, args: Args) -> Vec<(Shape, Color)> {
+    fn update(&mut self, _args: Args) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
         out.push((
@@ -154,7 +150,7 @@ impl Example for State {
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 100, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 100, Color::BLUE);
         d.draw_text(

@@ -1,12 +1,11 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, check_circle_tri_collision, get_face_normal, get_step_push};
+use mcap::{Surface, get_face_normal, solve_plane_y};
 use raylib::prelude::*;
 
 pub struct State {
     cam_start_pos: Vector3,
     cam_start_tgt: Vector3,
     start_pos: Vector3,
-    velocity: Vector3,
     update_pos: Vector3,
 }
 
@@ -15,8 +14,7 @@ impl State {
         Self {
             cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
             cam_start_tgt: at_origin(Vector3::zero()),
-            start_pos: at_origin(Vector3::new(-2., 0., -2.)),
-            velocity: Vector3::new(3., 0., 3.),
+            start_pos: at_origin(Vector3::zero()),
             update_pos: at_origin(Vector3::zero()),
         }
     }
@@ -31,7 +29,7 @@ impl Example for State {
         self.cam_start_tgt
     }
 
-    fn update(&mut self, args: Args) -> Vec<(Shape, Color)> {
+    fn update(&mut self, _args: Args) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
         out.push((
@@ -42,23 +40,9 @@ impl Example for State {
             Color::GREEN,
         ));
 
-        *self = Self::new();
-
-        // blinking start position
-        if (args.time % 1.0) < 0.5 {
-            out.push((
-                Shape::Cylinder {
-                    pos: self.start_pos,
-                    height: 3.,
-                    radius: 1.,
-                },
-                Color::YELLOW,
-            ));
-        }
-
         let tpos = [
             at_origin(Vector3::zero()),
-            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::new(0., 3., 3.)),
             at_origin(Vector3::new(3., 0., 0.)),
         ];
 
@@ -78,78 +62,66 @@ impl Example for State {
             ),
         );
 
-        let iterations = 8;
-        let v_chunk = self.velocity.scale_by(1. / iterations as f32);
+        let wall = match surf {
+            Surface::Wall(w) => w,
+            Surface::Cieling(w) => w,
+            Surface::Floor(w) => w,
+            Surface::Slide(w) => w,
+        };
 
-        let mut new_pos = self.start_pos;
-
-        for i in 0..iterations {
-            let out_diff = get_step_push(new_pos.to_mcapv3(), v_chunk.to_mcapv3(), 1., 3., &[surf]);
-
-            let diff = match out_diff {
-                Some(v) => v.to_rayv3(),
-                None => v_chunk,
-            };
-
-            new_pos += diff;
-
-            // push wires at updated position
-            out.push((
-                Shape::CylinderWires {
-                    pos: new_pos,
-                    height: 3.,
-                    radius: 1.,
-                },
-                Color::YELLOW.lerp(Color::GREEN, i as f32 / iterations as f32),
-            ));
-        }
-
-        self.update_pos = new_pos;
-
-        // blinking final position
-        if (args.time % 1.0) > 0.5 {
-            out.push((
-                Shape::Cylinder {
-                    pos: self.update_pos,
-                    height: 3.,
-                    radius: 1.,
-                },
-                Color::GREEN,
-            ));
-        }
-
-        // push wires at original intended position
-        out.push((
-            Shape::CylinderWires {
-                pos: self.start_pos + self.velocity,
-                height: 3.,
-                radius: 1.,
-            },
-            Color::RED,
-        ));
-
+        let center = (tpos[0].to_mcapv3() + tpos[1].to_mcapv3() + tpos[2].to_mcapv3()) / 3.;
+        let height = solve_plane_y(wall.normal(), wall.offset(), center.x, center.z);
+        assert_eq!(height, center.y);
+        let start = center + wall.normal();
         out.push((
             Shape::Arrow {
-                start: self.start_pos,
-                end: self.start_pos + self.velocity,
+                start: start.to_rayv3(),
+                end: center.to_rayv3(),
                 radius: 0.1,
             },
             Color::RED,
         ));
 
+        let center = (tpos[0].to_mcapv3() + tpos[1].to_mcapv3() + tpos[2].to_mcapv3() * 3.) / 5.;
+        let start = center + wall.normal();
+        out.push((
+            Shape::Arrow {
+                start: start.to_rayv3(),
+                end: center.to_rayv3(),
+                radius: 0.1,
+            },
+            Color::GREEN,
+        ));
+
+        let center = (tpos[0].to_mcapv3() + tpos[1].to_mcapv3() * 3. + tpos[2].to_mcapv3()) / 5.;
+        let start = center + wall.normal();
+        out.push((
+            Shape::Arrow {
+                start: start.to_rayv3(),
+                end: center.to_rayv3(),
+                radius: 0.1,
+            },
+            Color::ORANGE,
+        ));
+
+        let center = (tpos[0].to_mcapv3() * 3. + tpos[1].to_mcapv3() + tpos[2].to_mcapv3()) / 5.;
+        let start = center + wall.normal();
+        out.push((
+            Shape::Arrow {
+                start: start.to_rayv3(),
+                end: center.to_rayv3(),
+                radius: 0.1,
+            },
+            Color::BLUE,
+        ));
+
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 140, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 140, Color::BLUE);
-        d.draw_text(
-            &format!("3. Stepped Wall Collision"),
-            20,
-            20,
-            20,
-            Color::BLACK,
-        );
+        d.draw_text(&format!("A. Solve For Y"), 20, 20, 20, Color::BLACK);
         d.draw_text(
             &format!(
                 "p1: {:.1} {:.1} {:.1}",
@@ -170,6 +142,7 @@ impl Example for State {
             20,
             Color::BLACK,
         );
+
         d.draw_text(&format!("(S)top (F)lip cam"), 20, 100, 20, Color::BLACK);
         d.draw_text(&format!("(N)ext (P)revious"), 20, 120, 20, Color::BLACK);
     }

@@ -1,18 +1,20 @@
-use std::f32::{self, consts::PI};
+use std::f32;
 
-use mcap::{Surface, Vec3, check_circle_tri_collision};
+use mcap::Vec3;
 use raylib::prelude::*;
 
-mod ex1;
-mod ex2;
-mod ex3;
-mod ex4;
-mod ex5;
-mod ex6;
-mod ex7;
-mod ex8;
-mod ex9;
-mod exA;
+mod ex_1;
+mod ex_2;
+mod ex_3;
+mod ex_4;
+mod ex_5;
+mod ex_6;
+mod ex_7;
+mod ex_8;
+mod ex_9;
+mod ex_a;
+mod ex_b;
+mod ex_c;
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -94,7 +96,7 @@ fn main() {
     );
 
     let mut example_id: usize = 0;
-    let mut example: Box<dyn Example> = Box::new(ex1::State::new());
+    let mut example: Box<dyn Example> = Box::new(ex_1::State::new());
 
     let mut cam_angle = Vector2::new(0., 0.);
 
@@ -134,7 +136,7 @@ fn main() {
 
         let mut d = rl.begin_drawing(&thread);
 
-        const NUM_EXAMPLES: usize = 0xA;
+        const NUM_EXAMPLES: usize = 0xC;
         if change != 0 {
             if prev {
                 example_id = example_id.checked_sub(1).unwrap_or(NUM_EXAMPLES - 1);
@@ -142,16 +144,18 @@ fn main() {
                 example_id = (example_id + 1) % NUM_EXAMPLES;
             }
             example = match example_id {
-                0 => Box::new(ex1::State::new()),
-                1 => Box::new(ex2::State::new()),
-                2 => Box::new(ex3::State::new()),
-                3 => Box::new(ex4::State::new()),
-                4 => Box::new(ex5::State::new()),
-                5 => Box::new(ex6::State::new()),
-                6 => Box::new(ex7::State::new()),
-                7 => Box::new(ex8::State::new()),
-                8 => Box::new(ex9::State::new()),
-                9 => Box::new(exA::State::new()),
+                0x0 => Box::new(ex_1::State::new()),
+                0x1 => Box::new(ex_2::State::new()),
+                0x2 => Box::new(ex_3::State::new()),
+                0x3 => Box::new(ex_4::State::new()),
+                0x4 => Box::new(ex_5::State::new()),
+                0x5 => Box::new(ex_6::State::new()),
+                0x6 => Box::new(ex_7::State::new()),
+                0x7 => Box::new(ex_8::State::new()),
+                0x8 => Box::new(ex_9::State::new()),
+                0x9 => Box::new(ex_a::State::new()),
+                0xA => Box::new(ex_b::State::new()),
+                0xB => Box::new(ex_c::State::new()),
                 _ => panic!(),
             };
 

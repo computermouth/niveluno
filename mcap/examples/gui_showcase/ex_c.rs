@@ -1,5 +1,5 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, check_circle_tri_collision, get_face_normal};
+use mcap::{Surface, check_circle_tri_collision, get_face_normal, solve_plane_y};
 use raylib::prelude::*;
 
 pub struct State {
@@ -12,7 +12,7 @@ pub struct State {
 impl State {
     pub fn new() -> Self {
         Self {
-            cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
+            cam_start_pos: at_origin(Vector3::new(0., 3., -5.)),
             cam_start_tgt: at_origin(Vector3::zero()),
             start_pos: at_origin(Vector3::zero()),
             update_pos: at_origin(Vector3::zero()),
@@ -40,25 +40,35 @@ impl Example for State {
             Color::GREEN,
         ));
 
-        // blinking start position
-        if (args.time % 1.0) < 0.5 {
-            out.push((
-                Shape::Cylinder {
-                    pos: self.start_pos,
-                    height: 3.,
-                    radius: 1.,
-                },
-                Color::YELLOW,
-            ));
-        }
-
+        // floor tri
         let tpos = [
-            at_origin(Vector3::zero()),
-            at_origin(Vector3::new(0., 3., 0.)),
+            at_origin(Vector3::new(0., 0., -5.)),
+            at_origin(Vector3::new(-3., 0., 0.)),
             at_origin(Vector3::new(3., 0., 0.)),
         ];
 
-        // push triangle at origin
+        let step = Vector3::new(0., 0., 5.);
+
+        out.push((Shape::Triangle(tpos), Color::WHITE));
+        // floor arrow
+        let start = tpos[0];
+        let end = start + step;
+        out.push((
+            Shape::Arrow {
+                start,
+                end,
+                radius: 0.2,
+            },
+            Color::RED,
+        ));
+
+        // sloped floor tri
+        let tpos = [
+            at_origin(Vector3::new(-3., 0., 0.)),
+            at_origin(Vector3::new(0., 2., 5.)),
+            at_origin(Vector3::new(3., 0., 0.)),
+        ];
+
         out.push((Shape::Triangle(tpos), Color::WHITE));
 
         let surf = Surface::new(
@@ -74,53 +84,35 @@ impl Example for State {
             ),
         );
 
-        let wall = match surf {
+        let w = match surf {
             Surface::Wall(w) => w,
-            _ => panic!(),
+            Surface::Cieling(w) => w,
+            Surface::Floor(w) => w,
+            Surface::Slide(w) => w,
         };
 
-        let push = check_circle_tri_collision(self.start_pos.to_mcapv3(), 1., &wall);
+        let step1 = Vector3::new(0., 0., 5.).to_mcapv3();
+        let mut step2 = step1;
+        step2 -= w.normal() * step1.dot(w.normal());
+        // eprintln!("step1: {:?} step2: {:?}", step1, step2);
 
-        match push {
-            None => panic!(),
-            Some(p) => {
-                self.update_pos = self.start_pos + p.to_rayv3();
-            }
-        }
-
-        // blinking final position
-        if (args.time % 1.0) > 0.5 {
-            out.push((
-                Shape::Cylinder {
-                    pos: self.update_pos,
-                    height: 3.,
-                    radius: 1.,
-                },
-                Color::GREEN,
-            ));
-        }
+        // sloped arrow
         out.push((
-            Shape::CylinderWires {
-                pos: self.update_pos,
-                height: 3.,
-                radius: 1.,
+            Shape::Arrow {
+                start: at_origin(Vector3::zero()),
+                end: at_origin(step2.to_rayv3()),
+                radius: 0.2,
             },
-            Color::GRAY,
+            Color::RED,
         ));
 
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 140, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 140, Color::BLUE);
-        d.draw_text(
-            &format!("1. Basic Wall Collision"),
-            20,
-            20,
-            20,
-            Color::BLACK,
-        );
+        d.draw_text(&format!("C. Project V on normal"), 20, 20, 20, Color::BLACK);
         d.draw_text(
             &format!(
                 "p1: {:.1} {:.1} {:.1}",

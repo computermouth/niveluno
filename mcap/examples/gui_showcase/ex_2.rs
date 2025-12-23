@@ -1,12 +1,11 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, get_face_normal, get_step_push};
+use mcap::{Surface, check_circle_tri_collision, get_face_normal};
 use raylib::prelude::*;
 
 pub struct State {
     cam_start_pos: Vector3,
     cam_start_tgt: Vector3,
     start_pos: Vector3,
-    velocity: Vector3,
     update_pos: Vector3,
 }
 
@@ -15,8 +14,7 @@ impl State {
         Self {
             cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
             cam_start_tgt: at_origin(Vector3::zero()),
-            start_pos: at_origin(Vector3::new(-3., 0., -3.)),
-            velocity: Vector3::new(5., 0., 5.9),
+            start_pos: at_origin(Vector3::zero()),
             update_pos: at_origin(Vector3::zero()),
         }
     }
@@ -63,7 +61,7 @@ impl Example for State {
         ];
 
         let tpos2 = [
-            at_origin(Vector3::new(0., 0., 3.)),
+            at_origin(Vector3::new(-1., 0., -3.)),
             at_origin(Vector3::new(0., 3., 0.)),
             at_origin(Vector3::zero()),
         ];
@@ -98,31 +96,36 @@ impl Example for State {
             ),
         );
 
-        let surfs = [surf1, surf2];
+        let wall1 = match surf1 {
+            Surface::Wall(w) => w,
+            _ => panic!(),
+        };
 
-        let iterations = 8;
-        let v_chunk = self.velocity.scale_by(1. / iterations as f32);
+        let wall2 = match surf2 {
+            Surface::Wall(w) => w,
+            _ => panic!(),
+        };
+
+        let walls = [wall1, wall2];
 
         let mut new_pos = self.start_pos;
+        for wall in walls {
+            let push = check_circle_tri_collision(self.start_pos.to_mcapv3(), 1., &wall);
 
-        for i in 0..iterations {
-            let out_diff = get_step_push(new_pos.to_mcapv3(), v_chunk.to_mcapv3(), 1., 3., &surfs);
+            match push {
+                None => panic!(),
+                Some(p) => {
+                    new_pos += p.to_rayv3();
+                }
+            }
 
-            let diff = match out_diff {
-                Some(v) => v.to_rayv3(),
-                None => v_chunk,
-            };
-
-            new_pos += diff;
-
-            // push wires at updated position
             out.push((
                 Shape::CylinderWires {
                     pos: new_pos,
                     height: 3.,
                     radius: 1.,
                 },
-                Color::YELLOW.lerp(Color::GREEN, i as f32 / iterations as f32),
+                Color::GRAY,
             ));
         }
 
@@ -140,33 +143,14 @@ impl Example for State {
             ));
         }
 
-        // push wires at original intended position
-        out.push((
-            Shape::CylinderWires {
-                pos: self.start_pos + self.velocity,
-                height: 3.,
-                radius: 1.,
-            },
-            Color::RED,
-        ));
-
-        out.push((
-            Shape::Arrow {
-                start: self.start_pos,
-                end: self.start_pos + self.velocity,
-                radius: 0.1,
-            },
-            Color::RED,
-        ));
-
         out
     }
 
-    fn draw_2d(&mut self, args: Args, mut d: RaylibDrawHandle<'_>) {
+    fn draw_2d(&mut self, _args: Args, mut d: RaylibDrawHandle<'_>) {
         d.draw_rectangle(10, 10, 300, 140, Color::SKYBLUE);
         d.draw_rectangle_lines(10, 10, 300, 140, Color::BLUE);
         d.draw_text(
-            &format!("5. Convex Stepped Corner"),
+            &format!("2. Corner Wall Collision"),
             20,
             20,
             20,
