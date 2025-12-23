@@ -14,7 +14,7 @@ impl State {
         Self {
             cam_start_pos: at_origin(Vector3::new(0., 5., -5.)),
             cam_start_tgt: at_origin(Vector3::zero()),
-            start_pos: at_origin(Vector3::zero()),
+            start_pos: at_origin(Vector3::new(0., 0., 0.)),
             update_pos: at_origin(Vector3::zero()),
         }
     }
@@ -110,7 +110,7 @@ impl Example for State {
 
         let mut new_pos = self.start_pos;
         for wall in walls {
-            let push = check_circle_tri_collision(self.start_pos.to_mcapv3(), 1., &wall);
+            let push = check_circle_tri_collision(new_pos.to_mcapv3(), 1., &wall);
 
             match push {
                 None => panic!(),

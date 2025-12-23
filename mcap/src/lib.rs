@@ -155,6 +155,7 @@ pub fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
 // (this would also be sphere_intersects_segment if we didn't flatten y)
 //
 // todo, also check with unflattened??
+// todo, replace with raylib's -- CheckCollisionCircleLine * 3??
 pub fn flattened_cylinder_intersects_flattened_triangle(
     pos: Vec3,
     radius: f32,
