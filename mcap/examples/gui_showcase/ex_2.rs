@@ -131,17 +131,50 @@ impl Example for State {
 
         self.update_pos = new_pos;
 
-        // blinking final position
-        if (args.time % 1.0) > 0.5 {
+        // solid final position
+        out.push((
+            Shape::CylinderWires {
+                pos: self.update_pos,
+                height: 3.,
+                radius: 1.,
+            },
+            Color::GREEN,
+        ));
+
+        let walls = [wall2, wall1];
+
+        let mut new_pos = self.start_pos;
+        for wall in walls {
+            let push = check_circle_tri_collision(new_pos.to_mcapv3(), 1., &wall);
+
+            match push {
+                None => panic!(),
+                Some(p) => {
+                    new_pos += p.to_rayv3();
+                }
+            }
+
             out.push((
-                Shape::Cylinder {
-                    pos: self.update_pos,
+                Shape::CylinderWires {
+                    pos: new_pos,
                     height: 3.,
                     radius: 1.,
                 },
-                Color::GREEN,
+                Color::GRAY,
             ));
         }
+
+        self.update_pos = new_pos;
+
+        // solid final pos
+        out.push((
+            Shape::CylinderWires {
+                pos: self.update_pos,
+                height: 3.,
+                radius: 1.,
+            },
+            Color::ORANGE,
+        ));
 
         out
     }
