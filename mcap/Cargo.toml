@@ -8,3 +8,4 @@ glam = "0.30.9"
 
 [dev-dependencies]
 raylib = "5.5.1"
+modelz = "0.1.5"

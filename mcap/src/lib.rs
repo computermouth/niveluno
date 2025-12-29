@@ -1,5 +1,4 @@
-use core::f32;
-use std::f32::{INFINITY, NEG_INFINITY};
+use core::f32::{INFINITY, NEG_INFINITY};
 
 pub use glam::Vec3;
 
@@ -97,6 +96,7 @@ pub fn get_step_push(
     // or check a 2d capsule (hotddog) to see where it intersects the triangle
     // and skip the stepping
     for _ in 0..4 {
+        let mut collided_this_step = false;
         for wall in surfaces.iter().filter_map(|s| match s {
             Surface::Wall(w) => Some(w),
             _ => None,
@@ -108,19 +108,24 @@ pub fn get_step_push(
                 wall,
             ) {
                 collided = true;
+                collided_this_step = true;
                 target_pos += push;
             }
         }
 
-        if let Some((floor, y)) = find_floor_height(pos, floor_snap_dist, surfaces) {
+        if let Some((floor, y)) = find_floor_height(target_pos, floor_snap_dist, surfaces) {
             target_pos.y = y;
             step.y = 0.;
             // project step onto floor normal
             step -= floor.normal * step.dot(floor.normal);
-            continue;
         } else {
             // walked off ledge, become airborne
             airborne = true;
+            break;
+        }
+
+        // we didn't collide with anything
+        if !collided_this_step {
             break;
         }
     }
@@ -174,6 +179,14 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
 }
 
 pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Option<Vec3> {
+
+    // // check if pos is in the direction of the wall's normal
+    // let t1 = wall.verts()[0];
+    // let v = pos - t1;
+    // if v.dot(wall.normal) < 0. {
+    //     return None
+    // }
+
     // cylinder intersection with infinite plane
     let offset = wall.normal.dot(pos) + wall.origin_offset;
     if offset.abs() >= radius {

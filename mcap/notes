@@ -1,0 +1,134 @@
+pub fn air_step(
+    pos: &mut Vec3,
+    vel: &mut Vec3,
+    surfaces: &[Surface],
+) {
+    let step = *vel * 0.25;
+
+    for _ in 0..4 {
+        *pos += step;
+
+        // resolve walls iteratively
+        for _ in 0..4 {
+            if !check_wall_collisions(pos, surfaces) {
+                break;
+            }
+        }
+
+        // floor
+        if let Some((floor_y, _)) = find_floor_height(*pos, surfaces) {
+            if pos.y < floor_y {
+                pos.y = floor_y;
+                vel.y = 0.0;
+                return; // landed
+            }
+        }
+
+        // ceiling
+        if let Some((ceil_y, _)) = find_ceiling_height(*pos, surfaces) {
+            if pos.y + MARIO_TOP > ceil_y {
+                pos.y = ceil_y - MARIO_TOP;
+                if vel.y > 0.0 {
+                    vel.y = 0.0;
+                }
+            }
+        }
+    }
+}
+
+
+
+pub fn ground_step(
+    pos: &mut Vec3,
+    vel: &mut Vec3,
+    surfaces: &[Surface],
+) {
+    let step = Vec3::new(vel.x, 0.0, vel.z) * 0.25;
+
+    for _ in 0..4 {
+        *pos += step;
+
+        for _ in 0..4 {
+            if !check_wall_collisions(pos, surfaces) {
+                break;
+            }
+        }
+
+        if let Some((floor_y, floor_idx)) = find_floor_height(*pos, surfaces) {
+            pos.y = floor_y;
+            vel.y = 0.0;
+            // project step onto floor normal
+        } else {
+            // walked off ledge, become airborne
+            return;
+        }
+    }
+}
+
+
+
+
+    // if let Some((floor, y)) = find_floor_height(pos, surfaces) {
+    //     pos.y = y;
+    //     step.y = 0.;
+    //     step -= floor.normal * step.dot(floor.normal);
+    //     // project step onto floor normal
+    // } else {
+    //     // walked off ledge, become airborne
+    //     return None;
+    // }
+    
+pub fn find_floor_height(pos: Vec3, surfaces: &[Surface]) -> Option<(Triangle, f32)> {
+    let mut best_y = f32::NEG_INFINITY;
+    let mut best_idx = None;
+
+    for s in surfaces {
+        // all upward facing normals
+        let tri = match s {
+            Surface::Floor(t) | Surface::Slide(t) => t,
+            _ => continue,
+        };
+
+        if !check_collision_point_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2]) {
+            continue;
+        }
+
+        // get y at xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
+
+        // within floor snap range both below and above pos (bottom)
+        // todo, parameterize snap height
+        if (pos.y - FLOOR_SNAP_HEIGHT..=pos.y + FLOOR_SNAP_HEIGHT).contains(&y) && y > best_y {
+            best_y = y;
+            best_idx = Some(*tri);
+        }
+    }
+
+    if best_idx.is_some() {
+        Some((best_idx.unwrap(), best_y))
+    } else {
+        None
+    }
+}
+
+fn solve_plane_y(normal: Vec3, origin_offset: f32, x: f32, z: f32) -> f32 {
+    // Ax + By + Cz + D = 0
+    // y = -(Ax + Cz + D) / B
+    todo!("testme");
+    -(normal.x * x + normal.z * z + origin_offset) / normal.y
+}
+
+// raylib's function for - Check if point is inside a triangle defined by three points (p1, p2, p3)
+fn check_collision_point_triangle(point: Vec3, p1: Vec3, p2: Vec3, p3: Vec3) -> bool {
+    let alpha = ((p2.z - p3.z) * (point.x - p3.x) + (p3.x - p2.x) * (point.z - p3.z))
+        / ((p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z));
+
+    let beta = ((p3.z - p1.z) * (point.x - p3.x) + (p1.x - p3.x) * (point.z - p3.z))
+        / ((p2.z - p3.z) * (p1.x - p3.x) + (p3.x - p2.x) * (p1.z - p3.z));
+
+    let gamma = 1. - alpha - beta;
+
+    let collision = (alpha > 0.) && (beta > 0.) && (gamma > 0.);
+
+    return collision;
+}
