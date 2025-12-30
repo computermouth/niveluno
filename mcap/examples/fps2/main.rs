@@ -112,8 +112,10 @@ fn main() {
         let move_speed = 10.0;
         let movement = (forward_dir * ws + right_dir * ad) * move_speed * fd;
 
-        let tic = movement / 8.;
-        for _ in 0..8 {
+        let iterations = 8;
+
+        let tic = movement / iterations as f32;
+        for _ in 0..iterations {
             let res = get_step_push(
                 player.pos.to_mcapv3(),
                 tic.to_mcapv3(),
