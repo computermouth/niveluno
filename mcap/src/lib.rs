@@ -97,6 +97,9 @@ pub fn get_step_push(
     // or check a 2d capsule (hotddog) to see where it intersects the triangle
     // and skip the stepping
     for _ in 0..4 {
+
+        let mut collided_this_iteration = false;
+
         for wall in surfaces.iter().filter_map(|s| match s {
             Surface::Wall(w) => Some(w),
             _ => None,
@@ -108,21 +111,26 @@ pub fn get_step_push(
                 wall,
             ) {
                 collided = true;
+                collided_this_iteration = true;
                 target_pos += push;
                 continue;
             }
         }
-        break;
-    }
 
-    if let Some((floor, y)) = find_floor_height(target_pos, floor_snap_dist, surfaces) {
-        target_pos.y = y;
-        step.y = 0.;
-        // project step onto floor normal
-        step -= floor.normal * step.dot(floor.normal);
-    } else {
-        // walked off ledge, become airborne
-        airborne = true;
+        if let Some((floor, y)) = find_floor_height(target_pos, floor_snap_dist, surfaces) {
+            target_pos.y = y;
+            step.y = 0.;
+            // project step onto floor normal
+            step -= floor.normal * step.dot(floor.normal);
+        } else {
+            // walked off ledge, become airborne
+            airborne = true;
+            break;
+        }
+
+        if !collided_this_iteration {
+            break;
+        }
     }
 
     StepResult {
@@ -197,11 +205,11 @@ pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Op
         return None;
     }
     
-    // // skip due to distance to segments
-    // // this has an issue with colliding with 2 walls
-    // if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
-    //     return None;
-    // }
+    // skip due to distance to segments
+    // this has an issue with colliding with 2 walls
+    if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
+        return None;
+    }
 
     // // adding a skin to the above helps a little bit with
     // // the corner bumping, but it's not a solution
@@ -209,43 +217,53 @@ pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Op
 
     // ========================================================================================
 
-    // sm64 wall check, I don't really understand how it works,
-    // it also seems to have a problem with walking through corners
-    let (px, py, pz) = (pos.x, pos.y, pos.z);
+    // the above should be fine if we located the nearest collision
+    //   - if there are 2 matches, find the one which has a normal least similar to current direction
+    // for 0..4 {
+    //   1. loop over all walls
+    //   2. store nearest with tiebreaker on normal
+    //   3. process the push of the chosen collision
+    //   4. maybe increase iter count
+    // }
 
-    let use_x_projection = wall.normal.x.abs() > wall.normal.z.abs();
-    if use_x_projection {
-        // project on yz
-        let (w1, w2, w3) = (-wall.verts[0].z, -wall.verts[1].z, -wall.verts[2].z);
-        let (y1, y2, y3) = (wall.verts[0].y, wall.verts[1].y, wall.verts[2].y);
+    // ========================================================================================
 
-        if wall.normal.x > 0.0 {
-            if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) > 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) > 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) > 0.0 { return None; }
-        } else {
-            if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) < 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) < 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) < 0.0 { return None; }
-        }
-    } else {
-        // porject on xy
-        let (w1, w2, w3) = (wall.verts[0].x, wall.verts[1].x, wall.verts[2].x);
-        let (y1, y2, y3) = (wall.verts[0].y, wall.verts[1].y, wall.verts[2].y);
+    // // sm64 wall check, I don't really understand how it works,
+    // // it also seems to have a problem with walking through corners
+    // let (px, py, pz) = (pos.x, pos.y, pos.z);
 
-        if wall.normal.z > 0.0 {
-            if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) > 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) > 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) > 0.0 { return None; }
-        } else {
-            if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) < 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) < 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) < 0.0 { return None; }
-        }
-    }
+    // let use_x_projection = wall.normal.x.abs() > wall.normal.z.abs();
+    // if use_x_projection {
+    //     // project on yz
+    //     let (w1, w2, w3) = (-wall.verts[0].z, -wall.verts[1].z, -wall.verts[2].z);
+    //     let (y1, y2, y3) = (wall.verts[0].y, wall.verts[1].y, wall.verts[2].y);
 
-    let push = (radius - offset) + 0.01;
-    eprintln!("push: {}", push);
+    //     if wall.normal.x > 0.0 {
+    //         if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) > 0.0 { return None; }
+    //         if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) > 0.0 { return None; }
+    //         if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) > 0.0 { return None; }
+    //     } else {
+    //         if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) < 0.0 { return None; }
+    //         if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) < 0.0 { return None; }
+    //         if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) < 0.0 { return None; }
+    //     }
+    // } else {
+    //     // porject on xy
+    //     let (w1, w2, w3) = (wall.verts[0].x, wall.verts[1].x, wall.verts[2].x);
+    //     let (y1, y2, y3) = (wall.verts[0].y, wall.verts[1].y, wall.verts[2].y);
+
+    //     if wall.normal.z > 0.0 {
+    //         if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) > 0.0 { return None; }
+    //         if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) > 0.0 { return None; }
+    //         if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) > 0.0 { return None; }
+    //     } else {
+    //         if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) < 0.0 { return None; }
+    //         if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) < 0.0 { return None; }
+    //         if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) < 0.0 { return None; }
+    //     }
+    // }
+
+    let push = radius - offset;
 
     Some(Vec3::new(wall.normal.x * push, 0., wall.normal.z * push))
 }
