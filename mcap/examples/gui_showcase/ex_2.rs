@@ -114,7 +114,7 @@ impl Example for State {
 
             match push {
                 None => panic!(),
-                Some(p) => {
+                Some((p, _)) => {
                     new_pos += p.to_rayv3();
                 }
             }
@@ -149,7 +149,7 @@ impl Example for State {
 
             match push {
                 None => panic!(),
-                Some(p) => {
+                Some((p, _)) => {
                     new_pos += p.to_rayv3();
                 }
             }

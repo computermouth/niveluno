@@ -1,4 +1,4 @@
-use mcap::{Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_most_opposing};
+use mcap::{Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing};
 use modelz;
 use raylib::prelude::*;
 
@@ -78,6 +78,8 @@ fn main() {
     let mut total = 0.;
     let mut fc: f32 = 0.;
 
+    let mut findex = 0;
+
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
         let time = rl.get_time();
@@ -114,9 +116,21 @@ fn main() {
 
         let iterations = 8;
 
+        #[derive(Debug)]
+        enum CollFunc {
+            GetStepPushM64,
+            GetStepPush,
+            GetStepPushMostOpposing,
+        }
+        if rl.is_key_pressed(KeyboardKey::KEY_N) {
+            findex = (findex + 1) % 3;
+        }
+        let coll_func = vec![get_step_push_m64, get_step_push, get_step_push_most_opposing][findex];
+        let coll_func_debug = &vec![CollFunc::GetStepPushM64, CollFunc::GetStepPush, CollFunc::GetStepPushMostOpposing][findex];
+
         let tic = movement / iterations as f32;
         for _ in 0..iterations {
-            let res = get_step_push_most_opposing(
+            let res = coll_func(
                 player.pos.to_mcapv3(),
                 tic.to_mcapv3(),
                 player.radius,
@@ -206,6 +220,7 @@ fn main() {
             );
             d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
             d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
+            d.draw_text(&format!("func: {:?}", coll_func_debug), 20, 100, 20, Color::WHITE);
         }
     }
 }

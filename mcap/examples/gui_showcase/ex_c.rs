@@ -92,8 +92,7 @@ impl Example for State {
         };
 
         let step1 = Vector3::new(0., 0., 5.).to_mcapv3();
-        let mut step2 = step1;
-        step2 -= w.normal() * step1.dot(w.normal());
+        let step2 = step1 - (w.normal() * step1.dot(w.normal()));
         // eprintln!("step1: {:?} step2: {:?}", step1, step2);
 
         // sloped arrow

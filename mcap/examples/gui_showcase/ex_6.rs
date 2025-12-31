@@ -64,8 +64,8 @@ impl Example for State {
                 arrow_end.to_mcapv3(),
             ],
         ) {
-            true => (Shape::Sphere { pos, radius }, Color::BLUE),
-            false => (
+            Some(_) => (Shape::Sphere { pos, radius }, Color::BLUE),
+            None => (
                 Shape::SphereWires { pos, radius },
                 Color::BLUE.lerp(Color::GRAY, 0.5),
             ),
@@ -103,8 +103,8 @@ impl Example for State {
                 arrow_end.to_mcapv3(),
             ],
         ) {
-            true => (Shape::Sphere { pos, radius }, Color::ORANGE),
-            false => (
+            Some(_) => (Shape::Sphere { pos, radius }, Color::ORANGE),
+            None => (
                 Shape::SphereWires { pos, radius },
                 Color::ORANGE.lerp(Color::GRAY, 0.5),
             ),
@@ -142,8 +142,8 @@ impl Example for State {
                 arrow_end.to_mcapv3(),
             ],
         ) {
-            true => (Shape::Sphere { pos, radius }, Color::GREEN),
-            false => (
+            Some(_) => (Shape::Sphere { pos, radius }, Color::GREEN),
+            None => (
                 Shape::SphereWires { pos, radius },
                 Color::GREEN.lerp(Color::GRAY, 0.5),
             ),
