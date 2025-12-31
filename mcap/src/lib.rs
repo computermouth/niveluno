@@ -68,6 +68,88 @@ pub struct StepResult {
     pub landed: bool,
 }
 
+pub fn get_step_push_most_opposing(
+    // pos is feet position
+    pos: Vec3,
+    step: Vec3,
+    radius: f32,
+    chest_height: f32,
+    floor_snap_dist: f32,
+    surfaces: &[Surface],
+) -> StepResult {
+    let mut target_pos = pos + step;
+    let mut collided = false;
+    let mut step = step;
+    let mut airborne = false;
+
+    // max wall checks, break on no collisionsb
+    // todo, pass in max count, or make this a method on a
+    // config object that has a member of max_hits
+    //
+    // or check a 2d capsule (hotddog) to see where it intersects the triangle
+    // and skip the stepping
+    for _ in 0..4 {
+        let mut collision: Option<(Vec3, Triangle, Vec3)> = None;
+        let mut collided_this_iteration = false;
+
+        for wall in surfaces.iter().filter_map(|s| match s {
+            Surface::Wall(w) => Some(w),
+            _ => None,
+        }) {
+            // naive push, but maybe it should do the projection like with floor height below
+            if let Some((push, point)) = check_circle_tri_collision(
+                target_pos.with_y(target_pos.y + chest_height),
+                radius,
+                wall,
+            ) {
+                collided = true;
+                collided_this_iteration = true;
+
+                if let Some((old_push, old_wall, old_point)) = collision {
+                    let old_dot = step.dot(old_wall.normal);
+                    let new_dot = step.dot(wall.normal);
+                    
+                    // heading more into new wall
+                    if new_dot < old_dot {
+                        collision = Some((push, *wall, point));
+                    }
+                } else {
+                    collision = Some((push, *wall, point))
+                }
+            }
+        }
+        
+        if let Some((push, wall, point)) = collision {
+            target_pos += push;
+        }
+
+        if let Some((floor, y)) = find_floor_height(target_pos, floor_snap_dist, surfaces) {
+            target_pos.y = y;
+            step.y = 0.;
+            // project step onto floor normal
+            step -= floor.normal * step.dot(floor.normal);
+        } else {
+            // walked off ledge, become airborne
+            airborne = true;
+            break;
+        }
+
+        if !collided_this_iteration {
+            break;
+        }
+    }
+
+    StepResult {
+        collided: collided,
+        collisions: vec![],
+        collision_points: vec![],
+        final_pos: target_pos,
+        out_step: step,
+        became_airborne: airborne,
+        landed: false,
+    }
+}
+
 // ground_step vs air_step?
 // todo, add some kind of event pump to return?
 //
@@ -105,7 +187,7 @@ pub fn get_step_push(
             _ => None,
         }) {
             // naive push, but maybe it should do the projection like with floor height below
-            if let Some(push) = check_circle_tri_collision(
+            if let Some((push, _)) = check_circle_tri_collision(
                 target_pos.with_y(target_pos.y + chest_height),
                 radius,
                 wall,
@@ -168,20 +250,27 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
     pos: Vec3,
     radius: f32,
     tri: &[Vec3; 3],
-) -> bool {
+) -> Option<Vec3> {
     let pos_xz = pos.with_y(0.);
 
     // could return immediately after each of these, if one is <= radius
     let edge_xz0 = closest_point_on_segment(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
+    if (pos_xz - edge_xz0).length() <= radius {
+        return Some(edge_xz0);
+    }
     let edge_xz1 = closest_point_on_segment(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
+    if (pos_xz - edge_xz1).length() <= radius {
+        return Some(edge_xz1);
+    }
     let edge_xz2 = closest_point_on_segment(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));
+    if (pos_xz - edge_xz2).length() <= radius {
+        return Some(edge_xz2);
+    }
 
-    (pos_xz - edge_xz0).length() <= radius
-        || (pos_xz - edge_xz1).length() <= radius
-        || (pos_xz - edge_xz2).length() <= radius
+    None
 }
 
-pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Option<Vec3> {
+pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Option<(Vec3, Vec3)> {
 
     // check if pos is in the direction of the wall's normal
     let t1 = wall.verts()[0];
@@ -204,12 +293,20 @@ pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Op
     if !(min_y..=max_y).contains(&pos.y) {
         return None;
     }
-    
-    // skip due to distance to segments
-    // this has an issue with colliding with 2 walls
-    if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
-        return None;
+
+    if let Some(point) = flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
+        let push = radius - offset;
+
+        Some((Vec3::new(wall.normal.x * push, 0., wall.normal.z * push), point))
+    } else {
+        None
     }
+    
+    // // skip due to distance to segments
+    // // this has an issue with colliding with 2 walls
+    // if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
+    //     return None;
+    // }
 
     // // adding a skin to the above helps a little bit with
     // // the corner bumping, but it's not a solution
@@ -263,9 +360,9 @@ pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Op
     //     }
     // }
 
-    let push = radius - offset;
+    // let push = radius - offset;
 
-    Some(Vec3::new(wall.normal.x * push, 0., wall.normal.z * push))
+    // Some(Vec3::new(wall.normal.x * push, 0., wall.normal.z * push))
 }
 
 pub fn solve_plane_y(normal: Vec3, origin_offset: f32, x: f32, z: f32) -> f32 {
