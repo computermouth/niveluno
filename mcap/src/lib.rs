@@ -345,6 +345,50 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
     None
 }
 
+// find collision, and return nearest xz point
+pub fn circle_wall_for_hotdog(
+    pos: Vec3,
+    radius: f32,
+    tri: &[Vec3; 3],
+) -> Option<Vec3> {
+    let pos_xz = pos.with_y(0.);
+
+    let edge_xz0 = closest_point_on_segment(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
+    let edge_xz1 = closest_point_on_segment(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
+    let edge_xz2 = closest_point_on_segment(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));
+
+    let d0 = (pos_xz - edge_xz0).length();
+    let d1 = (pos_xz - edge_xz1).length();
+    let d2 = (pos_xz - edge_xz2).length();
+
+    let nearest = d0.min(d1.min(d2));
+    // too far, skip
+    if nearest > radius {
+        return None;
+    }
+    // correlate to the hit
+    if nearest == d0 {
+        return Some(edge_xz0)
+    } else if nearest == d1 {
+        return Some(edge_xz1)
+    } else if nearest == d2 {
+        return Some(edge_xz2)
+    }
+
+    None
+}
+
+// find collision of a rect with each triangle edge
+// and return nearest xz point inside rect
+pub fn rect_wall_for_hotdog(
+    src: Vec3,
+    dst: Vec3,
+    radius: f32,
+    tri: &[Vec3; 3],
+) -> Option<Vec3> {
+    todo!()
+}
+
 pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Option<(Vec3, Vec3)> {
 
     // check if pos is in the direction of the wall's normal

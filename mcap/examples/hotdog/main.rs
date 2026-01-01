@@ -1,4 +1,6 @@
-use mcap::{Surface, Triangle, Vec3, get_face_normal, get_step_push};
+use ::core::f32;
+
+use mcap::{Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment, get_face_normal, get_step_push, rect_wall_for_hotdog};
 use modelz;
 use raylib::prelude::*;
 
@@ -23,13 +25,56 @@ impl ToVector3 for Vec3 {
 }
 
 struct HotDogResult {
-    out_pos: Vector3,
-    collisions: Vec<Vector3>,
-    rect_bounds: Vec<(Vector3, Vector3)>
+    out_pos: Vec3,
+    collisions: Vec<Vec3>,
 }
 
-fn hotdog(){
+fn hotdog(src: Vec3, dst: Vec3, radius: f32, triangles: &Vec<[Vec3;3]>) -> Option<HotDogResult> {
+    
+    let mut nearest = Vec3::splat(f32::INFINITY);
+    let collisions = vec![];
 
+    let src_xz = src.with_y(0.);
+    let dst_xz = dst.with_y(0.);
+
+    for tri in triangles {
+        // each one of these early-continues on a find,
+        // because the next shape will only be farther or overlap
+
+        // inside src circle
+        if let Some(new) = circle_wall_for_hotdog(src_xz, radius, tri) {
+            if src_xz.distance(nearest) > src_xz.distance(new) {
+                nearest = new;
+                continue;
+            }
+        }
+
+        // // inside joining rect
+        // if let Some(new) = rect_wall_for_hotdog(src_xz, dst_xz, radius, tri) {
+        //     if src_xz.distance(nearest) > src_xz.distance(new) {
+        //         nearest = new;
+        //         continue;
+        //     }
+        // }
+
+        // inside dst circle
+        if let Some(new) = circle_wall_for_hotdog(dst_xz, radius, tri) {
+            if src_xz.distance(nearest) > src_xz.distance(new) {
+                nearest = new;
+                continue;
+            }
+        }
+
+    }
+
+    if nearest == Vec3::splat(f32::INFINITY) {
+        return None;
+    }
+
+    Some(HotDogResult {
+        out_pos: nearest,
+        collisions,
+    })
 }
 
 fn main() {
@@ -46,7 +91,7 @@ fn main() {
     ];
 
     let triangles: Vec<_> = walls.iter().map(|(s, e)| {
-        (Vector3::new(s.x, 0., s.y), Vector3::new(e.x, 0., e.y), Vector3::new(e.x, 1., e.y))
+        [Vec3::new(s.x, 0., s.y), Vec3::new(e.x, 0., e.y), Vec3::new(e.x, 1., e.y)]
     }).collect();
 
     while !rl.window_should_close() {
@@ -79,9 +124,7 @@ fn main() {
         }
 
         // calculate collisions and walls, etc
-        // let res = hotdog(p_src, p_dst, &triangles);
-
-        let p_out = p_dst;
+        let res = hotdog(Vec3::new(p_src.x, 0., p_src.y), Vec3::new(p_dst.x, 0., p_dst.y), radius, &triangles);
 
         let mut d = rl.begin_drawing(&thread);
         {
@@ -96,32 +139,32 @@ fn main() {
             d.draw_circle_lines_v(p_src, radius, Color::BLUE);
             d.draw_text("src", psx + rad, psy, rad, Color::BLACK);
 
-            // // out circle
-            // let pox = p_out.x as i32;
-            // let poy = p_out.y as i32;
-            // d.draw_circle_v(p_out, radius * 3./4., Color::GREEN);
-            // d.draw_circle_lines_v(p_out, radius, Color::GREEN);
-            // d.draw_text("out", pox + rad, poy, rad, Color::BLACK);
+            // out circle
+            if let Some(hdr) = res {
+                let pox = hdr.out_pos.x as i32;
+                let poy = hdr.out_pos.z as i32;
+                let p_out = Vector2::new(hdr.out_pos.x, hdr.out_pos.z);
+                d.draw_circle_v(p_out, radius * 3./4., Color::GREEN);
+                d.draw_circle_lines_v(p_out, radius, Color::GREEN);
+                d.draw_text("out", pox + rad, poy, rad, Color::BLACK);
+            }
 
-            // if p_out != p_dst {
-                // dst circle
-                let pdx = p_dst.x as i32;
-                let pdy = p_dst.y as i32;
-                d.draw_circle_v(p_dst, radius * 3./4., Color::RED);
-                d.draw_circle_lines_v(p_dst, radius, Color::RED);
-                d.draw_text("dst", pdx + rad, pdy, rad, Color::BLACK);
+            let pdx = p_dst.x as i32;
+            let pdy = p_dst.y as i32;
+            d.draw_circle_v(p_dst, radius * 3./4., Color::RED);
+            d.draw_circle_lines_v(p_dst, radius, Color::RED);
+            d.draw_text("dst", pdx + rad, pdy, rad, Color::BLACK);
 
-                d.draw_line_v(p_src, p_dst, Color::RED);
-            // }
+            d.draw_line_v(p_src, p_dst, Color::RED);
 
             // walls and normals
-            for (a, b, c) in &triangles {
+            for [a, b, c] in &triangles {
                 let a2 = Vector2::new(a.x, a.z);
                 let b2 = Vector2::new(b.x, b.z);
                 d.draw_line_ex(a2, b2, radius / 4., Color::BLACK);
                 
                 // draw "normal"
-                let n = get_face_normal((*a).to_mcapv3(), (*b).to_mcapv3(), (*c).to_mcapv3());
+                let n = get_face_normal(*a, *b, *c);
                 let center = (a2 + b2) / 2.;
                 let end = center + Vector2::new(n.x, n.z) * radius;
                 d.draw_line_ex(center,
@@ -146,16 +189,6 @@ fn main() {
                 ),
                 20,
                 60,
-                20,
-                Color::BLACK,
-            );
-            d.draw_text(
-                &format!(
-                    "p_out: {:.1} {:.1}",
-                    p_out.x, p_out.y
-                ),
-                20,
-                80,
                 20,
                 Color::BLACK,
             );
