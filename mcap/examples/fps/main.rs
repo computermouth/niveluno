@@ -1,4 +1,4 @@
-use mcap::{Surface, Triangle, Vec3, get_face_normal, get_step_push};
+use mcap::{Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64};
 use modelz;
 use raylib::prelude::*;
 
@@ -112,7 +112,7 @@ fn main() {
 
         let tic = movement / 8.;
         for _ in 0..8 {
-            let res = get_step_push(
+            let res = get_step_push_m64(
                 player.pos.to_mcapv3(),
                 tic.to_mcapv3(),
                 player.radius,
