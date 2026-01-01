@@ -1,12 +1,13 @@
-
-
 use ::core::f32;
 
-use mcap::{Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment, get_face_normal, get_step_push, rect_wall_for_hotdog};
-use modelz;
-use raylib::prelude::*;
 use line_clipping::cohen_sutherland::clip_line;
 use line_clipping::{LineSegment, Point, Window};
+use mcap::{
+    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment, get_face_normal,
+    get_step_push, rect_wall_for_hotdog,
+};
+use modelz;
+use raylib::prelude::*;
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -31,7 +32,10 @@ impl ToVector3 for Vec3 {
 fn main() {
     const SCREEN_W: i32 = 1280;
     const SCREEN_H: i32 = 960;
-    let (mut rl, thread) = raylib::init().size(SCREEN_W, SCREEN_H).title("gui showcase").build();
+    let (mut rl, thread) = raylib::init()
+        .size(SCREEN_W, SCREEN_H)
+        .title("gui showcase")
+        .build();
 
     let center_v2 = Vector2::new(SCREEN_W as f32, SCREEN_H as f32) / 2.;
     let mut p_src = center_v2;
@@ -91,14 +95,14 @@ fn main() {
             // src circle
             let psx = p_src.x as i32;
             let psy = p_src.y as i32;
-            d.draw_circle_v(p_src, radius * 3./4., Color::BLUE);
+            d.draw_circle_v(p_src, radius * 3. / 4., Color::BLUE);
             d.draw_circle_lines_v(p_src, radius, Color::BLUE);
             d.draw_text("src", psx + rad, psy, rad, Color::BLACK);
 
             // dst circle
             let pdx = p_dst.x as i32;
             let pdy = p_dst.y as i32;
-            d.draw_circle_v(p_dst, radius * 3./4., Color::RED);
+            d.draw_circle_v(p_dst, radius * 3. / 4., Color::RED);
             d.draw_circle_lines_v(p_dst, radius, Color::RED);
             d.draw_text("dst", pdx + rad, pdy, rad, Color::BLACK);
 
@@ -110,8 +114,16 @@ fn main() {
             d.draw_rectangle_lines_ex(rect, 3., Color::BLACK);
 
             // accepted path
-            let line = LineSegment::new(Point::new(p_src.x.into(), p_src.y.into()), Point::new(p_dst.x.into(), p_dst.y.into()));
-            let window = Window::new(center_v2.x.into(), (center_v2.x + r_dim.x).into(), (center_v2.y - r_dim.y).into(), center_v2.y.into());
+            let line = LineSegment::new(
+                Point::new(p_src.x.into(), p_src.y.into()),
+                Point::new(p_dst.x.into(), p_dst.y.into()),
+            );
+            let window = Window::new(
+                center_v2.x.into(),
+                (center_v2.x + r_dim.x).into(),
+                (center_v2.y - r_dim.y).into(),
+                center_v2.y.into(),
+            );
             if let Some(cl) = clip_line(line, window) {
                 let start = Vector2::new(cl.p1.x as f32, cl.p1.y as f32);
                 let end = Vector2::new(cl.p2.x as f32, cl.p2.y as f32);
@@ -123,30 +135,21 @@ fn main() {
 
             d.draw_text(&format!("FPS Demo"), 20, 20, 20, Color::BLACK);
             d.draw_text(
-                &format!(
-                    "p_src: {:.1} {:.1}",
-                    p_src.x, p_src.y
-                ),
+                &format!("p_src: {:.1} {:.1}", p_src.x, p_src.y),
                 20,
                 40,
                 20,
                 Color::BLACK,
             );
             d.draw_text(
-                &format!(
-                    "p_dst: {:.1} {:.1}",
-                    p_dst.x, p_dst.y
-                ),
+                &format!("p_dst: {:.1} {:.1}", p_dst.x, p_dst.y),
                 20,
                 60,
                 20,
                 Color::BLACK,
             );
             d.draw_text(
-                &format!(
-                    "r_dim: {:.1} {:.1}",
-                    r_dim.x, r_dim.y
-                ),
+                &format!("r_dim: {:.1} {:.1}", r_dim.x, r_dim.y),
                 20,
                 80,
                 20,

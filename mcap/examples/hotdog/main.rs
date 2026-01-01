@@ -1,6 +1,9 @@
 use ::core::f32;
 
-use mcap::{Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment, get_face_normal, get_step_push, rect_wall_for_hotdog};
+use mcap::{
+    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment, get_face_normal,
+    get_step_push, rect_wall_for_hotdog,
+};
 use modelz;
 use raylib::prelude::*;
 
@@ -29,8 +32,7 @@ struct HotDogResult {
     collisions: Vec<Vec3>,
 }
 
-fn hotdog(src: Vec3, dst: Vec3, radius: f32, triangles: &Vec<[Vec3;3]>) -> Option<HotDogResult> {
-    
+fn hotdog(src: Vec3, dst: Vec3, radius: f32, triangles: &Vec<[Vec3; 3]>) -> Option<HotDogResult> {
     let mut nearest = Vec3::splat(f32::INFINITY);
     let collisions = vec![];
 
@@ -64,7 +66,6 @@ fn hotdog(src: Vec3, dst: Vec3, radius: f32, triangles: &Vec<[Vec3;3]>) -> Optio
                 continue;
             }
         }
-
     }
 
     if nearest == Vec3::splat(f32::INFINITY) {
@@ -80,19 +81,27 @@ fn hotdog(src: Vec3, dst: Vec3, radius: f32, triangles: &Vec<[Vec3;3]>) -> Optio
 fn main() {
     const SCREEN_W: i32 = 1280;
     const SCREEN_H: i32 = 960;
-    let (mut rl, thread) = raylib::init().size(SCREEN_W, SCREEN_H).title("gui showcase").build();
+    let (mut rl, thread) = raylib::init()
+        .size(SCREEN_W, SCREEN_H)
+        .title("gui showcase")
+        .build();
 
     let mut p_src = Vector2::new(SCREEN_W as f32, SCREEN_H as f32) / 2.;
     let mut p_dst = p_src + Vector2::new(0., -100.);
     let radius = 20.;
 
-    let walls = vec![
-        (Vector2::new(100., 100.), Vector2::new(300., 300.))
-    ];
+    let walls = vec![(Vector2::new(100., 100.), Vector2::new(300., 300.))];
 
-    let triangles: Vec<_> = walls.iter().map(|(s, e)| {
-        [Vec3::new(s.x, 0., s.y), Vec3::new(e.x, 0., e.y), Vec3::new(e.x, 1., e.y)]
-    }).collect();
+    let triangles: Vec<_> = walls
+        .iter()
+        .map(|(s, e)| {
+            [
+                Vec3::new(s.x, 0., s.y),
+                Vec3::new(e.x, 0., e.y),
+                Vec3::new(e.x, 1., e.y),
+            ]
+        })
+        .collect();
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -124,7 +133,12 @@ fn main() {
         }
 
         // calculate collisions and walls, etc
-        let res = hotdog(Vec3::new(p_src.x, 0., p_src.y), Vec3::new(p_dst.x, 0., p_dst.y), radius, &triangles);
+        let res = hotdog(
+            Vec3::new(p_src.x, 0., p_src.y),
+            Vec3::new(p_dst.x, 0., p_dst.y),
+            radius,
+            &triangles,
+        );
 
         let mut d = rl.begin_drawing(&thread);
         {
@@ -135,7 +149,7 @@ fn main() {
             // src circle
             let psx = p_src.x as i32;
             let psy = p_src.y as i32;
-            d.draw_circle_v(p_src, radius * 3./4., Color::BLUE);
+            d.draw_circle_v(p_src, radius * 3. / 4., Color::BLUE);
             d.draw_circle_lines_v(p_src, radius, Color::BLUE);
             d.draw_text("src", psx + rad, psy, rad, Color::BLACK);
 
@@ -144,14 +158,14 @@ fn main() {
                 let pox = hdr.out_pos.x as i32;
                 let poy = hdr.out_pos.z as i32;
                 let p_out = Vector2::new(hdr.out_pos.x, hdr.out_pos.z);
-                d.draw_circle_v(p_out, radius * 3./4., Color::GREEN);
+                d.draw_circle_v(p_out, radius * 3. / 4., Color::GREEN);
                 d.draw_circle_lines_v(p_out, radius, Color::GREEN);
                 d.draw_text("out", pox + rad, poy, rad, Color::BLACK);
             }
 
             let pdx = p_dst.x as i32;
             let pdy = p_dst.y as i32;
-            d.draw_circle_v(p_dst, radius * 3./4., Color::RED);
+            d.draw_circle_v(p_dst, radius * 3. / 4., Color::RED);
             d.draw_circle_lines_v(p_dst, radius, Color::RED);
             d.draw_text("dst", pdx + rad, pdy, rad, Color::BLACK);
 
@@ -162,31 +176,24 @@ fn main() {
                 let a2 = Vector2::new(a.x, a.z);
                 let b2 = Vector2::new(b.x, b.z);
                 d.draw_line_ex(a2, b2, radius / 4., Color::BLACK);
-                
+
                 // draw "normal"
                 let n = get_face_normal(*a, *b, *c);
                 let center = (a2 + b2) / 2.;
                 let end = center + Vector2::new(n.x, n.z) * radius;
-                d.draw_line_ex(center,
-                    end, radius / 8., Color::ORANGE);
+                d.draw_line_ex(center, end, radius / 8., Color::ORANGE);
             }
 
             d.draw_text(&format!("FPS Demo"), 20, 20, 20, Color::BLACK);
             d.draw_text(
-                &format!(
-                    "p_src: {:.1} {:.1}",
-                    p_src.x, p_src.y
-                ),
+                &format!("p_src: {:.1} {:.1}", p_src.x, p_src.y),
                 20,
                 40,
                 20,
                 Color::BLACK,
             );
             d.draw_text(
-                &format!(
-                    "p_dst: {:.1} {:.1}",
-                    p_dst.x, p_dst.y
-                ),
+                &format!("p_dst: {:.1} {:.1}", p_dst.x, p_dst.y),
                 20,
                 60,
                 20,

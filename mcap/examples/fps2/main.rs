@@ -1,4 +1,7 @@
-use mcap::{Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing};
+use mcap::{
+    Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64,
+    get_step_push_most_opposing,
+};
 use modelz;
 use raylib::prelude::*;
 
@@ -125,8 +128,16 @@ fn main() {
         if rl.is_key_pressed(KeyboardKey::KEY_N) {
             findex = (findex + 1) % 3;
         }
-        let coll_func = vec![get_step_push_m64, get_step_push, get_step_push_most_opposing][findex];
-        let coll_func_debug = &vec![CollFunc::GetStepPushM64, CollFunc::GetStepPush, CollFunc::GetStepPushMostOpposing][findex];
+        let coll_func = vec![
+            get_step_push_m64,
+            get_step_push,
+            get_step_push_most_opposing,
+        ][findex];
+        let coll_func_debug = &vec![
+            CollFunc::GetStepPushM64,
+            CollFunc::GetStepPush,
+            CollFunc::GetStepPushMostOpposing,
+        ][findex];
 
         let tic = movement / iterations as f32;
         for _ in 0..iterations {
@@ -136,7 +147,7 @@ fn main() {
                 player.radius,
                 player.chest_height,
                 player.height - player.chest_height,
-                &surfaces
+                &surfaces,
             );
 
             player.pos = res.final_pos.to_rayv3();
@@ -145,8 +156,10 @@ fn main() {
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
         let player_chest = player.pos + Vector3::new(0., player.chest_height, 0.);
-        let player_step_top = player.pos + Vector3::new(0., player.height - player.chest_height, 0.);
-        let player_step_bot = player.pos - Vector3::new(0., player.height - player.chest_height, 0.);
+        let player_step_top =
+            player.pos + Vector3::new(0., player.height - player.chest_height, 0.);
+        let player_step_bot =
+            player.pos - Vector3::new(0., player.height - player.chest_height, 0.);
         let camera = Camera3D::perspective(
             player_top + camera_dir * 5.,
             player_top,
@@ -200,11 +213,29 @@ fn main() {
                 );
 
                 // collision circle
-                d3d.draw_circle_3D(player_chest, player.radius, Vector3::new(1., 0., 0.), 90., Color::SKYBLUE);
+                d3d.draw_circle_3D(
+                    player_chest,
+                    player.radius,
+                    Vector3::new(1., 0., 0.),
+                    90.,
+                    Color::SKYBLUE,
+                );
                 // top step circle
-                d3d.draw_circle_3D(player_step_top, player.radius, Vector3::new(1., 0., 0.), 90., Color::RED);
+                d3d.draw_circle_3D(
+                    player_step_top,
+                    player.radius,
+                    Vector3::new(1., 0., 0.),
+                    90.,
+                    Color::RED,
+                );
                 // bottom step circle
-                d3d.draw_circle_3D(player_step_bot, player.radius, Vector3::new(1., 0., 0.), 90., Color::RED);
+                d3d.draw_circle_3D(
+                    player_step_bot,
+                    player.radius,
+                    Vector3::new(1., 0., 0.),
+                    90.,
+                    Color::RED,
+                );
             });
 
             d.draw_text(&format!("FPS Demo"), 20, 20, 20, Color::WHITE);
@@ -220,7 +251,13 @@ fn main() {
             );
             d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
             d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
-            d.draw_text(&format!("func: {:?}", coll_func_debug), 20, 100, 20, Color::WHITE);
+            d.draw_text(
+                &format!("func: {:?}", coll_func_debug),
+                20,
+                100,
+                20,
+                Color::WHITE,
+            );
         }
     }
 }

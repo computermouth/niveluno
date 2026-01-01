@@ -118,7 +118,7 @@ fn main() {
                 player.radius,
                 player.chest_height,
                 player.height - player.chest_height,
-                &surfaces
+                &surfaces,
             );
 
             player.pos = res.final_pos.to_rayv3();
@@ -127,8 +127,10 @@ fn main() {
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
         let player_chest = player.pos + Vector3::new(0., player.chest_height, 0.);
-        let player_step_top = player.pos + Vector3::new(0., player.height - player.chest_height, 0.);
-        let player_step_bot = player.pos - Vector3::new(0., player.height - player.chest_height, 0.);
+        let player_step_top =
+            player.pos + Vector3::new(0., player.height - player.chest_height, 0.);
+        let player_step_bot =
+            player.pos - Vector3::new(0., player.height - player.chest_height, 0.);
         let camera = Camera3D::perspective(
             player_top + camera_dir * 5.,
             player_top,
@@ -179,11 +181,29 @@ fn main() {
                 );
 
                 // collision circle
-                d3d.draw_circle_3D(player_chest, player.radius, Vector3::new(1., 0., 0.), 90., Color::SKYBLUE);
+                d3d.draw_circle_3D(
+                    player_chest,
+                    player.radius,
+                    Vector3::new(1., 0., 0.),
+                    90.,
+                    Color::SKYBLUE,
+                );
                 // top step circle
-                d3d.draw_circle_3D(player_step_top, player.radius, Vector3::new(1., 0., 0.), 90., Color::RED);
+                d3d.draw_circle_3D(
+                    player_step_top,
+                    player.radius,
+                    Vector3::new(1., 0., 0.),
+                    90.,
+                    Color::RED,
+                );
                 // bottom step circle
-                d3d.draw_circle_3D(player_step_bot, player.radius, Vector3::new(1., 0., 0.), 90., Color::RED);
+                d3d.draw_circle_3D(
+                    player_step_bot,
+                    player.radius,
+                    Vector3::new(1., 0., 0.),
+                    90.,
+                    Color::RED,
+                );
             });
 
             d.draw_text(&format!("FPS Demo"), 20, 20, 20, Color::WHITE);

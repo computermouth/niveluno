@@ -108,7 +108,7 @@ pub fn get_step_push_most_opposing(
                 if let Some((old_push, old_wall, old_point)) = collision {
                     let old_dot = step.dot(old_wall.normal);
                     let new_dot = step.dot(wall.normal);
-                    
+
                     // heading more into new wall
                     if new_dot < old_dot {
                         collision = Some((push, *wall, point));
@@ -118,7 +118,7 @@ pub fn get_step_push_most_opposing(
                 }
             }
         }
-        
+
         if let Some((push, wall, point)) = collision {
             target_pos += push;
         }
@@ -179,7 +179,6 @@ pub fn get_step_push(
     // or check a 2d capsule (hotddog) to see where it intersects the triangle
     // and skip the stepping
     for _ in 0..4 {
-
         let mut collided_this_iteration = false;
 
         for wall in surfaces.iter().filter_map(|s| match s {
@@ -255,7 +254,6 @@ pub fn get_step_push_m64(
     // or check a 2d capsule (hotddog) to see where it intersects the triangle
     // and skip the stepping
     for _ in 0..4 {
-
         let mut collided_this_iteration = false;
 
         for wall in surfaces.iter().filter_map(|s| match s {
@@ -346,11 +344,7 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
 }
 
 // find collision, and return nearest xz point
-pub fn circle_wall_for_hotdog(
-    pos: Vec3,
-    radius: f32,
-    tri: &[Vec3; 3],
-) -> Option<Vec3> {
+pub fn circle_wall_for_hotdog(pos: Vec3, radius: f32, tri: &[Vec3; 3]) -> Option<Vec3> {
     let pos_xz = pos.with_y(0.);
 
     let edge_xz0 = closest_point_on_segment(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
@@ -368,11 +362,11 @@ pub fn circle_wall_for_hotdog(
     }
     // correlate to the hit
     if nearest == d0 {
-        return Some(edge_xz0)
+        return Some(edge_xz0);
     } else if nearest == d1 {
-        return Some(edge_xz1)
+        return Some(edge_xz1);
     } else if nearest == d2 {
-        return Some(edge_xz2)
+        return Some(edge_xz2);
     }
 
     None
@@ -380,22 +374,16 @@ pub fn circle_wall_for_hotdog(
 
 // find collision of a rect with each triangle edge
 // and return nearest xz point inside rect
-pub fn rect_wall_for_hotdog(
-    src: Vec3,
-    dst: Vec3,
-    radius: f32,
-    tri: &[Vec3; 3],
-) -> Option<Vec3> {
+pub fn rect_wall_for_hotdog(src: Vec3, dst: Vec3, radius: f32, tri: &[Vec3; 3]) -> Option<Vec3> {
     todo!()
 }
 
 pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Option<(Vec3, Vec3)> {
-
     // check if pos is in the direction of the wall's normal
     let t1 = wall.verts()[0];
     let v = pos - t1;
     if v.dot(wall.normal) < 0. {
-        return None
+        return None;
     }
 
     // cylinder intersection with infinite plane
@@ -413,13 +401,17 @@ pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Op
         return None;
     }
 
-    if let Some(point) = flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
+    if let Some(point) = flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts)
+    {
         let push = radius - offset;
-        Some((Vec3::new(wall.normal.x * push, 0., wall.normal.z * push), point))
+        Some((
+            Vec3::new(wall.normal.x * push, 0., wall.normal.z * push),
+            point,
+        ))
     } else {
         None
     }
-    
+
     // // skip due to distance to segments
     // // this has an issue with colliding with 2 walls
     // if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
@@ -484,12 +476,11 @@ pub fn check_circle_tri_collision(pos: Vec3, radius: f32, wall: &Triangle) -> Op
 }
 
 pub fn check_circle_tri_collision_m64(pos: Vec3, radius: f32, wall: &Triangle) -> Option<Vec3> {
-
     // check if pos is in the direction of the wall's normal
     let t1 = wall.verts()[0];
     let v = pos - t1;
     if v.dot(wall.normal) < 0. {
-        return None
+        return None;
     }
 
     // cylinder intersection with infinite plane
@@ -506,7 +497,7 @@ pub fn check_circle_tri_collision_m64(pos: Vec3, radius: f32, wall: &Triangle) -
     if !(min_y..=max_y).contains(&pos.y) {
         return None;
     }
-    
+
     // // skip due to distance to segments
     // // this has an issue with colliding with 2 walls
     // if !flattened_cylinder_intersects_flattened_triangle(pos, radius, &wall.verts) {
@@ -541,13 +532,25 @@ pub fn check_circle_tri_collision_m64(pos: Vec3, radius: f32, wall: &Triangle) -
         let (y1, y2, y3) = (wall.verts[0].y, wall.verts[1].y, wall.verts[2].y);
 
         if wall.normal.x > 0.0 {
-            if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) > 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) > 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) > 0.0 { return None; }
+            if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) > 0.0 {
+                return None;
+            }
+            if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) > 0.0 {
+                return None;
+            }
+            if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) > 0.0 {
+                return None;
+            }
         } else {
-            if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) < 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) < 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) < 0.0 { return None; }
+            if (y1 - py) * (w2 - w1) - (w1 - -pz) * (y2 - y1) < 0.0 {
+                return None;
+            }
+            if (y2 - py) * (w3 - w2) - (w2 - -pz) * (y3 - y2) < 0.0 {
+                return None;
+            }
+            if (y3 - py) * (w1 - w3) - (w3 - -pz) * (y1 - y3) < 0.0 {
+                return None;
+            }
         }
     } else {
         // porject on xy
@@ -555,13 +558,25 @@ pub fn check_circle_tri_collision_m64(pos: Vec3, radius: f32, wall: &Triangle) -
         let (y1, y2, y3) = (wall.verts[0].y, wall.verts[1].y, wall.verts[2].y);
 
         if wall.normal.z > 0.0 {
-            if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) > 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) > 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) > 0.0 { return None; }
+            if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) > 0.0 {
+                return None;
+            }
+            if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) > 0.0 {
+                return None;
+            }
+            if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) > 0.0 {
+                return None;
+            }
         } else {
-            if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) < 0.0 { return None; }
-            if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) < 0.0 { return None; }
-            if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) < 0.0 { return None; }
+            if (y1 - py) * (w2 - w1) - (w1 - px) * (y2 - y1) < 0.0 {
+                return None;
+            }
+            if (y2 - py) * (w3 - w2) - (w2 - px) * (y3 - y2) < 0.0 {
+                return None;
+            }
+            if (y3 - py) * (w1 - w3) - (w3 - px) * (y1 - y3) < 0.0 {
+                return None;
+            }
         }
     }
 
