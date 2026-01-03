@@ -3,7 +3,7 @@ use ::core::f32;
 use line_clipping::cohen_sutherland::clip_line;
 use line_clipping::{LineSegment, Point, Window};
 use mcap::{
-    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment, get_face_normal,
+    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment_v3, get_face_normal,
     get_step_push, rect_wall_for_hotdog,
 };
 use modelz;

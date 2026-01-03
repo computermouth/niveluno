@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{closest_point_on_segment, flattened_cylinder_intersects_flattened_triangle};
+use mcap::{closest_point_on_segment_v3, flattened_cylinder_intersects_flattened_triangle};
 use raylib::prelude::*;
 
 pub struct State {
@@ -73,7 +73,7 @@ impl Example for State {
         out.push(res);
 
         // closest blue point
-        let pos = closest_point_on_segment(
+        let pos = closest_point_on_segment_v3(
             pos.to_mcapv3(),
             arrow_start.to_mcapv3(),
             arrow_end.to_mcapv3(),
@@ -112,7 +112,7 @@ impl Example for State {
         out.push(res);
 
         // closest ORANGE point
-        let pos = closest_point_on_segment(
+        let pos = closest_point_on_segment_v3(
             pos.to_mcapv3(),
             arrow_start.to_mcapv3(),
             arrow_end.to_mcapv3(),
@@ -151,7 +151,7 @@ impl Example for State {
         out.push(res);
 
         // closest GREEN point
-        let pos = closest_point_on_segment(
+        let pos = closest_point_on_segment_v3(
             pos.to_mcapv3(),
             arrow_start.to_mcapv3(),
             arrow_end.to_mcapv3(),

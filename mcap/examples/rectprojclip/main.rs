@@ -4,8 +4,7 @@ use glam::Vec2;
 use line_clipping::cohen_sutherland::clip_line;
 use line_clipping::{LineSegment, Point, Window};
 use mcap::{
-    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment, get_face_normal,
-    get_step_push, rect_wall_for_hotdog,
+    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment_v2, closest_point_on_segment_v3, get_face_normal, get_step_push, rect_wall_for_hotdog, HotDog
 };
 use modelz;
 use raylib::prelude::*;
@@ -30,110 +29,6 @@ impl ToVector3 for Vec3 {
     }
 }
 
-struct HotDog {
-    src: Vec2,
-    dst: Vec2,
-    radius: f32,
-    y_dir: Vec2,
-    x_dir: Vec2,
-    window: Window,
-}
-
-impl HotDog {
-    pub fn new(src: Vec3, dst: Vec3, radius: f32) -> Self {
-        let src = Vec2::new(src.x, src.z);
-        let dst = Vec2::new(dst.x, dst.z);
-        let diff = dst - src;
-        let y_dir = diff.normalize();
-        let length = diff.length();
-        Self {
-            src,
-            dst,
-            radius,
-            y_dir,
-            x_dir: Vec2::new(-y_dir.y, y_dir.x),
-            window: Window::new(
-                -radius as f64,
-                radius as f64,
-                0.,
-                length as f64,
-            )
-        }
-    }
-
-    pub fn clip_line_segment(&self, p1: Vec2, p2: Vec2) -> Option<(Vec2, Vec2)> {
-        let rp1 = self.origin_point_to_rect_space(p1);
-        let rp2 = self.origin_point_to_rect_space(p2);
-        match clip_line(
-            LineSegment {
-                p1: Point { x: rp1.x as f64, y: rp1.y as f64 },
-                p2: Point { x: rp2.x as f64, y: rp2.y as f64 }
-            }, 
-            self.window
-        ) {
-            None => None,
-            Some(l) => {
-                let op1 = self.rect_point_to_origin_space(Vec2::new(l.p1.x as f32, l.p1.y as f32));
-                let op2 = self.rect_point_to_origin_space(Vec2::new(l.p2.x as f32, l.p2.y as f32));
-                Some((op1, op2))
-            }
-        }
-    }
-
-    pub fn closest_point_on_segment_origin(&self, a: Vec2, b: Vec2) -> Vec2 {
-        let ab = b - a;
-        let ap = self.src - a;
-
-        let proj = ap.dot(ab);
-        let ab_len_sq = ab.length().powi(2);
-        let d = proj / ab_len_sq;
-
-        match d {
-            f32::NEG_INFINITY..=0f32 => a,
-            1f32..=f32::INFINITY => b,
-            d => a + ab * d,
-        }
-    }
-
-    pub fn closest_point_on_segment_rect(&self, a: Vec2, b: Vec2) -> Vec2 {
-        let a = self.origin_point_to_rect_space(a);
-        let b = self.origin_point_to_rect_space(b);
-
-        let ab = b - a;
-        let ap = Vec2::ZERO - a;
-
-        let proj = ap.dot(ab);
-        let ab_len_sq = ab.length().powi(2);
-        let d = proj / ab_len_sq;
-
-        match d {
-            f32::NEG_INFINITY..=0f32 => a,
-            1f32..=f32::INFINITY => b,
-            d => a + ab * d,
-        }
-    }
-
-    pub fn origin_point_to_rect_space(&self, p: Vec2) -> Vec2 {
-        // p relative to p_src
-        let p_trans = p - self.src;
-
-        // project p_tran onto the rectangle
-        Vec2::new(
-            p_trans.dot(self.x_dir),
-            p_trans.dot(self.y_dir)
-        )
-    }
-
-    pub fn rect_point_to_origin_space(&self, p: Vec2) -> Vec2 {
-        // project back on src with
-        self.src + self.x_dir * p.x + self.y_dir * p.y
-    }
-
-    pub fn get_window(&self) -> Window {
-        self.window
-    }
-}
-
 fn main() {
     const SCREEN_W: i32 = 1280;
     const SCREEN_H: i32 = 960;
@@ -151,18 +46,18 @@ fn main() {
     let mut p_dst = p_src + Vector2::new(0., -100.);
     let radius = 20.;
 
-    let right_3q = center_v2 + Vector2::new(quarter_x, 0.);
+    let right_3q = center_v2 + Vector2::new(quarter_x, 0.) - 100.;
     let p1 = Point {
         x: right_3q.x as f64,
         y: right_3q.y as f64,
     };
     let p2 = Point {
-        x: (right_3q.x + 75.) as f64,
-        y: (right_3q.y - 50.) as f64,
+        x: (right_3q.x + 200.) as f64,
+        y: (right_3q.y - 150.) as f64,
     };
     let p3 = Point {
-        x: (right_3q.x + 75.) as f64,
-        y: (right_3q.y + 50.) as f64,
+        x: (right_3q.x + 200.) as f64,
+        y: (right_3q.y + 150.) as f64,
     };
     let walls = vec![
         LineSegment::new(p1, p2),
@@ -263,7 +158,6 @@ fn main() {
             d.draw_circle(cp3.x as i32, cp3.y as i32, 3., Color::GREEN);
 
             // top-lefts
-            {
                 // rect
                 let rect_width = (window.x_max - window.x_min) as f32;
                 let rect_height = (window.y_max - window.y_min) as f32;
@@ -277,7 +171,7 @@ fn main() {
 
                 // top and bottom
                 let center_x = top_left.x + rect_width / 2.0;
-                d.draw_circle(center_x as i32, top_left.y as i32, 4., Color::BLUE);
+                d.draw_circle_lines(center_x as i32, top_left.y as i32, radius, Color::BLUE);
                 d.draw_circle(center_x as i32, (top_left.y + rect_height) as i32, 4., Color::RED);
 
                 // points
@@ -310,12 +204,15 @@ fn main() {
                         d.draw_line_ex(vis_p1, vis_p2, 4., Color::RED);
 
                         // closest point rect
-                        let cp1 = hotdog.closest_point_on_segment_rect(Vec2::new(p1.x as f32, p1.y as f32), Vec2::new(p2.x as f32, p2.y as f32));
+                        let cp1 = hotdog.closest_point_on_segment_rect_circ(Vec2::new(p1.x as f32, p1.y as f32), Vec2::new(p2.x as f32, p2.y as f32));
                         match nearest {
                             None => nearest = Some(cp1),
                             Some(n) => {
                                 if n.distance(Vec2::ZERO) > cp1.distance(Vec2::ZERO) {
                                     nearest = Some(cp1)
+                                } else if n.distance(cp1) < f32::EPSILON {
+                                    // if two points are the same, we're colliding with a corner
+                                    // either choose one, or do something with both normals
                                 }
                             }
                         }
@@ -323,12 +220,23 @@ fn main() {
                     }
                 }
 
-                if let Some(n) = nearest {
-                    d.draw_line((top_left.x + radius) as i32, top_left.y as i32, (top_left.x + radius + n.x) as i32, (top_left.y + n.y) as i32, Color::BLACK);
+                // origin space normals
+                let triangles: Vec<_> = walls
+                    .iter()
+                    .map(|ls| {
+                        [
+                            Vec3::new(ls.p1.x as f32, 0., ls.p1.y as f32),
+                            Vec3::new(ls.p2.x as f32, 1., ls.p2.y as f32),
+                            Vec3::new(ls.p2.x as f32, 0., ls.p2.y as f32),
+                        ]
+                    })
+                    .collect();
+                for [a, b, c] in triangles {
+                    let norm = get_face_normal(a, b, c);
+                    let start = Vector2::new((a.x + b.x) / 2., (a.z + b.z) / 2.);
+                    let end = start + Vector2::new(norm.x, norm.z) * 20.;
+                    d.draw_line_ex(start, end, 3., Color::ORANGE);
                 }
-
-                d.draw_circle((top_left.x + radius + cp1.x) as i32, (top_left.y + cp1.y) as i32, 3., Color::GREEN);
-            }
 
             d.draw_text(&format!("FPS Demo"), 20, 600, 20, Color::BLACK);
             d.draw_text(
@@ -352,6 +260,29 @@ fn main() {
                 20,
                 Color::BLACK,
             );
+
+                if let Some(n) = nearest {
+                    // top-left line to nearest
+                    d.draw_line((top_left.x + radius) as i32, top_left.y as i32, (top_left.x + radius + n.x) as i32, (top_left.y + n.y) as i32, Color::BLACK);
+                    d.draw_circle_lines((top_left.x + radius + n.x) as i32, (top_left.y + n.y) as i32, radius, Color::PURPLE);
+
+                    // stop circle
+                    let p_stop = hotdog.rect_point_to_origin_space(n);
+                    let psx = p_stop.x as i32;
+                    let psy = p_stop.y as i32;
+                    d.draw_circle_v(Vector2::new(p_stop.x, p_stop.y), radius * 3. / 4., Color::PURPLE);
+                    d.draw_circle_lines_v(Vector2::new(p_stop.x, p_stop.y), radius, Color::PURPLE);
+                    d.draw_text("stop", psx + rad, psy, rad, Color::BLACK);
+
+
+                    d.draw_text(
+                        &format!("stop: {:.1} {:.1}", p_stop.x, p_stop.y),
+                        20,
+                        680,
+                        20,
+                        Color::BLACK,
+                    );
+                }
         }
     }
 }

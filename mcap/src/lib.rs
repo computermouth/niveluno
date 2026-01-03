@@ -1,7 +1,11 @@
 use core::f32::{INFINITY, NEG_INFINITY};
 use std::ops::Neg;
 
+use glam::Vec2;
 pub use glam::Vec3;
+
+use line_clipping::cohen_sutherland::clip_line;
+use line_clipping::{LineSegment, Point, Window};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Triangle {
@@ -299,7 +303,22 @@ pub fn get_step_push_m64(
     }
 }
 
-pub fn closest_point_on_segment(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+pub fn closest_point_on_segment_v3(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
+    let ab = b - a;
+    let ap = p - a;
+
+    let proj = ap.dot(ab);
+    let ab_len_sq = ab.length().powi(2);
+    let d = proj / ab_len_sq;
+
+    match d {
+        NEG_INFINITY..=0f32 => a,
+        1f32..=INFINITY => b,
+        d => a + ab * d,
+    }
+}
+
+pub fn closest_point_on_segment_v2(p: Vec2, a: Vec2, b: Vec2) -> Vec2 {
     let ab = b - a;
     let ap = p - a;
 
@@ -327,15 +346,15 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
     let pos_xz = pos.with_y(0.);
 
     // could return immediately after each of these, if one is <= radius
-    let edge_xz0 = closest_point_on_segment(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
+    let edge_xz0 = closest_point_on_segment_v3(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
     if (pos_xz - edge_xz0).length() <= radius {
         return Some(edge_xz0);
     }
-    let edge_xz1 = closest_point_on_segment(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
+    let edge_xz1 = closest_point_on_segment_v3(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
     if (pos_xz - edge_xz1).length() <= radius {
         return Some(edge_xz1);
     }
-    let edge_xz2 = closest_point_on_segment(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));
+    let edge_xz2 = closest_point_on_segment_v3(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));
     if (pos_xz - edge_xz2).length() <= radius {
         return Some(edge_xz2);
     }
@@ -347,9 +366,9 @@ pub fn flattened_cylinder_intersects_flattened_triangle(
 pub fn circle_wall_for_hotdog(pos: Vec3, radius: f32, tri: &[Vec3; 3]) -> Option<Vec3> {
     let pos_xz = pos.with_y(0.);
 
-    let edge_xz0 = closest_point_on_segment(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
-    let edge_xz1 = closest_point_on_segment(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
-    let edge_xz2 = closest_point_on_segment(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));
+    let edge_xz0 = closest_point_on_segment_v3(pos_xz, tri[0].with_y(0.), tri[1].with_y(0.));
+    let edge_xz1 = closest_point_on_segment_v3(pos_xz, tri[1].with_y(0.), tri[2].with_y(0.));
+    let edge_xz2 = closest_point_on_segment_v3(pos_xz, tri[2].with_y(0.), tri[0].with_y(0.));
 
     let d0 = (pos_xz - edge_xz0).length();
     let d1 = (pos_xz - edge_xz1).length();
@@ -651,4 +670,128 @@ pub fn flattened_point_inside_flattened_triangle(
     let collision = (alpha > 0.) && (beta > 0.) && (gamma > 0.);
 
     return collision;
+}
+
+pub struct HotDog {
+    src: Vec2,
+    dst: Vec2,
+    radius: f32,
+    y_dir: Vec2,
+    x_dir: Vec2,
+    window: Window,
+}
+
+impl HotDog {
+    pub fn new(src: Vec3, dst: Vec3, radius: f32) -> Self {
+        let src = Vec2::new(src.x, src.z);
+        let dst = Vec2::new(dst.x, dst.z);
+        let diff = dst - src;
+        let y_dir = diff.normalize();
+        let length = diff.length();
+        Self {
+            src,
+            dst,
+            radius,
+            y_dir,
+            x_dir: Vec2::new(-y_dir.y, y_dir.x),
+            window: Window::new(
+                -radius as f64,
+                radius as f64,
+                0.,
+                length as f64,
+            )
+        }
+    }
+
+    pub fn clip_line_segment(&self, p1: Vec2, p2: Vec2) -> Option<(Vec2, Vec2)> {
+        let rp1 = self.origin_point_to_rect_space(p1);
+        let rp2 = self.origin_point_to_rect_space(p2);
+        match clip_line(
+            LineSegment {
+                p1: Point { x: rp1.x as f64, y: rp1.y as f64 },
+                p2: Point { x: rp2.x as f64, y: rp2.y as f64 }
+            }, 
+            self.window
+        ) {
+            None => None,
+            Some(l) => {
+                let op1 = self.rect_point_to_origin_space(Vec2::new(l.p1.x as f32, l.p1.y as f32));
+                let op2 = self.rect_point_to_origin_space(Vec2::new(l.p2.x as f32, l.p2.y as f32));
+                Some((op1, op2))
+            }
+        }
+    }
+
+    pub fn closest_point_on_segment_origin(&self, a: Vec2, b: Vec2) -> Vec2 {
+        closest_point_on_segment_v2(Vec2::ZERO, a, b)
+    }
+
+    pub fn closest_point_on_segment_rect(&self, a: Vec2, b: Vec2) -> Vec2 {
+        let a = self.origin_point_to_rect_space(a);
+        let b = self.origin_point_to_rect_space(b);
+
+        closest_point_on_segment_v2(Vec2::ZERO, a, b)
+    }
+
+    pub fn origin_point_to_rect_space(&self, p: Vec2) -> Vec2 {
+        // p relative to p_src
+        let p_trans = p - self.src;
+
+        // project p_tran onto the rectangle
+        Vec2::new(
+            p_trans.dot(self.x_dir),
+            p_trans.dot(self.y_dir)
+        )
+    }
+
+    pub fn rect_point_to_origin_space(&self, p: Vec2) -> Vec2 {
+        // project back on src with
+        self.src + self.x_dir * p.x + self.y_dir * p.y
+    }
+
+    pub fn get_window(&self) -> Window {
+        self.window
+    }
+
+    // find nearest point to circle collision
+    // assumes line is already clipped to rectangle space
+    //
+    // this isn't perfectly accurate
+    // but seems good enough
+    pub fn closest_point_on_segment_rect_circ(&self, a: Vec2, b: Vec2) -> Vec2 {
+        let a = self.origin_point_to_rect_space(a);
+        let b = self.origin_point_to_rect_space(b);
+
+        let closest_to_src = closest_point_on_segment_v2(Vec2::ZERO, a, b);
+
+        let p = Vec2::new(0., closest_to_src.y);
+
+        let tri = [
+            Vec3::new(a.x as f32, 0., a.y as f32),
+            Vec3::new(b.x as f32, 1., b.y as f32),
+            Vec3::new(b.x as f32, 0., b.y as f32),
+        ];
+
+        let norm = get_face_normal(tri[0], tri[1], tri[2]);
+
+        // back up by the z of the norm
+        let z_backup = self.radius * norm.z;
+
+        let mut out = p.with_y(closest_to_src.y - z_backup);
+
+        // get closest segment endpoint to outpos,
+        // if it's still inside the radius, bump further back up
+        // I don't really know why this isn't resolved by the projection above
+        let a_dist = out.distance(a);
+        let b_dist = out.distance(b);
+        let min_dist = a_dist.min(b_dist);
+        if min_dist < self.radius {
+            if min_dist == a_dist {
+                out.y -= self.radius - a_dist;
+            } else {
+                out.y -= self.radius - b_dist;
+            }
+        }
+        out
+    }
 }
