@@ -65,6 +65,25 @@ fn main() {
         LineSegment::new(p3, p1),
     ];
 
+    let surfaces: Vec<_> = vec![[p1, p2], [p2, p3], [p3, p1]].iter()
+        .map(|t| {
+            [
+                Vec3::new(t[0].x as f32, 0.,t[0].y as f32),
+                Vec3::new(t[1].x as f32, 1.,t[1].y as f32),
+                Vec3::new(t[1].x as f32, 0.,t[1].y as f32),
+            ]
+        }).map(|t| {
+            Surface::new(
+                [
+                    t[0],
+                    t[1],
+                    t[2],
+                ],
+                get_face_normal(t[0], t[1], t[2]),
+            )
+        })
+        .collect();
+
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
         let time = rl.get_time();
@@ -140,10 +159,11 @@ fn main() {
             d.draw_circle(p3.x as i32, p3.y as i32, 3., Color::PURPLE);
 
             // draw clipped line in origin space
-            let clips = [(p1, p2), (p2, p3), (p3, p1)].map(|(p1, p2)|{
-                hotdog.clip_line_segment(Vec2::new(p1.x as f32, p1.y as f32), Vec2::new(p2.x as f32, p2.y as f32))
-            });
-            for clip in clips {
+            let clips: Vec<_> = walls.iter().map(|wall|{
+                hotdog.clip_line_segment(Vec2::new(wall.p1.x as f32, wall.p1.y as f32), Vec2::new(wall.p2.x as f32, wall.p2.y as f32))
+            }).collect();
+            // eprintln!("clips: {:?}", clips);
+            for clip in &clips {
                 if let Some((p1, p2)) = clip {
                     d.draw_line_ex(Vector2::new(p1.x, p1.y), Vector2::new(p2.x, p2.y), 8., Color::RED);
                 }
@@ -216,9 +236,16 @@ fn main() {
                                 }
                             }
                         }
-                        d.draw_circle((top_left.x + radius + cp1.x) as i32, (top_left.y + cp1.y) as i32, 3., Color::GREEN);
+                        d.draw_circle_lines((top_left.x + radius + cp1.x) as i32, (top_left.y + cp1.y) as i32, 3., Color::GREEN);
+
+                        let true_closest = hotdog.closest_point_on_segment_rect(Vec2::new(p1.x as f32, p1.y as f32), Vec2::new(p2.x as f32, p2.y as f32));
+                        d.draw_circle((top_left.x + radius + true_closest.x) as i32, (top_left.y + true_closest.y) as i32, 3., Color::GREEN);
+                        
                     }
                 }
+
+                let res = hotdog.nearest_point_on_surfaces_for_rect(&surfaces);
+                assert_eq!(res.is_none(), nearest.is_none());
 
                 // origin space normals
                 let triangles: Vec<_> = walls
@@ -268,12 +295,19 @@ fn main() {
 
                     // stop circle
                     let p_stop = hotdog.rect_point_to_origin_space(n);
+                    let p_stop_v2 = Vector2::new(p_stop.x, p_stop.y);
                     let psx = p_stop.x as i32;
                     let psy = p_stop.y as i32;
-                    d.draw_circle_v(Vector2::new(p_stop.x, p_stop.y), radius * 3. / 4., Color::PURPLE);
-                    d.draw_circle_lines_v(Vector2::new(p_stop.x, p_stop.y), radius, Color::PURPLE);
+                    d.draw_circle_v(p_stop_v2, radius * 3. / 4., Color::PURPLE);
+                    d.draw_circle_lines_v(p_stop_v2, radius, Color::PURPLE);
                     d.draw_text("stop", psx + rad, psy, rad, Color::BLACK);
 
+                    let hdc = res.unwrap();
+                    assert_eq!(hdc.dest_xz, n);
+
+                    // stop redirect
+                    let diff = hdc.new_dir * 40.;
+                    d.draw_line_ex(p_stop_v2, p_stop_v2 + Vector2::new(diff.x, diff.y), 3., Color::HOTPINK);
 
                     d.draw_text(
                         &format!("stop: {:.1} {:.1}", p_stop.x, p_stop.y),
