@@ -306,8 +306,7 @@ fn main() {
                     assert_eq!(hdc.dest_xz, n);
 
                     // stop redirect
-                    let diff = hdc.new_dir * 40.;
-                    d.draw_line_ex(p_stop_v2, p_stop_v2 + Vector2::new(diff.x, diff.y), 3., Color::HOTPINK);
+                    d.draw_line_ex(p_stop_v2, p_stop_v2 + Vector2::new(hdc.new_target.x, hdc.new_target.y), 3., Color::HOTPINK);
 
                     d.draw_text(
                         &format!("stop: {:.1} {:.1}", p_stop.x, p_stop.y),

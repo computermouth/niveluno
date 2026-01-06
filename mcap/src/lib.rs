@@ -704,6 +704,7 @@ impl HotDog {
     }
 
     pub fn clip_line_segment(&self, p1: Vec2, p2: Vec2) -> Option<(Vec2, Vec2)> {
+        // todo, make origin_point a type `struct OriginPoint(Vec2)`
         let rp1 = self.origin_point_to_rect_space(p1);
         let rp2 = self.origin_point_to_rect_space(p2);
         match clip_line(
@@ -804,7 +805,8 @@ impl HotDog {
 
         struct Nearest {
             p: Vec2,
-            norms: Vec<Vec2>
+            norms: Vec<Vec2>,
+            angles: Vec<Vec2>,
         }
 
         let mut nearest: Option<Nearest> = None;
@@ -827,6 +829,9 @@ impl HotDog {
                 _ => unreachable!()
             };
 
+            let tn2 = Vec2::new(tri.normal.x, tri.normal.z).normalize();
+            let dn = (self.dst - self.src).normalize();
+
             // clip the 2 farthest points, and find nearest
             if let Some ((p1, p2)) = self.clip_line_segment(d1, d2) {
                 // eprintln!("pt: {:?} {:?}", p1, p2);
@@ -834,15 +839,16 @@ impl HotDog {
                 let new_xz = self.closest_point_on_segment_rect_circ(p1, p2);
                 match &mut nearest {
                     None => {
-                        nearest = Some(Nearest { p: new_xz, norms: vec![Vec2::new(tri.normal.x, tri.normal.z)] });
+                        nearest = Some(Nearest { p: new_xz, norms: vec![tn2], angles: vec![tn2 - dn] });
                     },
-                    Some(Nearest { p, norms}) => {
+                    Some(Nearest { p, norms, angles}) => {
                         if p.distance(Vec2::ZERO) > new_xz.distance(Vec2::ZERO) {
-                            nearest = Some(Nearest { p: new_xz, norms: vec![Vec2::new(tri.normal.x, tri.normal.z)] });
-                        } else if p.distance(new_xz) < f32::EPSILON {
+                            nearest = Some(Nearest { p: new_xz, norms: vec![tn2], angles: vec![tn2 - dn] });
+                        } else if p.distance(new_xz) < 0.01 {
                             // if two points are the same, we're colliding with a corner
                             // either choose one, or do something with both normals
-                            norms.push(Vec2::new(tri.normal.x, tri.normal.z));
+
+                            norms.push(Vec2::new(tri.normal.x, tri.normal.z).normalize());
                         }
                     }
                 }
@@ -853,15 +859,20 @@ impl HotDog {
         match nearest {
             None => None,
             Some(tri) => {
-                let old_step = (self.src - self.dst).normalize();
-                // todo, handle multiple
-                let tn2 = tri.norms[0];
-                // project old_step onto tn2
+                // project step onto wall plane (remove component going into wall)
+                let step1 = self.dst - self.rect_point_to_origin_space(tri.p);
+                // todo, handle multiple norms
+                let mut final_norm = Vec2::ZERO;
+                for n in &tri.norms {
+                    final_norm += n;
+                }
+                final_norm = final_norm / tri.norms.len() as f32;
+                eprintln!("norms: {:?}", tri.norms);
 
-                let scalar = old_step.dot(tn2) / tn2.length_squared();
-                let new_dir = tn2 * scalar;
-
-                Some(HotDogCollision{dest_xz: tri.p, new_dir})
+                // tn2 = tri.norms[0];
+                
+                let slide_vec = step1 - step1.project_onto(tri.norms[0]);
+                Some(HotDogCollision{dest_xz: tri.p, new_target: slide_vec})
             }
         }
     }
@@ -869,5 +880,5 @@ impl HotDog {
 
 pub struct HotDogCollision {
     pub dest_xz: Vec2,
-    pub new_dir: Vec2,
+    pub new_target: Vec2,
 }
