@@ -1,6 +1,7 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
             "type": "lldb",
             "request": "launch",
@@ -18,6 +19,25 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
+
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'fps3'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=fps3",
+                    "--package=mcap"
+                ],
+                "filter": {
+                    "name": "fps3",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

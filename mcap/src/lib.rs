@@ -1,7 +1,7 @@
-use core::f32::{INFINITY, NEG_INFINITY};
+use core::f32::{self, INFINITY, NEG_INFINITY};
 use std::ops::Neg;
 
-use glam::Vec2;
+use glam::{Mat2, Vec2};
 pub use glam::Vec3;
 
 use line_clipping::cohen_sutherland::clip_line;
@@ -308,7 +308,7 @@ pub fn closest_point_on_segment_v3(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
     let ap = p - a;
 
     let proj = ap.dot(ab);
-    let ab_len_sq = ab.length().powi(2);
+    let ab_len_sq = ab.length_squared();
     let d = proj / ab_len_sq;
 
     match d {
@@ -323,7 +323,7 @@ pub fn closest_point_on_segment_v2(p: Vec2, a: Vec2, b: Vec2) -> Vec2 {
     let ap = p - a;
 
     let proj = ap.dot(ab);
-    let ab_len_sq = ab.length().powi(2);
+    let ab_len_sq = ab.length_squared();
     let d = proj / ab_len_sq;
 
     match d {
@@ -675,6 +675,7 @@ pub fn flattened_point_inside_flattened_triangle(
 pub struct HotDog {
     src: Vec2,
     dst: Vec2,
+    // skin?
     radius: f32,
     y_dir: Vec2,
     x_dir: Vec2,
@@ -768,9 +769,9 @@ impl HotDog {
         let p = Vec2::new(0., closest_to_src.y);
 
         let tri = [
-            Vec3::new(a.x as f32, 0., a.y as f32),
-            Vec3::new(b.x as f32, 1., b.y as f32),
-            Vec3::new(b.x as f32, 0., b.y as f32),
+            Vec3::new(a.x, 0., a.y),
+            Vec3::new(b.x, 1., b.y),
+            Vec3::new(b.x, 0., b.y),
         ];
 
         let norm = get_face_normal(tri[0], tri[1], tri[2]);
@@ -805,8 +806,7 @@ impl HotDog {
 
         struct Nearest {
             p: Vec2,
-            norms: Vec<Vec2>,
-            angles: Vec<Vec2>,
+            norm: Vec2,
         }
 
         let mut nearest: Option<Nearest> = None;
@@ -839,16 +839,11 @@ impl HotDog {
                 let new_xz = self.closest_point_on_segment_rect_circ(p1, p2);
                 match &mut nearest {
                     None => {
-                        nearest = Some(Nearest { p: new_xz, norms: vec![tn2], angles: vec![tn2 - dn] });
+                        nearest = Some(Nearest { p: new_xz, norm: tn2 });
                     },
-                    Some(Nearest { p, norms, angles}) => {
+                    Some(Nearest { p, norm: _}) => {
                         if p.distance(Vec2::ZERO) > new_xz.distance(Vec2::ZERO) {
-                            nearest = Some(Nearest { p: new_xz, norms: vec![tn2], angles: vec![tn2 - dn] });
-                        } else if p.distance(new_xz) < 0.01 {
-                            // if two points are the same, we're colliding with a corner
-                            // either choose one, or do something with both normals
-
-                            norms.push(Vec2::new(tri.normal.x, tri.normal.z).normalize());
+                            nearest = Some(Nearest { p: new_xz, norm: tn2 });
                         }
                     }
                 }
@@ -861,24 +856,434 @@ impl HotDog {
             Some(tri) => {
                 // project step onto wall plane (remove component going into wall)
                 let step1 = self.dst - self.rect_point_to_origin_space(tri.p);
-                // todo, handle multiple norms
-                let mut final_norm = Vec2::ZERO;
-                for n in &tri.norms {
-                    final_norm += n;
-                }
-                final_norm = final_norm / tri.norms.len() as f32;
-                eprintln!("norms: {:?}", tri.norms);
+                let slide_vec = step1 - step1.project_onto(tri.norm);
+                Some(HotDogCollision{dest_xz: tri.p, out_dir: slide_vec})
+            }
+        }
+    }
 
-                // tn2 = tri.norms[0];
-                
-                let slide_vec = step1 - step1.project_onto(tri.norms[0]);
-                Some(HotDogCollision{dest_xz: tri.p, new_target: slide_vec})
+    pub fn nearest_point_on_surfaces_for_rect_c2(&self, surfaces: &[Surface]) -> Option<HotDogCollision> {
+
+        let walls: Vec<&Triangle> = surfaces.iter().filter_map(|s| match s {
+            Surface::Wall(w) => Some(w),
+            _ => None,
+        }).collect();
+
+        let diff = self.dst - self.src;
+
+        // skip on zero length movement
+        if diff.length() == 0. {
+            return None;
+        }
+
+        let ray = C2Ray {
+            p: self.src,
+            d: diff.normalize(),
+            t: diff.length()
+        };
+
+        let mut nearest: Option<C2Raycast> = None;
+        for tri in walls {
+
+            // get 2 most distant points
+            let a = Vec2::new(tri.verts[0].x, tri.verts[0].z);
+            let b = Vec2::new(tri.verts[1].x, tri.verts[1].z);
+            let c = Vec2::new(tri.verts[2].x, tri.verts[2].z);
+
+            let ab = a.distance(b);
+            let bc = b.distance(c);
+            let ca = c.distance(a);
+
+            let dist = ab.max(bc.max(ca));
+            let (d1, d2) = match dist {
+                d if d == ab => { (a, b) },
+                d if d == bc => { (b, c) },
+                d if d == ca => { (c, a) },
+                _ => unreachable!()
+            };
+            
+            // skip ~zero-length walls
+            if d1.distance(d2) < self.radius * 0.0001 {
+                continue;
+            }
+
+            let cap = C2Capsule {
+                a: d1,
+                b: d2,
+                r: self.radius
+            };
+            if let Some(coll) = c2RaytoCapsule(ray, cap) {
+                match &nearest {
+                    None => nearest = Some(coll),
+                    Some(n) => {
+                        if n.t > coll.t {
+                            // last nearest is further away than coll
+                            nearest = Some(coll)
+                        }
+                    }
+                }
+            }
+        }
+
+        match &nearest {
+            None => None,
+            Some(n) => {
+                // add skin to the backward step
+                let skin_t = n.t - self.radius * 0.001;
+                let dest_xz = c2_impact(ray, skin_t);
+                // project step onto wall plane (remove component going into wall)
+                let step = self.dst - dest_xz;
+                let slide_vec = step - step.project_onto(n.n);
+                Some(HotDogCollision{dest_xz, out_dir: slide_vec})
             }
         }
     }
 }
 
+#[derive(Debug)]
 pub struct HotDogCollision {
     pub dest_xz: Vec2,
-    pub new_target: Vec2,
+    pub out_dir: Vec2,
+}
+
+
+/*  CUTE HEADERS -- github.com/RandyGaul/cute_headers
+	------------------------------------------------------------------------------
+	ALTERNATIVE B - Public Domain (www.unlicense.org)
+	This is free and unencumbered software released into the public domain.
+	Anyone is free to copy, modify, publish, use, compile, sell, or distribute this 
+	software, either in source code form or as a compiled binary, for any purpose, 
+	commercial or non-commercial, and by any means.
+	In jurisdictions that recognize copyright laws, the author or authors of this 
+	software dedicate any and all copyright interest in the software to the public 
+	domain. We make this dedication for the benefit of the public at large and to 
+	the detriment of our heirs and successors. We intend this dedication to be an 
+	overt act of relinquishment in perpetuity of all present and future rights to 
+	this software under copyright law.
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+	AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN 
+	ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+	WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+	------------------------------------------------------------------------------
+*/
+
+
+// typedef struct c2Capsule
+// {
+// 	c2v a;
+// 	c2v b;
+// 	float r;
+// } c2Capsule;
+// a capsule is defined as a line segment (from a to b) and radius r
+struct C2Capsule {
+    a: Vec2,
+    b: Vec2,
+    r: f32,
+}
+
+// typedef struct c2Ray
+// {
+// 	c2v p;   // position
+// 	c2v d;   // direction (normalized)
+// 	float t; // distance along d from position p to find endpoint of ray
+// } c2Ray;
+/// IMPORTANT:
+/// Many algorithms in this file are sensitive to the magnitude of the
+/// ray direction (c2Ray::d). It is highly recommended to normalize the
+/// ray direction and use t to specify a distance. Please see this link
+/// for an in-depth explanation: https://github.com/RandyGaul/cute_headers/issues/30
+#[derive(Copy, Clone)]
+struct C2Ray {
+    p: Vec2,
+    d: Vec2,
+    t: f32,
+}
+
+// typedef struct c2Raycast
+// {
+// 	float t; // time of impact
+// 	c2v n;   // normal of surface at impact (unit length)
+// } c2Raycast;
+struct C2Raycast {
+    t: f32,
+    n: Vec2,
+}
+
+// #define c2Impact(ray, t) c2Add(ray.p, c2Mulvs(ray.d, t))
+// position of impact p = ray.p + ray.d * raycast.t
+fn c2_impact(ray: C2Ray, t: f32) -> Vec2 {
+    ray.p + ray.d * t
+}
+
+// int c2RaytoCapsule(c2Ray A, c2Capsule B, c2Raycast* out)
+// {
+// 	c2m M;
+// 	M.y = c2Norm(c2Sub(B.b, B.a));
+// 	M.x = c2CCW90(M.y);
+
+// 	// rotate capsule to origin, along Y axis
+// 	// rotate the ray same way
+// 	c2v cap_n = c2Sub(B.b, B.a);
+// 	c2v yBb = c2MulmvT(M, cap_n);
+// 	c2v yAp = c2MulmvT(M, c2Sub(A.p, B.a));
+// 	c2v yAd = c2MulmvT(M, A.d);
+// 	c2v yAe = c2Add(yAp, c2Mulvs(yAd, A.t));
+
+// 	c2AABB capsule_bb;
+// 	capsule_bb.min = c2V(-B.r, 0);
+// 	capsule_bb.max = c2V(B.r, yBb.y);
+
+// 	out->n = c2Norm(cap_n);
+// 	out->t = 0;
+
+// 	// check and see if ray starts within the capsule
+// 	if (c2AABBtoPoint(capsule_bb, yAp)) {
+// 		return 1;
+// 	} else {
+// 		c2Circle capsule_a;
+// 		c2Circle capsule_b;
+// 		capsule_a.p = B.a;
+// 		capsule_a.r = B.r;
+// 		capsule_b.p = B.b;
+// 		capsule_b.r = B.r;
+
+// 		if (c2CircleToPoint(capsule_a, A.p)) {
+// 			return 1;
+// 		} else if (c2CircleToPoint(capsule_b, A.p)) {
+// 			return 1;
+// 		}
+// 	}
+
+// 	if (yAe.x * yAp.x < 0 || c2Min(c2Abs(yAe.x), c2Abs(yAp.x)) < B.r)
+// 	{
+// 		c2Circle Ca, Cb;
+// 		Ca.p = B.a;
+// 		Ca.r = B.r;
+// 		Cb.p = B.b;
+// 		Cb.r = B.r;
+
+// 		// ray starts inside capsule prism -- must hit one of the semi-circles
+// 		if (c2Abs(yAp.x) < B.r) {
+// 			if (yAp.y < 0) return c2RaytoCircle(A, Ca, out);
+// 			else return c2RaytoCircle(A, Cb, out);
+// 		}
+
+// 		// hit the capsule prism
+// 		else
+// 		{
+// 			float c = yAp.x > 0 ? B.r : -B.r;
+// 			float d = (yAe.x - yAp.x);
+// 			float t = (c - yAp.x) / d;
+// 			float y = yAp.y + (yAe.y - yAp.y) * t;
+// 			if (y <= 0) return c2RaytoCircle(A, Ca, out);
+// 			if (y >= yBb.y) return c2RaytoCircle(A, Cb, out);
+// 			else {
+// 				out->n = c > 0 ? M.x : c2Skew(M.y);
+// 				out->t = t * A.t;
+// 				return 1;
+// 			}
+// 		}
+// 	}
+
+// 	return 0;
+// }
+
+// typedef struct c2m
+// {
+// 	c2v x;
+// 	c2v y;
+// } c2m;
+// 2d rotation matrix
+#[derive(Clone, Copy)]
+struct C2M {
+    x: Vec2,
+    y: Vec2,
+}
+
+// typedef struct c2AABB
+// {
+// 	c2v min;
+// 	c2v max;
+// } c2AABB;
+struct C2AABB {
+    min: Vec2,
+    max: Vec2,
+}
+
+// c2v c2MulmvT(c2m a, c2v b) { c2v c; c.x = a.x.x * b.x + a.x.y * b.y; c.y = a.y.x * b.x + a.y.y * b.y; return c; }
+fn c2MulmvT(a: C2M, b: Vec2) -> Vec2 {
+let mut c = Vec2::ZERO; c.x = a.x.x * b.x + a.x.y * b.y; c.y = a.y.x * b.x + a.y.y * b.y; return c;
+}
+
+
+// int c2AABBtoPoint(c2AABB A, c2v B)
+// {
+// 	int d0 = B.x < A.min.x;
+// 	int d1 = B.y < A.min.y;
+// 	int d2 = B.x > A.max.x;
+// 	int d3 = B.y > A.max.y;
+// 	return !(d0 | d1 | d2 | d3);
+// }
+fn c2AABBtoPoint(A: C2AABB, B: Vec2) -> bool
+{
+	let d0 = B.x < A.min.x;
+	let d1 = B.y < A.min.y;
+	let d2 = B.x > A.max.x;
+	let d3 = B.y > A.max.y;
+	return !(d0 | d1 | d2 | d3);
+}
+
+// typedef struct c2Circle
+// {
+// 	c2v p;
+// 	float r;
+// } c2Circle;
+struct C2Circle {
+    p: Vec2,
+    r: f32,
+}
+
+// int c2CircleToPoint(c2Circle A, c2v B)
+// {
+// 	c2v n = c2Sub(A.p, B);
+// 	float d2 = c2Dot(n, n);
+// 	return d2 < A.r * A.r;
+// }
+fn c2CircleToPoint(A: C2Circle, B: Vec2) -> bool
+{
+	let n = A.p - B;
+	let d2 = n.dot(n);
+	return d2 < A.r * A.r;
+}
+
+// int c2RaytoCircle(c2Ray A, c2Circle B, c2Raycast* out)
+// {
+// 	c2v p = B.p;
+// 	c2v m = c2Sub(A.p, p);
+// 	float c = c2Dot(m, m) - B.r * B.r;
+// 	float b = c2Dot(m, A.d);
+// 	float disc = b * b - c;
+// 	if (disc < 0) return 0;
+
+// 	float t = -b - c2Sqrt(disc);
+// 	if (t >= 0 && t <= A.t)
+// 	{
+// 		out->t = t;
+// 		c2v impact = c2Impact(A, t);
+// 		out->n = c2Norm(c2Sub(impact, p));
+// 		return 1;
+// 	}
+// 	return 0;
+// }
+fn c2RaytoCircle(A: C2Ray, B: C2Circle) -> Option<C2Raycast>
+{
+	let p = B.p;
+	let m = A.p - p;
+	let c = m.dot(m) - B.r * B.r;
+	let b = m.dot(A.d);
+	let disc = b * b - c;
+	if disc < 0. {
+        return None;
+    }
+
+	let t = -b - disc.sqrt();
+	if t >= 0. && t <= A.t
+	{
+        Some(C2Raycast {
+            t: t,
+            n: (c2_impact(A, t) - p).normalize()
+        })
+	} else {
+        None
+    }
+}
+
+// c2v c2Skew(c2v a) { c2v b; b.x = -a.y; b.y = a.x; return b; }
+fn c2Skew(a: Vec2) -> Vec2 { Vec2::new(-a.y, a.x) }
+
+fn c2RaytoCapsule(A: C2Ray, B: C2Capsule) -> Option<C2Raycast>
+{
+
+    let my = (B.b - B.a).normalize();
+    let M = C2M {
+	    y: my,
+	    x: Vec2::new(-my.y, my.x),
+    };
+
+	// rotate capsule to origin, along Y axis
+	// rotate the ray same way
+	let cap_n = B.b - B.a;
+	let yBb = c2MulmvT(M, cap_n);
+	let yAp = c2MulmvT(M, A.p - B.a);
+	let yAd = c2MulmvT(M, A.d);
+	let yAe = yAp + yAd * A.t;
+
+	let capsule_bb = C2AABB {
+        min: Vec2::new(-B.r, 0.),
+        max: Vec2::new(B.r, yBb.y),
+    };
+
+    let out = C2Raycast {
+        n: cap_n.normalize(),
+        t: 0.,
+    };
+
+	// check and see if ray starts within the capsule
+	if c2AABBtoPoint(capsule_bb, yAp) {
+		return Some(out);
+	} else {
+		let capsule_a = C2Circle {
+            p: B.a,
+            r: B.r,
+        };
+		let capsule_b = C2Circle {
+            p: B.b,
+            r: B.r,
+        };
+
+		if c2CircleToPoint(capsule_a, A.p) {
+			return Some(out);
+		} else if c2CircleToPoint(capsule_b, A.p) {
+			return Some(out);
+		}
+	}
+
+	if yAe.x * yAp.x < 0. || yAe.x.abs().min(yAp.x.abs()) < B.r
+	{
+        let Ca = C2Circle {
+            p: B.a,
+            r: B.r,
+        };
+        let Cb = C2Circle {
+            p: B.b,
+            r: B.r,
+        };
+
+		// ray starts inside capsule prism -- must hit one of the semi-circles
+		if yAp.x.abs() < B.r {
+			if yAp.y < 0. { return c2RaytoCircle(A, Ca) }
+			else { return c2RaytoCircle(A, Cb) }
+		}
+
+		// hit the capsule prism
+		else
+		{
+			let c = if yAp.x > 0. { B.r } else { -B.r };
+			let d = yAe.x - yAp.x;
+			let t = (c - yAp.x) / d;
+			let y = yAp.y + (yAe.y - yAp.y) * t;
+			if y <= 0. { return c2RaytoCircle(A, Ca); }
+			if y >= yBb.y { return c2RaytoCircle(A, Cb); }
+			else {
+                return Some(C2Raycast{
+                    n : if c > 0. { M.x } else { c2Skew(M.y) },
+                    t : t * A.t,
+                });
+			}
+		}
+	}
+
+	None
 }

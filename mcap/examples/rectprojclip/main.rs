@@ -244,8 +244,8 @@ fn main() {
                     }
                 }
 
-                let res = hotdog.nearest_point_on_surfaces_for_rect(&surfaces);
-                assert_eq!(res.is_none(), nearest.is_none());
+                let res = hotdog.nearest_point_on_surfaces_for_rect_c2(&surfaces);
+                // assert_eq!(res.is_none(), nearest.is_none());
 
                 // origin space normals
                 let triangles: Vec<_> = walls
@@ -294,19 +294,28 @@ fn main() {
                     d.draw_circle_lines((top_left.x + radius + n.x) as i32, (top_left.y + n.y) as i32, radius, Color::PURPLE);
 
                     // stop circle
+                    // let p_stop = hotdog.rect_point_to_origin_space(n);
+                    // let p_stop_v2 = Vector2::new(p_stop.x, p_stop.y);
+                    // let psx = p_stop.x as i32;
+                    // let psy = p_stop.y as i32;
+                    // d.draw_circle_v(p_stop_v2, radius * 3. / 4., Color::PURPLE);
+                    // d.draw_circle_lines_v(p_stop_v2, radius, Color::PURPLE);
+                    // d.draw_text("stop", psx + rad, psy, rad, Color::BLACK);
+
+                    let hdc = res.unwrap();
+                    // assert_eq!(hdc.dest_xz, n);
+
+                    // stop circle
                     let p_stop = hotdog.rect_point_to_origin_space(n);
-                    let p_stop_v2 = Vector2::new(p_stop.x, p_stop.y);
+                    let p_stop_v2 = Vector2::new(hdc.dest_xz.x, hdc.dest_xz.y);
                     let psx = p_stop.x as i32;
                     let psy = p_stop.y as i32;
                     d.draw_circle_v(p_stop_v2, radius * 3. / 4., Color::PURPLE);
                     d.draw_circle_lines_v(p_stop_v2, radius, Color::PURPLE);
                     d.draw_text("stop", psx + rad, psy, rad, Color::BLACK);
 
-                    let hdc = res.unwrap();
-                    assert_eq!(hdc.dest_xz, n);
-
                     // stop redirect
-                    d.draw_line_ex(p_stop_v2, p_stop_v2 + Vector2::new(hdc.new_target.x, hdc.new_target.y), 3., Color::HOTPINK);
+                    d.draw_line_ex(p_stop_v2, p_stop_v2 + Vector2::new(hdc.out_dir.x, hdc.out_dir.y), 3., Color::HOTPINK);
 
                     d.draw_text(
                         &format!("stop: {:.1} {:.1}", p_stop.x, p_stop.y),
