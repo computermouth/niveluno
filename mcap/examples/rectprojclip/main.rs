@@ -1,7 +1,6 @@
 use ::core::f32;
 
 use glam::Vec2;
-use line_clipping::cohen_sutherland::clip_line;
 use line_clipping::{LineSegment, Point, Window};
 use mcap::{
     Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment_v2, closest_point_on_segment_v3, get_face_normal, get_step_push, rect_wall_for_hotdog, HotDog
@@ -83,6 +82,8 @@ fn main() {
             )
         })
         .collect();
+
+    let wsurfs: Vec<_> = surfaces.iter().filter(|s| if let Surface::Wall(_) = s {true} else {false}).collect();
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -244,7 +245,7 @@ fn main() {
                     }
                 }
 
-                let res = hotdog.nearest_point_on_surfaces_for_rect_c2(&surfaces);
+                let res = hotdog.check_walls_c2(&wsurfs);
                 // assert_eq!(res.is_none(), nearest.is_none());
 
                 // origin space normals

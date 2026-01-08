@@ -674,6 +674,8 @@ pub fn flattened_point_inside_flattened_triangle(
 
 pub struct HotDog {
     src: Vec2,
+    // todo, remove??
+    srcv3: Vec3,
     dst: Vec2,
     // skin?
     radius: f32,
@@ -683,14 +685,15 @@ pub struct HotDog {
 }
 
 impl HotDog {
-    pub fn new(src: Vec3, dst: Vec3, radius: f32) -> Self {
-        let src = Vec2::new(src.x, src.z);
+    pub fn new(srcv3: Vec3, dst: Vec3, radius: f32) -> Self {
+        let src = Vec2::new(srcv3.x, srcv3.z);
         let dst = Vec2::new(dst.x, dst.z);
         let diff = dst - src;
         let y_dir = diff.normalize();
         let length = diff.length();
         Self {
             src,
+            srcv3,
             dst,
             radius,
             y_dir,
@@ -862,7 +865,7 @@ impl HotDog {
         }
     }
 
-    pub fn nearest_point_on_surfaces_for_rect_c2(&self, surfaces: &[Surface]) -> Option<HotDogCollision> {
+    pub fn check_walls_c2(&self, surfaces: &[&Surface]) -> Option<HotDogCollision> {
 
         let walls: Vec<&Triangle> = surfaces.iter().filter_map(|s| match s {
             Surface::Wall(w) => Some(w),
@@ -884,6 +887,22 @@ impl HotDog {
 
         let mut nearest: Option<C2Raycast> = None;
         for tri in walls {
+
+            // check if pos is in the direction of the wall's normal
+            let t1 = tri.verts()[0];
+            let v = self.srcv3 - t1;
+            if v.dot(tri.normal) < 0. {
+                continue;
+            }
+
+            // triangle's min and max y
+            let min_y = tri.verts[0].y.min(tri.verts[1].y).min(tri.verts[2].y);
+            let max_y = tri.verts[0].y.max(tri.verts[1].y).max(tri.verts[2].y);
+
+            // check if posy is within miny/maxy of triangle
+            if !(min_y..=max_y).contains(&self.srcv3.y) {
+                continue;
+            }
 
             // get 2 most distant points
             let a = Vec2::new(tri.verts[0].x, tri.verts[0].z);

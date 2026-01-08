@@ -47,9 +47,9 @@ fn main() {
 
     let origin = at_origin(Vector3::zero());
 
-    let model = rl.load_model(&thread, "res/map2.glb").unwrap();
+    let model = rl.load_model(&thread, "res/map.glb").unwrap();
     let collison_triangles =
-        triangles::get_triangles(modelz::Model3D::load("res/map2.glb").unwrap());
+        triangles::get_triangles(modelz::Model3D::load("res/map.glb").unwrap());
     let surfaces: Vec<_> = collison_triangles
         .iter()
         .map(|t| {
@@ -64,11 +64,13 @@ fn main() {
         })
         .collect();
 
-    let player_start = origin + Vector3::new(10.0, -1.5, -8.0);
+    let walls: Vec<_> = surfaces.iter().filter(|s| if let Surface::Wall(_) = s {true} else {false}).collect();
+
+    let player_start = origin + Vector3::new(10., -1.5, -8.0);
 
     let mut player = Player {
         // bottom of cylinder
-        pos: player_start,
+        pos: origin,
         vel: Vector3::zero(),
         cam_pitch: 0.,
         cam_yaw: 0.,
@@ -120,15 +122,16 @@ fn main() {
 
         let iterations = 8;
 
-        let mut iter_in = player.pos.to_mcapv3();
-        let mut out_pos = (player.pos + movement).to_mcapv3();
+        let chest_pos = player.pos + Vector3::new(0., player.chest_height, 0.);
+        let mut iter_in = chest_pos.to_mcapv3();
+        let mut out_pos = (chest_pos + movement).to_mcapv3();
         for i in 0..iterations {
             let hotdog = HotDog::new(iter_in, out_pos, player.radius);
-            if let Some(coll) = hotdog.nearest_point_on_surfaces_for_rect_c2(&surfaces) {
+            if let Some(coll) = hotdog.check_walls_c2(&walls) {
                 if coll.dest_xz.x.is_nan() || coll.dest_xz.y.is_nan() || coll.out_dir.x.is_nan() || coll.out_dir.y.is_nan() {
                     eprintln!("{:?}", coll);
                 }
-                iter_in = Vec3::new(coll.dest_xz.x, player.pos.y, coll.dest_xz.y);
+                iter_in = Vec3::new(coll.dest_xz.x, 0., coll.dest_xz.y);
                 out_pos = iter_in + Vec3::new(coll.out_dir.x, 0., coll.out_dir.y);
             } else {
                 break;
@@ -138,8 +141,7 @@ fn main() {
             }
         }
 
-
-        player.pos = out_pos.to_rayv3();
+        player.pos = out_pos.with_y(player.pos.y).to_rayv3();
 
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
