@@ -95,6 +95,7 @@ fn main() {
         fc += 1.0;
 
         let mouse_in = rl.get_mouse_delta();
+        rl.set_mouse_position(Vector2::new(0., 0.));
         player.cam_pitch = (player.cam_pitch + mouse_in.y * 0.0015).clamp(-0.9, 0.9);
         player.cam_yaw += mouse_in.x * 0.0015;
 
@@ -116,32 +117,36 @@ fn main() {
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
         let right_dir = -forward_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalized();
 
-        // frame velocity
-        let move_speed = 10.0;
-        let movement = (forward_dir * ws + right_dir * ad) * move_speed * fd;
-
         let iterations = 8;
 
         let chest_pos = player.pos + Vector3::new(0., player.chest_height, 0.);
-        let mut iter_in = chest_pos.to_mcapv3();
-        let mut out_pos = (chest_pos + movement).to_mcapv3();
+        let mut current_pos = chest_pos.to_mcapv3();
+        let move_speed = 10.0;
+        let move_dir = (forward_dir * ws + right_dir * ad).normalized();
+        let remaining_movement = move_dir * move_speed * fd;
+        let mut remaining_movement = remaining_movement.to_mcapv3();
+
         for i in 0..iterations {
-            let hotdog = HotDog::new(iter_in, out_pos, player.radius);
+            let target = current_pos + remaining_movement;
+            let hotdog = HotDog::new(current_pos, target, player.radius, move_dir.to_mcapv3());
+            
             if let Some(coll) = hotdog.check_walls_c2(&walls) {
-                if coll.dest_xz.x.is_nan() || coll.dest_xz.y.is_nan() || coll.out_dir.x.is_nan() || coll.out_dir.y.is_nan() {
-                    eprintln!("{:?}", coll);
-                }
-                iter_in = Vec3::new(coll.dest_xz.x, 0., coll.dest_xz.y);
-                out_pos = iter_in + Vec3::new(coll.out_dir.x, 0., coll.out_dir.y);
+                current_pos = Vec3::new(coll.dest_xz.x, 0., coll.dest_xz.y);
+                
+                // Use the slide vector as the new remaining movement
+                remaining_movement = Vec3::new(coll.next_move.x, 0., coll.next_move.y);
+                
+                eprintln!("iter {i}: remaining len = {}", remaining_movement.length());
             } else {
+                current_pos = target;
                 break;
-            }
-            if i == iterations - 1 {
-                out_pos = iter_in;
             }
         }
 
-        player.pos = out_pos.with_y(player.pos.y).to_rayv3();
+        player.pos = current_pos.with_y(player.pos.y).to_rayv3();
+
+
+
 
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);

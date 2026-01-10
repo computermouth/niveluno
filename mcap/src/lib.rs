@@ -682,10 +682,11 @@ pub struct HotDog {
     y_dir: Vec2,
     x_dir: Vec2,
     window: Window,
+    original_dir: Vec2,
 }
 
 impl HotDog {
-    pub fn new(srcv3: Vec3, dst: Vec3, radius: f32) -> Self {
+    pub fn new(srcv3: Vec3, dst: Vec3, radius: f32, original_dir: Vec3) -> Self {
         let src = Vec2::new(srcv3.x, srcv3.z);
         let dst = Vec2::new(dst.x, dst.z);
         let diff = dst - src;
@@ -703,7 +704,8 @@ impl HotDog {
                 radius as f64,
                 0.,
                 length as f64,
-            )
+            ),
+            original_dir: Vec2::new(original_dir.x, original_dir.z).normalize(),
         }
     }
 
@@ -859,8 +861,9 @@ impl HotDog {
             Some(tri) => {
                 // project step onto wall plane (remove component going into wall)
                 let step1 = self.dst - self.rect_point_to_origin_space(tri.p);
-                let slide_vec = step1 - step1.project_onto(tri.norm);
-                Some(HotDogCollision{dest_xz: tri.p, out_dir: slide_vec})
+                let rejection_vec = step1.project_onto(tri.norm);
+                let slide_vec = step1 - rejection_vec;
+                Some(HotDogCollision{dest_xz: tri.p, next_move: slide_vec, push_out: rejection_vec, next_move_len: 0.})
             }
         }
     }
@@ -888,12 +891,12 @@ impl HotDog {
         let mut nearest: Option<C2Raycast> = None;
         for tri in walls {
 
-            // check if pos is in the direction of the wall's normal
-            let t1 = tri.verts()[0];
-            let v = self.srcv3 - t1;
-            if v.dot(tri.normal) < 0. {
-                continue;
-            }
+            // // check if pos is in the direction of the wall's normal
+            // let t1 = tri.verts()[0];
+            // let v = self.srcv3 - t1;
+            // if v.dot(tri.normal) < 0. {
+            //     continue;
+            // }
 
             // triangle's min and max y
             let min_y = tri.verts[0].y.min(tri.verts[1].y).min(tri.verts[2].y);
@@ -952,8 +955,16 @@ impl HotDog {
                 let dest_xz = c2_impact(ray, skin_t);
                 // project step onto wall plane (remove component going into wall)
                 let step = self.dst - dest_xz;
-                let slide_vec = step - step.project_onto(n.n);
-                Some(HotDogCollision{dest_xz, out_dir: slide_vec})
+                let push_out = step.project_onto(n.n);
+                let mut next_move = step - push_out;
+
+                let next_dir = ((dest_xz + next_move) - dest_xz).normalize();
+
+                if next_dir.dot(self.original_dir) < 0. {
+                    // eprintln!("next_dir: {:?} orig: {:?}, dot: {}", next_move.dot(self.original_dir), self.original_dir, next_dir.dot(self.original_dir));
+                    next_move = Vec2::ZERO
+                }
+                Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out})
             }
         }
     }
@@ -962,7 +973,9 @@ impl HotDog {
 #[derive(Debug)]
 pub struct HotDogCollision {
     pub dest_xz: Vec2,
-    pub out_dir: Vec2,
+    pub next_move: Vec2,
+    pub next_move_len: f32,
+    pub push_out: Vec2,
 }
 
 

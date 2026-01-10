@@ -58,18 +58,24 @@ fn main() {
         x: (right_3q.x + 200.) as f64,
         y: (right_3q.y + 150.) as f64,
     };
+    let p4 = Point {
+        x: (right_3q.x) as f64,
+        y: (right_3q.y + 150.) as f64,
+    };
     let walls = vec![
         LineSegment::new(p1, p2),
         LineSegment::new(p2, p3),
         LineSegment::new(p3, p1),
+        // LineSegment::new(p4, p1),
+        LineSegment::new(p1, p4),
     ];
 
-    let surfaces: Vec<_> = vec![[p1, p2], [p2, p3], [p3, p1]].iter()
+    let surfaces: Vec<_> = walls.iter()
         .map(|t| {
             [
-                Vec3::new(t[0].x as f32, 0.,t[0].y as f32),
-                Vec3::new(t[1].x as f32, 1.,t[1].y as f32),
-                Vec3::new(t[1].x as f32, 0.,t[1].y as f32),
+                Vec3::new(t.p1.x as f32, 0.,t.p1.y as f32),
+                Vec3::new(t.p2.x as f32, 1.,t.p2.y as f32),
+                Vec3::new(t.p2.x as f32, 0.,t.p2.y as f32),
             ]
         }).map(|t| {
             Surface::new(
@@ -150,7 +156,7 @@ fn main() {
             // hotdog
             let src = Vec3::new(p_src.x, 0., p_src.y);
             let dst = Vec3::new(p_dst.x, 0., p_dst.y);
-            let hotdog = HotDog::new(src, dst, radius);
+            let hotdog = HotDog::new(src, dst, radius, (dst - src).normalize());
 
             let window = hotdog.get_window();
 
@@ -289,6 +295,28 @@ fn main() {
                 Color::BLACK,
             );
 
+            if let Some(hdc) = res {
+                // stop circle
+                // let p_stop = hotdog.rect_point_to_origin_space(n);
+                let p_stop_v2 = Vector2::new(hdc.dest_xz.x, hdc.dest_xz.y);
+                let psx = p_stop_v2.x as i32;
+                let psy = p_stop_v2.y as i32;
+                d.draw_circle_v(p_stop_v2, radius * 3. / 4., Color::PURPLE);
+                d.draw_circle_lines_v(p_stop_v2, radius, Color::PURPLE);
+                d.draw_text("stop", psx + rad, psy, rad, Color::BLACK);
+
+                // stop redirect
+                d.draw_line_ex(p_stop_v2, p_stop_v2 + Vector2::new(hdc.next_move.x, hdc.next_move.y), 3., Color::HOTPINK);
+
+                d.draw_text(
+                    &format!("stop: {:.1} {:.1}", p_stop_v2.x, p_stop_v2.y),
+                    20,
+                    680,
+                    20,
+                    Color::BLACK,
+                );
+            } 
+
                 if let Some(n) = nearest {
                     // top-left line to nearest
                     d.draw_line((top_left.x + radius) as i32, top_left.y as i32, (top_left.x + radius + n.x) as i32, (top_left.y + n.y) as i32, Color::BLACK);
@@ -302,29 +330,6 @@ fn main() {
                     // d.draw_circle_v(p_stop_v2, radius * 3. / 4., Color::PURPLE);
                     // d.draw_circle_lines_v(p_stop_v2, radius, Color::PURPLE);
                     // d.draw_text("stop", psx + rad, psy, rad, Color::BLACK);
-
-                    let hdc = res.unwrap();
-                    // assert_eq!(hdc.dest_xz, n);
-
-                    // stop circle
-                    let p_stop = hotdog.rect_point_to_origin_space(n);
-                    let p_stop_v2 = Vector2::new(hdc.dest_xz.x, hdc.dest_xz.y);
-                    let psx = p_stop.x as i32;
-                    let psy = p_stop.y as i32;
-                    d.draw_circle_v(p_stop_v2, radius * 3. / 4., Color::PURPLE);
-                    d.draw_circle_lines_v(p_stop_v2, radius, Color::PURPLE);
-                    d.draw_text("stop", psx + rad, psy, rad, Color::BLACK);
-
-                    // stop redirect
-                    d.draw_line_ex(p_stop_v2, p_stop_v2 + Vector2::new(hdc.out_dir.x, hdc.out_dir.y), 3., Color::HOTPINK);
-
-                    d.draw_text(
-                        &format!("stop: {:.1} {:.1}", p_stop.x, p_stop.y),
-                        20,
-                        680,
-                        20,
-                        Color::BLACK,
-                    );
                 }
         }
     }
