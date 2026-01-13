@@ -90,7 +90,7 @@ impl Example for State {
                 1.,
                 3.,
                 0.4,
-                &[surf],
+                &[&surf],
             );
             new_pos = res.final_pos.to_rayv3();
 

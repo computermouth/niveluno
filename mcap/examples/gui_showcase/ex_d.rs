@@ -85,7 +85,7 @@ impl Example for State {
             ),
         );
 
-        let surfs = [surf1, surf2];
+        let surfs = [&surf1, &surf2];
         let snap = 1.2;
 
         let center = (tpos[0].to_mcapv3() + tpos[1].to_mcapv3() + tpos[2].to_mcapv3()) / 3.;

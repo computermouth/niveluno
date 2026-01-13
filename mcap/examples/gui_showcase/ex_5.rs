@@ -98,7 +98,7 @@ impl Example for State {
             ),
         );
 
-        let surfs = [surf1, surf2];
+        let surfs = [&surf1, &surf2];
 
         let iterations = 8;
         let v_chunk = self.velocity.scale_by(1. / iterations as f32);

@@ -1,7 +1,8 @@
 use std::iter;
 
+use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
+    HotDog, Surface, Triangle, Vec3, find_floor_height, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
 };
 use modelz;
 use raylib::prelude::*;
@@ -47,9 +48,9 @@ fn main() {
 
     let origin = at_origin(Vector3::zero());
 
-    let model = rl.load_model(&thread, "res/map.glb").unwrap();
+    let model = rl.load_model(&thread, "res/nmap.glb").unwrap();
     let collison_triangles =
-        triangles::get_triangles(modelz::Model3D::load("res/map.glb").unwrap());
+        triangles::get_triangles(modelz::Model3D::load("res/nmap.glb").unwrap());
     let surfaces: Vec<_> = collison_triangles
         .iter()
         .map(|t| {
@@ -65,8 +66,7 @@ fn main() {
         .collect();
 
     let walls: Vec<_> = surfaces.iter().filter(|s| if let Surface::Wall(_) = s {true} else {false}).collect();
-
-    let player_start = origin + Vector3::new(10., -1.5, -8.0);
+    let floors: Vec<_> = surfaces.iter().filter(|s| if let Surface::Floor(_) = s {true} else {false}).collect();
 
     let mut player = Player {
         // bottom of cylinder
@@ -95,7 +95,7 @@ fn main() {
         fc += 1.0;
 
         let mouse_in = rl.get_mouse_delta();
-        rl.set_mouse_position(Vector2::new(0., 0.));
+        rl.set_mouse_position(Vector2::new(320., 240.));
         player.cam_pitch = (player.cam_pitch + mouse_in.y * 0.0015).clamp(-0.9, 0.9);
         player.cam_yaw += mouse_in.x * 0.0015;
 
@@ -105,6 +105,11 @@ fn main() {
             player.cam_yaw.sin() * player.cam_pitch.cos(),
         )
         .normalized();
+
+        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT)) &&
+            rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
+                rl.toggle_fullscreen();
+        }
 
         // player horizontal movement
         let w = rl.is_key_down(KeyboardKey::KEY_W);
@@ -117,36 +122,61 @@ fn main() {
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
         let right_dir = -forward_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalized();
 
-        let iterations = 8;
-
         let chest_pos = player.pos + Vector3::new(0., player.chest_height, 0.);
-        let mut current_pos = chest_pos.to_mcapv3();
         let move_speed = 10.0;
         let move_dir = (forward_dir * ws + right_dir * ad).normalized();
-        let remaining_movement = move_dir * move_speed * fd;
-        let mut remaining_movement = remaining_movement.to_mcapv3();
 
-        for i in 0..iterations {
-            let target = current_pos + remaining_movement;
-            let hotdog = HotDog::new(current_pos, target, player.radius, move_dir.to_mcapv3());
-            
-            if let Some(coll) = hotdog.check_walls_c2(&walls) {
-                current_pos = Vec3::new(coll.dest_xz.x, 0., coll.dest_xz.y);
-                
-                // Use the slide vector as the new remaining movement
-                remaining_movement = Vec3::new(coll.next_move.x, 0., coll.next_move.y);
-                
-                eprintln!("iter {i}: remaining len = {}", remaining_movement.length());
+        let src = chest_pos;
+        let dst = src + (move_dir * move_speed * fd);
+
+        let mut final_stop = Vec2::new(dst.x, dst.z);
+        let max_iter = 5;
+
+        let mut lpos = src.to_mcapv3();
+        let mut ldst = dst.to_mcapv3();
+        for i in 0..max_iter {
+            let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
+            if let Some(hdc) = hotdog.check_walls_c2(&walls) {
+
+                // bailing on no-move collision
+                // if hdc.next_move_len == 0. {
+                //     final_stop = hdc.dest_xz;
+                //     // eprintln!("break");
+                //     break;
+                // }
+
+                // update current position
+                lpos = Vec3::new(hdc.dest_xz.x, lpos.y, hdc.dest_xz.y);
+
+                // // handle floor change
+                // let foot_pos = lpos - Vec3::new(0., player.chest_height, 0.);
+                // if let Some((floor, y)) = find_floor_height(foot_pos, player.chest_height, &floors) {
+                //     lpos.y = y;
+                //     // project step onto floor normal
+                //     step -= floor.normal * step.dot(floor.normal);
+                // } else {
+                //     // walked off ledge, become airborne
+                //     airborne = true;
+                //     break;
+                // }
+
+                // set up next destination
+                ldst = lpos + Vec3::new(hdc.next_move.x, 0., hdc.next_move.y);
+
+                // bailing on max collisions
+                if i == max_iter - 1 || hdc.next_move_len < f32::EPSILON {
+                    final_stop = hdc.dest_xz;
+                    break;
+                }
+                // set new final
+                final_stop = hdc.dest_xz + hdc.next_move;
             } else {
-                current_pos = target;
+                // no collision
                 break;
             }
         }
 
-        player.pos = current_pos.with_y(player.pos.y).to_rayv3();
-
-
-
+        player.pos = Vector3::new(final_stop.x, player.pos.y, final_stop.y);
 
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
@@ -176,9 +206,9 @@ fn main() {
                     color: Color,
                 ) {
                     let v = tri.verts();
-                    let t1 = v[0].to_rayv3();
-                    let t2 = v[1].to_rayv3();
-                    let t3 = v[2].to_rayv3();
+                    let t1 = (v[0] + (tri.normal() * 0.05)).to_rayv3();
+                    let t2 = (v[1] + (tri.normal() * 0.05)).to_rayv3();
+                    let t3 = (v[2] + (tri.normal() * 0.05)).to_rayv3();
                     d3d.draw_triangle3D(t1, t2, t3, color);
                     d3d.draw_line_3D(t1, t2, Color::WHITE);
                     d3d.draw_line_3D(t1, t3, Color::WHITE);

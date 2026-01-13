@@ -96,6 +96,8 @@ impl Example for State {
             ));
         }
 
+        let surfs: Vec<_> = surfs.iter().map(|s| s).collect();
+
         let snap = 1.2;
         let center = at_origin(Vector3::zero()).to_mcapv3();
         // start exactly between, and bob with time.sin()

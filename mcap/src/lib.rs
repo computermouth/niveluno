@@ -79,7 +79,7 @@ pub fn get_step_push_most_opposing(
     radius: f32,
     chest_height: f32,
     floor_snap_dist: f32,
-    surfaces: &[Surface],
+    surfaces: &[&Surface],
 ) -> StepResult {
     let mut target_pos = pos + step;
     let mut collided = false;
@@ -169,7 +169,7 @@ pub fn get_step_push(
     radius: f32,
     chest_height: f32,
     floor_snap_dist: f32,
-    surfaces: &[Surface],
+    surfaces: &[&Surface],
 ) -> StepResult {
     let mut target_pos = pos + step;
     let mut collided = false;
@@ -244,7 +244,7 @@ pub fn get_step_push_m64(
     radius: f32,
     chest_height: f32,
     floor_snap_dist: f32,
-    surfaces: &[Surface],
+    surfaces: &[&Surface],
 ) -> StepResult {
     let mut target_pos = pos + step;
     let mut collided = false;
@@ -616,7 +616,7 @@ pub fn solve_plane_y(normal: Vec3, origin_offset: f32, x: f32, z: f32) -> f32 {
 pub fn find_floor_height(
     pos: Vec3,
     floor_snap_dist: f32,
-    surfaces: &[Surface],
+    surfaces: &[&Surface],
 ) -> Option<(Triangle, f32)> {
     let mut best_y = f32::NEG_INFINITY;
     let mut best_tri = None;
@@ -677,6 +677,7 @@ pub struct HotDog {
     // todo, remove??
     srcv3: Vec3,
     dst: Vec2,
+    dstv3: Vec3,
     // skin?
     radius: f32,
     y_dir: Vec2,
@@ -686,9 +687,9 @@ pub struct HotDog {
 }
 
 impl HotDog {
-    pub fn new(srcv3: Vec3, dst: Vec3, radius: f32, original_dir: Vec3) -> Self {
+    pub fn new(srcv3: Vec3, dstv3: Vec3, radius: f32, original_dir: Vec3) -> Self {
         let src = Vec2::new(srcv3.x, srcv3.z);
-        let dst = Vec2::new(dst.x, dst.z);
+        let dst = Vec2::new(dstv3.x, dstv3.z);
         let diff = dst - src;
         let y_dir = diff.normalize();
         let length = diff.length();
@@ -696,6 +697,7 @@ impl HotDog {
             src,
             srcv3,
             dst,
+            dstv3,
             radius,
             y_dir,
             x_dir: Vec2::new(-y_dir.y, y_dir.x),
@@ -887,17 +889,31 @@ impl HotDog {
             d: diff.normalize(),
             t: diff.length()
         };
+        
+        let diffv3 = self.srcv3.distance(self.dstv3);
 
         let mut nearest: Option<C2Raycast> = None;
         for tri in walls {
 
-            // // check if pos is in the direction of the wall's normal
-            // let t1 = tri.verts()[0];
-            // let v = self.srcv3 - t1;
-            // if v.dot(tri.normal) < 0. {
-            //     continue;
+            
+            // // seems like these can actually be slower
+            // // test later with bigger maps and mapchunks
+            // {
+            //     // check if pos is in the direction of the wall's normal
+            //     let t1 = tri.verts()[0];
+            //     let v = self.srcv3 - t1;
+            //     if v.dot(tri.normal) < 0. {
+            //         continue;
+            //     }
+
+            //     // cylinder intersection with infinite plane
+            //     let offset = tri.normal.dot(self.srcv3) + tri.origin_offset;
+            //     if offset.abs() >= self.radius + diffv3 {
+            //         continue;
+            //     }
             // }
 
+            // todo, get triangle's intersection of 
             // triangle's min and max y
             let min_y = tri.verts[0].y.min(tri.verts[1].y).min(tri.verts[2].y);
             let max_y = tri.verts[0].y.max(tri.verts[1].y).max(tri.verts[2].y);

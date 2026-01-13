@@ -62,6 +62,7 @@ fn main() {
             )
         })
         .collect();
+    let surfaces: Vec<_> = surfaces.iter().map(|s| s).collect();
 
     let player_start = origin + Vector3::new(10.0, -1.5, -8.0);
 

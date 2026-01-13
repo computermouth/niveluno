@@ -60,6 +60,8 @@ fn main() {
         })
         .collect();
 
+    let surfaces: Vec<_> = surfaces.iter().map(|s| s).collect();
+
     let mut player = Player {
         // bottom of cylinder
         pos: origin,
