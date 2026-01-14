@@ -9,9 +9,9 @@ use line_clipping::{LineSegment, Point, Window};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Triangle {
-    verts: [Vec3; 3],
-    normal: Vec3,
-    origin_offset: f32,
+    pub verts: [Vec3; 3],
+    pub normal: Vec3,
+    pub origin_offset: f32,
 }
 
 const FLOOR_EPS: f32 = 0.01;
@@ -672,13 +672,45 @@ pub fn flattened_point_inside_flattened_triangle(
     return collision;
 }
 
+// get line segment where horizontal plane at y intersects triangle
+pub fn triangle_slice_at_y(verts: &[Vec3; 3], y: f32) -> Option<(Vec2, Vec2)> {
+    let mut points = Vec::new();
+    
+    let edges = [(&verts[0], &verts[1]), (&verts[1], &verts[2]), (&verts[2], &verts[0])];
+    for (v1, v2) in edges {
+
+        // edge is the intersection
+        if v1.y == y && v2.y == y {
+            return Some((Vec2::new(v1.x, v1.z), Vec2::new(v2.x, v2.z)));
+        }
+        
+        // skip if edge doesn't cross y
+        if (v1.y <= y && v2.y <= y) || (v1.y >= y && v2.y >= y) {
+            continue;
+        }
+        
+        // Find intersection point using linear interpolation
+        let t = (y - v1.y) / (v2.y - v1.y);
+        let x = v1.x + t * (v2.x - v1.x);
+        let z = v1.z + t * (v2.z - v1.z);
+        points.push(Vec2::new(x, z));
+    }
+    
+    if points.len() >= 2 {
+        return Some((points[0], points[1]));
+    }
+    
+    None
+}
+
+
 pub struct HotDog {
     src: Vec2,
     // todo, remove??
     srcv3: Vec3,
     dst: Vec2,
     dstv3: Vec3,
-    // skin?
+    skin: f32,
     radius: f32,
     y_dir: Vec2,
     x_dir: Vec2,
@@ -693,12 +725,14 @@ impl HotDog {
         let diff = dst - src;
         let y_dir = diff.normalize();
         let length = diff.length();
+        let skin= radius * 0.001;
         Self {
             src,
             srcv3,
             dst,
             dstv3,
             radius,
+            skin,
             y_dir,
             x_dir: Vec2::new(-y_dir.y, y_dir.x),
             window: Window::new(
@@ -889,59 +923,41 @@ impl HotDog {
             d: diff.normalize(),
             t: diff.length()
         };
-        
-        let diffv3 = self.srcv3.distance(self.dstv3);
 
         let mut nearest: Option<C2Raycast> = None;
         for tri in walls {
 
-            
-            // // seems like these can actually be slower
-            // // test later with bigger maps and mapchunks
-            // {
-            //     // check if pos is in the direction of the wall's normal
-            //     let t1 = tri.verts()[0];
-            //     let v = self.srcv3 - t1;
-            //     if v.dot(tri.normal) < 0. {
-            //         continue;
-            //     }
+            // OPTIMIZATIONS
+            // seems like these can actually be slower
+            // test later with bigger maps and mapchunks
+            // also test order, circle intersection is probably most aggressive
+            // but probably most computation
+            {
+                // check if pos is in the direction of the wall's normal
+                let t1 = tri.verts()[0];
+                let v = self.srcv3 - t1;
+                if v.dot(tri.normal) < 0. {
+                    continue;
+                }
 
-            //     // cylinder intersection with infinite plane
-            //     let offset = tri.normal.dot(self.srcv3) + tri.origin_offset;
-            //     if offset.abs() >= self.radius + diffv3 {
-            //         continue;
-            //     }
-            // }
-
-            // todo, get triangle's intersection of 
-            // triangle's min and max y
-            let min_y = tri.verts[0].y.min(tri.verts[1].y).min(tri.verts[2].y);
-            let max_y = tri.verts[0].y.max(tri.verts[1].y).max(tri.verts[2].y);
-
-            // check if posy is within miny/maxy of triangle
-            if !(min_y..=max_y).contains(&self.srcv3.y) {
-                continue;
+                // circle intersection with infinite plane
+                let normal_xz = Vec2::new(tri.normal.x, tri.normal.z);
+                let offset = normal_xz.dot(self.src) + tri.origin_offset;
+                if offset.abs() >= self.radius + diff.length() {
+                    continue;
+                }
             }
 
-            // get 2 most distant points
-            let a = Vec2::new(tri.verts[0].x, tri.verts[0].z);
-            let b = Vec2::new(tri.verts[1].x, tri.verts[1].z);
-            let c = Vec2::new(tri.verts[2].x, tri.verts[2].z);
-
-            let ab = a.distance(b);
-            let bc = b.distance(c);
-            let ca = c.distance(a);
-
-            let dist = ab.max(bc.max(ca));
-            let (d1, d2) = match dist {
-                d if d == ab => { (a, b) },
-                d if d == bc => { (b, c) },
-                d if d == ca => { (c, a) },
-                _ => unreachable!()
+            // get line segment on the y plane
+            // -- trims deadspace on wall edges that aren't vertical/horizontal
+            // -- ie a triangle on the side of a ramp
+            // -- but also skips triangles that don't cross src.y
+            let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
+                continue;
             };
-            
+
             // skip ~zero-length walls
-            if d1.distance(d2) < self.radius * 0.0001 {
+            if d1.distance(d2) < self.skin {
                 continue;
             }
 
@@ -967,7 +983,7 @@ impl HotDog {
             None => None,
             Some(n) => {
                 // add skin to the backward step
-                let skin_t = n.t - self.radius * 0.001;
+                let skin_t = n.t - self.skin;
                 let dest_xz = c2_impact(ray, skin_t);
                 // project step onto wall plane (remove component going into wall)
                 let step = self.dst - dest_xz;
@@ -976,8 +992,8 @@ impl HotDog {
 
                 let next_dir = ((dest_xz + next_move) - dest_xz).normalize();
 
+                // we've bounced off so much stuff that now we're heading backwards
                 if next_dir.dot(self.original_dir) < 0. {
-                    // eprintln!("next_dir: {:?} orig: {:?}, dot: {}", next_move.dot(self.original_dir), self.original_dir, next_dir.dot(self.original_dir));
                     next_move = Vec2::ZERO
                 }
                 Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out})

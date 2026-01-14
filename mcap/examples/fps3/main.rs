@@ -41,6 +41,7 @@ struct Player {
     height: f32,
     chest_height: f32,
     radius: f32,
+    airborne: bool,
 }
 
 fn main() {
@@ -70,13 +71,14 @@ fn main() {
 
     let mut player = Player {
         // bottom of cylinder
-        pos: origin,
+        pos: origin - Vector3::new(0., 5., 0.),
         vel: Vector3::zero(),
         cam_pitch: 0.,
         cam_yaw: 0.,
         height: 3.,
         chest_height: 2.,
         radius: 1.,
+        airborne: true,
     };
 
     rl.disable_cursor();
@@ -122,11 +124,10 @@ fn main() {
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
         let right_dir = -forward_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalized();
 
-        let chest_pos = player.pos + Vector3::new(0., player.chest_height, 0.);
         let move_speed = 10.0;
         let move_dir = (forward_dir * ws + right_dir * ad).normalized();
 
-        let src = chest_pos;
+        let src = player.pos + Vector3::new(0., player.chest_height, 0.);
         let dst = src + (move_dir * move_speed * fd);
 
         let mut final_stop = Vec2::new(dst.x, dst.z);
@@ -134,49 +135,64 @@ fn main() {
 
         let mut lpos = src.to_mcapv3();
         let mut ldst = dst.to_mcapv3();
+        let mut lout = ldst.with_y(ldst.y - player.chest_height);
         for i in 0..max_iter {
             let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
-            if let Some(hdc) = hotdog.check_walls_c2(&walls) {
-
-                // bailing on no-move collision
-                // if hdc.next_move_len == 0. {
-                //     final_stop = hdc.dest_xz;
-                //     // eprintln!("break");
-                //     break;
-                // }
+            
+            // on no-collision or no-move
+            let mut exit_early = true;
+            
+            if let Some(hdc) = hotdog.check_walls_c2(&walls){
+                exit_early = false;
 
                 // update current position
                 lpos = Vec3::new(hdc.dest_xz.x, lpos.y, hdc.dest_xz.y);
 
-                // // handle floor change
-                // let foot_pos = lpos - Vec3::new(0., player.chest_height, 0.);
-                // if let Some((floor, y)) = find_floor_height(foot_pos, player.chest_height, &floors) {
-                //     lpos.y = y;
-                //     // project step onto floor normal
-                //     step -= floor.normal * step.dot(floor.normal);
-                // } else {
-                //     // walked off ledge, become airborne
-                //     airborne = true;
-                //     break;
-                // }
-
                 // set up next destination
                 ldst = lpos + Vec3::new(hdc.next_move.x, 0., hdc.next_move.y);
 
-                // bailing on max collisions
-                if i == max_iter - 1 || hdc.next_move_len < f32::EPSILON {
-                    final_stop = hdc.dest_xz;
-                    break;
+                // bailing on no-move collision
+                if hdc.next_move_len == 0. {
+                    ldst = lpos;
+                    exit_early = true;
                 }
-                // set new final
-                final_stop = hdc.dest_xz + hdc.next_move;
+
+                // if final collision, ditch remaining dst
+                if i == max_iter - 1 {
+                    ldst = lpos;
+                }
+
+                // if next move is basically 0, exit after floor check
+                if hdc.next_move_len < f32::EPSILON {
+                    ldst = lpos;
+                    exit_early = true;
+                }
+            }
+
+            lout = ldst.with_y(ldst.y - player.chest_height);
+
+            let snap = player.height - player.chest_height;
+            if let Some((floor, y)) = find_floor_height(lout, snap, &floors) {
+                lout.y = y - player.radius * 0.001;
+                eprintln!("fuck!");
+                
+                // // todo, apply this to inter-frame velocity
+                // // zero out y, project step onto floor normal
+                // step.y = 0.;
+                // step -= floor.normal * step.dot(floor.normal);
             } else {
-                // no collision
+                // walked off ledge, become airborne
+                player.airborne = true;
+                // todo, break to air step
+                // break;
+            }
+
+            if exit_early {
                 break;
             }
         }
 
-        player.pos = Vector3::new(final_stop.x, player.pos.y, final_stop.y);
+        player.pos = lout.to_rayv3();
 
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
