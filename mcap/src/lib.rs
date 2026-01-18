@@ -1,7 +1,7 @@
 use core::f32::{self, INFINITY, NEG_INFINITY};
 use std::ops::Neg;
 
-use glam::{Mat2, Vec2};
+pub use glam::Vec2;
 pub use glam::Vec3;
 
 use line_clipping::cohen_sutherland::clip_line;
@@ -725,7 +725,7 @@ impl HotDog {
         let diff = dst - src;
         let y_dir = diff.normalize();
         let length = diff.length();
-        let skin= radius * 0.001;
+        let skin= radius * 0.02;
         Self {
             src,
             srcv3,
@@ -899,7 +899,7 @@ impl HotDog {
                 let step1 = self.dst - self.rect_point_to_origin_space(tri.p);
                 let rejection_vec = step1.project_onto(tri.norm);
                 let slide_vec = step1 - rejection_vec;
-                Some(HotDogCollision{dest_xz: tri.p, next_move: slide_vec, push_out: rejection_vec, next_move_len: 0.})
+                Some(HotDogCollision{dest_xz: tri.p, next_move: slide_vec, push_out: rejection_vec, next_move_len: 0., t: 0., angle_factor: 0.})
             }
         }
     }
@@ -982,6 +982,85 @@ impl HotDog {
         match &nearest {
             None => None,
             Some(n) => {
+
+                // maybe .abs()
+                // I think we're ok keeping it negative,
+                // and checking if it's HIGHER THAN (maximum)
+                // angle described below
+                let angle_factor = ray.d.dot(n.n);
+
+                // // TODO
+                // if angle_factor < angle_factor_minimum {
+                //    // project entire remaining distance, don't move
+                //    // dest_xz is src,
+                //    // project everything
+                // }
+
+                // angle factor minimum limit is inversely proportional to the skin factor
+                // looks like
+                // angle = .0000038 / skin_factor
+                //
+                // skin || angle
+                // ====================
+                // .05  -> .000076
+                // .04  -> .000095
+                // .03  -> .00012
+                // .02  -> .00019
+                // .01  -> .00038
+                // .005 -> .00076
+                // .001 -> .0039
+                //
+                // I don't know where this 38 value comes from,
+                // apparently it's the answer to the universe
+                //
+                // f32::EPSILON * 32. ???
+
+                // eprintln!("angle_factor: {}", angle_factor);
+
+                // // magic number time,
+                // // with skin = radius * 0.005,
+                // // we don't start getting t == 0.
+                // // until angle factor gets below ~ 0.00764
+                // // (actually, like 7633, but erring on side of caution)
+                // === starts while decreasing ===
+                // angle_factor: 0.000763467
+                // angle_factor: 0.00076332496
+                // angle_factor: 0.99999976
+                // HERE HERE HERE
+                // angle_factor: 0.0007631812
+                // angle_factor: 0.0007631812
+                // === ends while increasing ===
+                // angle_factor: 0.00076292217
+                // angle_factor: 0.9999997
+                // HERE HERE HERE
+                // angle_factor: 0.0007631184
+                // angle_factor: 0.99999976
+                // HERE HERE HERE
+                // angle_factor: 0.00076331454
+                // angle_factor: 0.0007633148
+                // angle_factor: 0.0007635089
+                // === repeats ===
+                // angle_factor: 0.0007635021
+                // angle_factor: 0.0007633607
+                // angle_factor: 0.9999997
+                // HERE HERE HERE
+                // angle_factor: 0.0007632193
+                // angle_factor: 0.0007632193
+
+                // // magic numbers for skin = radius * 0.001
+                // // sub 0.0039
+                // angle_factor: 0.0037163915
+                // angle_factor: 0.9999931
+                // HERE HERE HERE
+                // angle_factor: 0.0038610834
+                // angle_factor: 0.0038610834
+                // angle_factor: 0.004010877
+
+
+                // if n.t == 0. {
+                //     eprintln
+                // }
+
                 // add skin to the backward step
                 let skin_t = n.t - self.skin;
                 let dest_xz = c2_impact(ray, skin_t);
@@ -996,7 +1075,7 @@ impl HotDog {
                 if next_dir.dot(self.original_dir) < 0. {
                     next_move = Vec2::ZERO
                 }
-                Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out})
+                Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out, t: n.t, angle_factor: angle_factor})
             }
         }
     }
@@ -1008,6 +1087,8 @@ pub struct HotDogCollision {
     pub next_move: Vec2,
     pub next_move_len: f32,
     pub push_out: Vec2,
+    pub t: f32,
+    pub angle_factor: f32,
 }
 
 

@@ -129,8 +129,7 @@ fn main() {
 
         let src = player.pos + Vector3::new(0., player.chest_height, 0.);
         let dst = src + (move_dir * move_speed * fd);
-
-        let mut final_stop = Vec2::new(dst.x, dst.z);
+        
         let max_iter = 5;
 
         let mut lpos = src.to_mcapv3();
@@ -174,8 +173,6 @@ fn main() {
             let snap = player.height - player.chest_height;
             if let Some((floor, y)) = find_floor_height(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
-                eprintln!("fuck!");
-                
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal
                 // step.y = 0.;
@@ -183,8 +180,6 @@ fn main() {
             } else {
                 // walked off ledge, become airborne
                 player.airborne = true;
-                // todo, break to air step
-                // break;
             }
 
             if exit_early {

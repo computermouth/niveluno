@@ -20,7 +20,6 @@
             "args": [],
             "cwd": "${workspaceFolder}"
         },
-
         {
             "type": "lldb",
             "request": "launch",
@@ -33,6 +32,42 @@
                 ],
                 "filter": {
                     "name": "fps3",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'crash'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=crash",
+                    "--package=mcap"
+                ],
+                "filter": {
+                    "name": "crash",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'gcrash'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=gcrash",
+                    "--package=mcap"
+                ],
+                "filter": {
+                    "name": "gcrash",
                     "kind": "example"
                 }
             },
