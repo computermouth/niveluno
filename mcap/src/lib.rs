@@ -709,7 +709,7 @@ pub struct HotDog {
     // todo, remove??
     srcv3: Vec3,
     dst: Vec2,
-    dstv3: Vec3,
+    skin_factor: f32,
     skin: f32,
     radius: f32,
     y_dir: Vec2,
@@ -725,14 +725,15 @@ impl HotDog {
         let diff = dst - src;
         let y_dir = diff.normalize();
         let length = diff.length();
-        let skin= radius * 0.02;
+        let skin_factor = 0.005;
+        let skin= radius * skin_factor;
         Self {
             src,
             srcv3,
             dst,
-            dstv3,
             radius,
             skin,
+            skin_factor,
             y_dir,
             x_dir: Vec2::new(-y_dir.y, y_dir.x),
             window: Window::new(
@@ -979,93 +980,37 @@ impl HotDog {
             }
         }
 
+        // angle        = 0.0000038 / skin_factor
+        // round up to 5e-6, just to be sure
+        const MAGIC: f32 = 0.000005;
+
         match &nearest {
             None => None,
             Some(n) => {
 
-                // maybe .abs()
-                // I think we're ok keeping it negative,
-                // and checking if it's HIGHER THAN (maximum)
-                // angle described below
-                let angle_factor = ray.d.dot(n.n);
-
-                // // TODO
-                // if angle_factor < angle_factor_minimum {
-                //    // project entire remaining distance, don't move
-                //    // dest_xz is src,
-                //    // project everything
-                // }
-
-                // angle factor minimum limit is inversely proportional to the skin factor
-                // looks like
-                // angle = .0000038 / skin_factor
-                //
-                // skin || angle
-                // ====================
-                // .05  -> .000076
-                // .04  -> .000095
-                // .03  -> .00012
-                // .02  -> .00019
-                // .01  -> .00038
-                // .005 -> .00076
-                // .001 -> .0039
-                //
-                // I don't know where this 38 value comes from,
-                // apparently it's the answer to the universe
-                //
-                // f32::EPSILON * 32. ???
-
-                // eprintln!("angle_factor: {}", angle_factor);
-
-                // // magic number time,
-                // // with skin = radius * 0.005,
-                // // we don't start getting t == 0.
-                // // until angle factor gets below ~ 0.00764
-                // // (actually, like 7633, but erring on side of caution)
-                // === starts while decreasing ===
-                // angle_factor: 0.000763467
-                // angle_factor: 0.00076332496
-                // angle_factor: 0.99999976
-                // HERE HERE HERE
-                // angle_factor: 0.0007631812
-                // angle_factor: 0.0007631812
-                // === ends while increasing ===
-                // angle_factor: 0.00076292217
-                // angle_factor: 0.9999997
-                // HERE HERE HERE
-                // angle_factor: 0.0007631184
-                // angle_factor: 0.99999976
-                // HERE HERE HERE
-                // angle_factor: 0.00076331454
-                // angle_factor: 0.0007633148
-                // angle_factor: 0.0007635089
-                // === repeats ===
-                // angle_factor: 0.0007635021
-                // angle_factor: 0.0007633607
-                // angle_factor: 0.9999997
-                // HERE HERE HERE
-                // angle_factor: 0.0007632193
-                // angle_factor: 0.0007632193
-
-                // // magic numbers for skin = radius * 0.001
-                // // sub 0.0039
-                // angle_factor: 0.0037163915
-                // angle_factor: 0.9999931
-                // HERE HERE HERE
-                // angle_factor: 0.0038610834
-                // angle_factor: 0.0038610834
-                // angle_factor: 0.004010877
-
-
-                // if n.t == 0. {
-                //     eprintln
-                // }
-
                 // add skin to the backward step
                 let skin_t = n.t - self.skin;
-                let dest_xz = c2_impact(ray, skin_t);
+
+                // set our resting position to where we started,
+                // and project full movement, unless the angle
+                // of collision is not extremely shallow
+                //
+                // ctrl+f for ANGLEFACTORNOTES
+                let angle_factor = ray.d.dot(n.n).abs();
+                // let dest_xz = c2_impact(ray, skin_t);
+                let dest_xz = match angle_factor {
+                    af if af > MAGIC / self.skin_factor => {
+                        c2_impact(ray, skin_t)
+                    },
+                    af => {
+                        eprintln!("yep: {af}");
+                        self.src
+                    }
+                };
+
                 // project step onto wall plane (remove component going into wall)
                 let step = self.dst - dest_xz;
+
                 let push_out = step.project_onto(n.n);
                 let mut next_move = step - push_out;
 
@@ -1090,6 +1035,70 @@ pub struct HotDogCollision {
     pub t: f32,
     pub angle_factor: f32,
 }
+
+// ANGLEFACTORNOTES
+// ========================================================================
+//
+// angle factor minimum limit is inversely proportional to the skin factor
+// looks like
+// angle = .0000038 / skin_factor
+//
+// skin || angle
+// ====================
+// .05  -> .000076
+// .04  -> .000095
+// .03  -> .00012
+// .02  -> .00019
+// .01  -> .00038
+// .005 -> .00076
+// .001 -> .0039
+//
+// I don't know where this 38 value comes from,
+// apparently it's the answer to the universe
+//
+// f32::EPSILON * 32. ???
+
+// eprintln!("angle_factor: {}", angle_factor);
+
+// // magic number time,
+// // with skin = radius * 0.005,
+// // we don't start getting t == 0.
+// // until angle factor gets below ~ 0.00764
+// // (actually, like 7633, but erring on side of caution)
+// === starts while decreasing ===
+// angle_factor: 0.000763467
+// angle_factor: 0.00076332496
+// angle_factor: 0.99999976
+// HERE HERE HERE
+// angle_factor: 0.0007631812
+// angle_factor: 0.0007631812
+// === ends while increasing ===
+// angle_factor: 0.00076292217
+// angle_factor: 0.9999997
+// HERE HERE HERE
+// angle_factor: 0.0007631184
+// angle_factor: 0.99999976
+// HERE HERE HERE
+// angle_factor: 0.00076331454
+// angle_factor: 0.0007633148
+// angle_factor: 0.0007635089
+// === repeats ===
+// angle_factor: 0.0007635021
+// angle_factor: 0.0007633607
+// angle_factor: 0.9999997
+// HERE HERE HERE
+// angle_factor: 0.0007632193
+// angle_factor: 0.0007632193
+
+// // magic numbers for skin = radius * 0.001
+// // sub 0.0039
+// angle_factor: 0.0037163915
+// angle_factor: 0.9999931
+// HERE HERE HERE
+// angle_factor: 0.0038610834
+// angle_factor: 0.0038610834
+// angle_factor: 0.004010877
+// ========================================================================
 
 
 /*  CUTE HEADERS -- github.com/RandyGaul/cute_headers
