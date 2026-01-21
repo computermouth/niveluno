@@ -1,4 +1,5 @@
 use core::f32::{self, INFINITY, NEG_INFINITY};
+use core::panic;
 use std::ops::Neg;
 
 pub use glam::Vec2;
@@ -703,7 +704,7 @@ pub fn triangle_slice_at_y(verts: &[Vec3; 3], y: f32) -> Option<(Vec2, Vec2)> {
     None
 }
 
-
+#[derive(Debug, Copy, Clone)]
 pub struct HotDog {
     src: Vec2,
     // todo, remove??
@@ -718,6 +719,8 @@ pub struct HotDog {
     original_dir: Vec2,
 }
 
+pub const SKIN_FACTOR: f32 = 0.001;
+
 impl HotDog {
     pub fn new(srcv3: Vec3, dstv3: Vec3, radius: f32, original_dir: Vec3) -> Self {
         let src = Vec2::new(srcv3.x, srcv3.z);
@@ -725,7 +728,7 @@ impl HotDog {
         let diff = dst - src;
         let y_dir = diff.normalize();
         let length = diff.length();
-        let skin_factor = 0.005;
+        let skin_factor = SKIN_FACTOR;
         let skin= radius * skin_factor;
         Self {
             src,
@@ -926,9 +929,9 @@ impl HotDog {
         };
 
         let mut nearest: Option<C2Raycast> = None;
-        for tri in walls {
+        for tri in &walls {
 
-            // OPTIMIZATIONS
+            // OPTIONAL OPTIMIZATIONS
             // seems like these can actually be slower
             // test later with bigger maps and mapchunks
             // also test order, circle intersection is probably most aggressive
@@ -949,6 +952,8 @@ impl HotDog {
                 }
             }
 
+            // REQUIRED RELEVANCE CHECKS
+
             // get line segment on the y plane
             // -- trims deadspace on wall edges that aren't vertical/horizontal
             // -- ie a triangle on the side of a ramp
@@ -957,17 +962,18 @@ impl HotDog {
                 continue;
             };
 
-            // skip ~zero-length walls
-            if d1.distance(d2) < self.skin {
-                continue;
-            }
-
             let cap = C2Capsule {
                 a: d1,
                 b: d2,
                 r: self.radius
             };
             if let Some(coll) = c2RaytoCapsule(ray, cap) {
+
+                // // skip wall if we're not heading at it
+                // if ray.d.dot(coll.n) >= 0. {
+                //     continue;
+                // }
+
                 match &nearest {
                     None => nearest = Some(coll),
                     Some(n) => {
@@ -980,49 +986,59 @@ impl HotDog {
             }
         }
 
-        // angle        = 0.0000038 / skin_factor
-        // round up to 5e-6, just to be sure
-        const MAGIC: f32 = 0.000005;
+        let Some(n) = nearest else {
+            return None;
+        };
 
-        match &nearest {
-            None => None,
-            Some(n) => {
 
-                // add skin to the backward step
-                let skin_t = n.t - self.skin;
+        let mut time = n.t;
+        let mut dest_xz = c2_impact(ray, time);
 
-                // set our resting position to where we started,
-                // and project full movement, unless the angle
-                // of collision is not extremely shallow
-                //
-                // ctrl+f for ANGLEFACTORNOTES
-                let angle_factor = ray.d.dot(n.n).abs();
-                // let dest_xz = c2_impact(ray, skin_t);
-                let dest_xz = match angle_factor {
-                    af if af > MAGIC / self.skin_factor => {
-                        c2_impact(ray, skin_t)
-                    },
-                    af => {
-                        eprintln!("yep: {af}");
-                        self.src
-                    }
+        'outer: for i in 1..9 {
+            // if we've stepped back too far, fuck it
+            // bail and project all movement
+            if time <= 0. {
+                dest_xz = self.src;
+                break;
+            }
+
+            // check if we're inside a wall after move
+            for tri in &walls {
+                // if can't collide, skip
+                let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
+                    continue;
                 };
 
-                // project step onto wall plane (remove component going into wall)
-                let step = self.dst - dest_xz;
-
-                let push_out = step.project_onto(n.n);
-                let mut next_move = step - push_out;
-
-                let next_dir = ((dest_xz + next_move) - dest_xz).normalize();
-
-                // we've bounced off so much stuff that now we're heading backwards
-                if next_dir.dot(self.original_dir) < 0. {
-                    next_move = Vec2::ZERO
+                // if we're still to close, 
+                let closest = closest_point_on_segment_v2(dest_xz, d1, d2);
+                let dist = dest_xz.distance(closest);
+                if dist <= self.radius + self.skin {
+                    eprintln!("GIANT SHIT: dist={} radius={}", dist, self.radius);
+                    time = n.t * (1. - (i as f32 / 8.));
+                    eprintln!("ray.t: {} n.t: {} i/8: {}", ray.t, n.t, (i as f32 / 8.));
+                    dest_xz = c2_impact(ray, time);
+                    continue 'outer;
                 }
-                Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out, t: n.t, angle_factor: angle_factor})
             }
+
+            break;
         }
+
+        // don't forget to project entire dir if we need to back up to src
+
+        let angle_factor = 0.;
+
+        // project step onto wall plane (remove component going into wall)
+        let step = self.dst - dest_xz;
+        let push_out = step.project_onto(n.n);
+        let mut next_move = step - push_out;
+
+        // see if we've bounced off so much stuff that now we're heading backwards
+        let next_dir = ((dest_xz + next_move) - dest_xz).normalize();
+        if next_dir.dot(self.original_dir) < 0. {
+            next_move = Vec2::ZERO
+        }
+        Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out, t: n.t, angle_factor: angle_factor})
     }
 }
 
@@ -1160,6 +1176,7 @@ struct C2Ray {
 // 	float t; // time of impact
 // 	c2v n;   // normal of surface at impact (unit length)
 // } c2Raycast;
+#[derive(Debug)]
 struct C2Raycast {
     t: f32,
     n: Vec2,
@@ -1347,6 +1364,7 @@ fn c2RaytoCircle(A: C2Ray, B: C2Circle) -> Option<C2Raycast>
 	{
         Some(C2Raycast {
             t: t,
+            // TODO, check if we need to (n * -1.) if it's above 0.
             n: (c2_impact(A, t) - p).normalize()
         })
 	} else {
@@ -1432,6 +1450,7 @@ fn c2RaytoCapsule(A: C2Ray, B: C2Capsule) -> Option<C2Raycast>
 			if y >= yBb.y { return c2RaytoCircle(A, Cb); }
 			else {
                 return Some(C2Raycast{
+                    // TODO, check if we need to (n * -1.) if it's above 0.
                     n : if c > 0. { M.x } else { c2Skew(M.y) },
                     t : t * A.t,
                 });
