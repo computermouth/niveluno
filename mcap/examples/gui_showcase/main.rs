@@ -91,8 +91,6 @@ trait Example {
 fn main() {
     let (mut rl, thread) = raylib::init().size(640, 480).title("gui showcase").build();
 
-    rl.set_target_fps(240);
-
     let mut camera = Camera3D::perspective(
         at_origin(Vector3::new(0., 5., -5.)),
         at_origin(Vector3::zero()),

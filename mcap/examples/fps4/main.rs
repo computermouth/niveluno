@@ -1,4 +1,9 @@
-use mcap::{HotDog, Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64};
+use std::iter;
+
+use glam::Vec2;
+use mcap::{
+    HotDog, Surface, Triangle, Vec3, find_floor_height, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
+};
 use modelz;
 use raylib::prelude::*;
 
@@ -36,27 +41,33 @@ struct Player {
     height: f32,
     chest_height: f32,
     radius: f32,
+    airborne: bool,
 }
 
 fn main() {
     let (mut rl, thread) = raylib::init().size(640, 480).title("gui showcase").build();
 
-
-    rl.set_target_fps(30);
-
     let origin = at_origin(Vector3::zero());
 
-    let tri = Triangle { 
-        verts: [Vec3::new(80.0, 95.0, 120.0), Vec3::new(80.0, 95.0, 80.0), Vec3::new(80.0, 105.0, 80.0)],
-        normal: Vec3::new(1.0, 0.0, 0.0),
-        origin_offset: -80.0 
-    };
-    let surfaces = vec![Surface::new(
-        tri.verts(),
-        tri.normal)
-    ];
+    let model = rl.load_model(&thread, "res/auto.glb").unwrap();
+    let collison_triangles =
+        triangles::get_triangles(modelz::Model3D::load("res/auto.glb").unwrap());
+    let surfaces: Vec<_> = collison_triangles
+        .iter()
+        .map(|t| {
+            Surface::new(
+                [
+                    (t[0] + origin).to_mcapv3(),
+                    (t[1] + origin).to_mcapv3(),
+                    (t[2] + origin).to_mcapv3(),
+                ],
+                get_face_normal(t[0].to_mcapv3(), t[1].to_mcapv3(), t[2].to_mcapv3()),
+            )
+        })
+        .collect();
 
-    let surfaces: Vec<_> = surfaces.iter().map(|s| s).collect();
+    let walls: Vec<_> = surfaces.iter().filter(|s| if let Surface::Wall(_) = s {true} else {false}).collect();
+    let floors: Vec<_> = surfaces.iter().filter(|s| if let Surface::Floor(_) = s {true} else {false}).collect();
 
     let mut player = Player {
         // bottom of cylinder
@@ -67,6 +78,7 @@ fn main() {
         height: 3.,
         chest_height: 2.,
         radius: 1.,
+        airborne: true,
     };
 
     rl.disable_cursor();
@@ -74,8 +86,7 @@ fn main() {
     let mut total = 0.;
     let mut fc: f32 = 0.;
 
-    let mut last_hotdog= None;
-    let mut fail_open = false;
+    let mut findex = 0;
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -86,6 +97,7 @@ fn main() {
         fc += 1.0;
 
         let mouse_in = rl.get_mouse_delta();
+        rl.set_mouse_position(Vector2::new(320., 240.));
         player.cam_pitch = (player.cam_pitch + mouse_in.y * 0.0015).clamp(-0.9, 0.9);
         player.cam_yaw += mouse_in.x * 0.0015;
 
@@ -119,24 +131,18 @@ fn main() {
         let dst = src + (move_dir * move_speed * fd);
         
         let max_iter = 5;
-        // let src = Vector3::new(81.000046, 99.75, 88.801704);
-        // let dst = Vector3::new(80.99945, src.y, 89.13504);
-        // let move_dir = (dst - src).normalized();
 
         let mut lpos = src.to_mcapv3();
         let mut ldst = dst.to_mcapv3();
         let mut lout = ldst.with_y(ldst.y - player.chest_height);
-        
         for i in 0..max_iter {
             let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
-
+            
             // on no-collision or no-move
             let mut exit_early = true;
             
-            if let Some(hdc) = hotdog.check_walls_c2(&surfaces){
+            if let Some(hdc) = hotdog.check_walls_c2(&walls){
                 exit_early = false;
-
-                eprintln!("hotdog: {:?} hdc: {:?}", hotdog, hdc);
 
                 // update current position
                 lpos = Vec3::new(hdc.dest_xz.x, lpos.y, hdc.dest_xz.y);
@@ -152,7 +158,7 @@ fn main() {
 
                 // if final collision, ditch remaining dst
                 if i == max_iter - 1 {
-                    fail_open = true;
+                    // eprintln!("maxxed");
                     ldst = lpos;
                 }
 
@@ -161,16 +167,21 @@ fn main() {
                     ldst = lpos;
                     exit_early = true;
                 }
-
-                if fail_open {
-                    eprintln!("hotdog: {:?}", hotdog);
-                    eprintln!("last_hotdog: {:?}", last_hotdog);
-                }
-
-                last_hotdog = Some(hotdog);
             }
 
             lout = ldst.with_y(ldst.y - player.chest_height);
+
+            let snap = player.height - player.chest_height;
+            if let Some((floor, y)) = find_floor_height(lout, snap, &floors) {
+                lout.y = y - player.radius * 0.001;
+                // // todo, apply this to inter-frame velocity
+                // // zero out y, project step onto floor normal
+                // step.y = 0.;
+                // step -= floor.normal * step.dot(floor.normal);
+            } else {
+                // walked off ledge, become airborne
+                player.airborne = true;
+            }
 
             if exit_early {
                 break;
@@ -199,12 +210,7 @@ fn main() {
 
             d.clear_background(Color::new(16, 16, 32, 255));
             d.draw_mode3D(camera, |mut d3d, _| {
-                d3d.draw_triangle3D(
-                    tri.verts[0].to_rayv3(), 
-                    tri.verts[1].to_rayv3(), 
-                    tri.verts[2].to_rayv3(),
-                    Color::WHITE
-                );
+                d3d.draw_model(&model, origin, 1.0, Color::WHITE);
 
                 fn draw_surf(
                     d3d: &mut RaylibMode3D<'_, RaylibDrawHandle<'_>>,
@@ -212,13 +218,16 @@ fn main() {
                     color: Color,
                 ) {
                     let v = tri.verts();
-                    let t1 = v[0].to_rayv3();
-                    let t2 = v[1].to_rayv3();
-                    let t3 = v[2].to_rayv3();
+                    let t1 = (v[0] + (tri.normal() * 0.05)).to_rayv3();
+                    let t2 = (v[1] + (tri.normal() * 0.05)).to_rayv3();
+                    let t3 = (v[2] + (tri.normal() * 0.05)).to_rayv3();
                     d3d.draw_triangle3D(t1, t2, t3, color);
                     d3d.draw_line_3D(t1, t2, Color::WHITE);
                     d3d.draw_line_3D(t1, t3, Color::WHITE);
                     d3d.draw_line_3D(t3, t2, Color::WHITE);
+
+                    let center = (t1 + t2 + t3) / 3.;
+                    d3d.draw_line_3D(center, center + tri.normal().to_rayv3(), Color::ORANGE);
                 }
 
                 for surf in &surfaces {
@@ -279,6 +288,13 @@ fn main() {
             );
             d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
             d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
+            d.draw_text(
+                &format!("func: HotDogWalls"),
+                20,
+                100,
+                20,
+                Color::WHITE,
+            );
         }
     }
 }
