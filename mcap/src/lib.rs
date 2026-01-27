@@ -1,12 +1,16 @@
 use core::f32::{self, INFINITY, NEG_INFINITY};
-use core::panic;
-use std::ops::Neg;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::collections::btree_set::Iter;
 
 pub use glam::Vec2;
 pub use glam::Vec3;
 
 use line_clipping::cohen_sutherland::clip_line;
 use line_clipping::{LineSegment, Point, Window};
+use raylib::color::Color;
+use raylib::prelude::RaylibDraw;
+use raylib::prelude::RaylibDrawHandle;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Triangle {
@@ -719,7 +723,12 @@ pub struct HotDog {
     original_dir: Vec2,
 }
 
-pub const SKIN_FACTOR: f32 = 0.001;
+thread_local! {
+    static HDList: RefCell<VecDeque<HotDog>> = RefCell::new(VecDeque::new());
+}
+
+// quake uses ~0.2%
+pub const SKIN_FACTOR: f32 = 0.005;
 
 impl HotDog {
     pub fn new(srcv3: Vec3, dstv3: Vec3, radius: f32, original_dir: Vec3) -> Self {
@@ -730,7 +739,7 @@ impl HotDog {
         let length = diff.length();
         let skin_factor = SKIN_FACTOR;
         let skin= radius * skin_factor;
-        Self {
+        let hd = Self {
             src,
             srcv3,
             dst,
@@ -746,7 +755,16 @@ impl HotDog {
                 length as f64,
             ),
             original_dir: Vec2::new(original_dir.x, original_dir.z).normalize(),
-        }
+        };
+
+        HDList.with_borrow_mut(|hotdogs| {
+            if hotdogs.len() == 5 {
+                hotdogs.pop_front();
+            }
+            hotdogs.push_back(hd);
+        });
+
+        hd
     }
 
     pub fn clip_line_segment(&self, p1: Vec2, p2: Vec2) -> Option<(Vec2, Vec2)> {
@@ -917,11 +935,6 @@ impl HotDog {
 
         let diff = self.dst - self.src;
 
-        // skip on zero length movement
-        if diff.length() == 0. {
-            return None;
-        }
-
         let ray = C2Ray {
             p: self.src,
             d: diff.normalize(),
@@ -937,19 +950,20 @@ impl HotDog {
             // also test order, circle intersection is probably most aggressive
             // but probably most computation
             {
-                // check if pos is in the direction of the wall's normal
-                let t1 = tri.verts()[0];
-                let v = self.srcv3 - t1;
-                if v.dot(tri.normal) < 0. {
-                    continue;
-                }
+                // // REMOVED: back-face check causes bugs on curved surfaces
+                // // check if pos is in the direction of the wall's normal
+                // let t1 = tri.verts()[0];
+                // let v = self.srcv3 - t1;
+                // if v.dot(tri.normal) < 0. {
+                //     continue;
+                // }
 
-                // circle intersection with infinite plane
-                let normal_xz = Vec2::new(tri.normal.x, tri.normal.z);
-                let offset = normal_xz.dot(self.src) + tri.origin_offset;
-                if offset.abs() >= self.radius + diff.length() {
-                    continue;
-                }
+                // // circle intersection with infinite plane
+                // let normal_xz = Vec2::new(tri.normal.x, tri.normal.z);
+                // let offset = normal_xz.dot(self.src) + tri.origin_offset;
+                // if offset.abs() >= self.radius + diff.length() {
+                //     continue;
+                // }
             }
 
             // REQUIRED RELEVANCE CHECKS
@@ -965,7 +979,7 @@ impl HotDog {
             let cap = C2Capsule {
                 a: d1,
                 b: d2,
-                r: self.radius
+                r: self.radius + self.skin
             };
             if let Some(coll) = c2RaytoCapsule(ray, cap) {
 
@@ -990,43 +1004,9 @@ impl HotDog {
             return None;
         };
 
-
-        let mut time = n.t;
-        let mut dest_xz = c2_impact(ray, time);
-
-        'outer: for i in 1..9 {
-            // if we've stepped back too far, fuck it
-            // bail and project all movement
-            if time <= 0. {
-                dest_xz = self.src;
-                break;
-            }
-
-            // check if we're inside a wall after move
-            for tri in &walls {
-                // if can't collide, skip
-                let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
-                    continue;
-                };
-
-                // if we're still to close, 
-                let closest = closest_point_on_segment_v2(dest_xz, d1, d2);
-                let dist = dest_xz.distance(closest);
-                if dist <= self.radius + self.skin {
-                    eprintln!("GIANT SHIT: dist={} radius={}", dist, self.radius);
-                    time = n.t * (1. - (i as f32 / 8.));
-                    eprintln!("ray.t: {} n.t: {} i/8: {}", ray.t, n.t, (i as f32 / 8.));
-                    dest_xz = c2_impact(ray, time);
-                    continue 'outer;
-                }
-            }
-
-            break;
-        }
-
-        // don't forget to project entire dir if we need to back up to src
-
-        let angle_factor = 0.;
+        // check if we need to step back from the collision point
+        let dest_xz = self.step_back(ray, &n, &walls, None);
+        // let dest_xz = c2_impact(ray, n.t) - self.skin * n.n;
 
         // project step onto wall plane (remove component going into wall)
         let step = self.dst - dest_xz;
@@ -1038,8 +1018,115 @@ impl HotDog {
         if next_dir.dot(self.original_dir) < 0. {
             next_move = Vec2::ZERO
         }
-        Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out, t: n.t, angle_factor: angle_factor})
+        Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out, t: n.t, angle_factor: 0.})
     }
+
+    // todo, add last_wall, and check that one first before all the other walls
+    pub fn step_back(&self, ray: C2Ray, collision: &C2Raycast, walls: &[&Triangle], d: Option<&mut RaylibDrawHandle>) -> Vec2 {
+
+        // todo, remove, along with the pub for this fn
+        if (self.dst - self.src).length() <= self.skin {
+            if let Some(d) = d {
+                d.draw_circle(self.src.x as i32, self.src.y as i32, self.radius, Color::GREEN);
+            }
+            return self.src;
+        }
+
+        // end at the collision point, minus skin
+        let start = ray.p;
+        // let end = start + ray.d * (collision.t - self.skin);
+        let end = start + ray.d * collision.t - self.skin * collision.n;
+
+        // todo, check end first, then do a binary search from halfway between
+        // or maybe even assume end is bad, and just start with the binary search
+        //
+        // 0 is end
+        // 9 is 10% away from start, then we check start after with the special panic case
+        let iterations = 9;
+        let locations: Vec<Vec2> = (0..iterations).map(|i| {
+            end.lerp(start, i as f32 / iterations as f32)
+        }).collect();
+
+        if let Some(d) = d {
+            for dest_xz in &locations {
+                d.draw_circle(dest_xz.x as i32, dest_xz.y as i32, self.radius, Color::ORANGE.alpha(0.5));
+            }
+        }
+
+        let validate_r = self.radius + self.skin;
+
+        for (i, dest_xz) in locations.iter().enumerate() {
+
+            let ray = C2Ray {
+                p: *dest_xz,
+                d: Vec2::ONE.normalize(),
+                t: 0.
+            };
+
+            let mut collided = false;
+
+            // check if we're inside a wall after move
+            for tri in walls {
+                // if can't collide, skip
+                let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
+                    continue;
+                };
+
+                // if we're still too close
+                let cap = C2Capsule {
+                    a: d1,
+                    b: d2,
+                    r: validate_r
+                };
+
+                if c2RaytoCapsule(ray, cap).is_some() {
+                    collided = true;
+                    break;
+                }
+            }
+
+            if !collided {
+                return *dest_xz;
+            }
+
+        }
+
+        // check start, panic on failure
+        // as start should always be known-good
+        let dest_xz = start;
+
+        let ray = C2Ray {
+            p: dest_xz,
+            d: Vec2::ONE.normalize(),
+            t: 0.
+        };
+
+        // check if we're inside a wall after move
+        for tri in walls {
+            // if can't collide, skip
+            let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
+                continue;
+            };
+
+            // if we're still too close
+            let cap = C2Capsule {
+                a: d1,
+                b: d2,
+                r: validate_r
+            };
+
+            if c2RaytoCapsule(ray, cap).is_some() {
+                HDList.with_borrow(|hotdogs| {
+                    eprintln!("hotdogs: {:?}", hotdogs);
+                });
+                panic!("start is in wall");
+            }
+        }
+
+        dest_xz
+    }
+
+
 }
 
 #[derive(Debug)]
@@ -1147,6 +1234,7 @@ pub struct HotDogCollision {
 // 	float r;
 // } c2Capsule;
 // a capsule is defined as a line segment (from a to b) and radius r
+#[derive(Debug)]
 struct C2Capsule {
     a: Vec2,
     b: Vec2,
@@ -1165,11 +1253,13 @@ struct C2Capsule {
 /// ray direction and use t to specify a distance. Please see this link
 /// for an in-depth explanation: https://github.com/RandyGaul/cute_headers/issues/30
 #[derive(Copy, Clone)]
-struct C2Ray {
-    p: Vec2,
-    d: Vec2,
-    t: f32,
+pub struct C2Ray {
+    pub p: Vec2,
+    pub d: Vec2,
+    pub t: f32,
 }
+
+// todo, reduce publicness ^v
 
 // typedef struct c2Raycast
 // {
@@ -1177,9 +1267,9 @@ struct C2Ray {
 // 	c2v n;   // normal of surface at impact (unit length)
 // } c2Raycast;
 #[derive(Debug)]
-struct C2Raycast {
-    t: f32,
-    n: Vec2,
+pub struct C2Raycast {
+    pub t: f32,
+    pub n: Vec2,
 }
 
 // #define c2Impact(ray, t) c2Add(ray.p, c2Mulvs(ray.d, t))
