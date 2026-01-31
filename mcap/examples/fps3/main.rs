@@ -2,7 +2,7 @@ use std::iter;
 
 use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
+    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
 };
 use modelz;
 use raylib::prelude::*;
@@ -171,7 +171,7 @@ fn main() {
             lout = ldst.with_y(ldst.y - player.chest_height);
 
             let snap = player.height - player.chest_height;
-            if let Some((floor, y)) = find_floor_height(lout, snap, &floors) {
+            if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal

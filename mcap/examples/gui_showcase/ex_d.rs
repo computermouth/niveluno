@@ -1,7 +1,7 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
 use glam::Vec3;
 use mcap::{
-    Surface, check_circle_tri_collision, find_floor_height, get_face_normal, solve_plane_y,
+    Surface, check_circle_tri_collision, find_floor_height_m64, get_face_normal, solve_plane_y,
 };
 use raylib::prelude::*;
 
@@ -101,7 +101,7 @@ impl Example for State {
             Color::YELLOW,
         ));
 
-        if let Some((a, b)) = find_floor_height(base, snap, &surfs) {
+        if let Some((a, b)) = find_floor_height_m64(base, snap, &surfs) {
             let v = a.verts();
             out.push((
                 Shape::Triangle([v[0].to_rayv3(), v[1].to_rayv3(), v[2].to_rayv3()]),

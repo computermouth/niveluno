@@ -1,5 +1,6 @@
 use core::f32::{self, INFINITY, NEG_INFINITY};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::collections::btree_set::Iter;
 
@@ -132,7 +133,7 @@ pub fn get_step_push_most_opposing(
             target_pos += push;
         }
 
-        if let Some((floor, y)) = find_floor_height(target_pos, floor_snap_dist, surfaces) {
+        if let Some((floor, y)) = find_floor_height_m64(target_pos, floor_snap_dist, surfaces) {
             target_pos.y = y;
             step.y = 0.;
             // project step onto floor normal
@@ -207,7 +208,7 @@ pub fn get_step_push(
             }
         }
 
-        if let Some((floor, y)) = find_floor_height(target_pos, floor_snap_dist, surfaces) {
+        if let Some((floor, y)) = find_floor_height_m64(target_pos, floor_snap_dist, surfaces) {
             target_pos.y = y;
             step.y = 0.;
             // project step onto floor normal
@@ -281,7 +282,7 @@ pub fn get_step_push_m64(
             }
         }
 
-        if let Some((floor, y)) = find_floor_height(target_pos, floor_snap_dist, surfaces) {
+        if let Some((floor, y)) = find_floor_height_m64(target_pos, floor_snap_dist, surfaces) {
             target_pos.y = y;
             step.y = 0.;
             // project step onto floor normal
@@ -618,7 +619,7 @@ pub fn solve_plane_y(normal: Vec3, origin_offset: f32, x: f32, z: f32) -> f32 {
 }
 
 // pos here is the feet/bottom
-pub fn find_floor_height(
+pub fn find_floor_height_m64(
     pos: Vec3,
     floor_snap_dist: f32,
     surfaces: &[&Surface],
@@ -723,12 +724,22 @@ pub struct HotDog {
     original_dir: Vec2,
 }
 
+// todo, remove these, or only do them in debug builds
 thread_local! {
     static HDList: RefCell<VecDeque<HotDog>> = RefCell::new(VecDeque::new());
+    static fi_list: RefCell<HashMap<usize,u128>> = RefCell::new(HashMap::new());
+}
+
+pub fn print_fi(){
+    fi_list.with_borrow_mut(|hm| {
+        let mut v: Vec<(&usize, &u128)> = hm.iter().collect();
+        v.sort_by(|(ai,_), (bi, _)| ai.cmp(bi));
+        eprintln!("hm: {:?}", v);
+    });
 }
 
 // quake uses ~0.2%
-pub const SKIN_FACTOR: f32 = 0.005;
+const SKIN_FACTOR: f32 = 0.002;
 
 impl HotDog {
     pub fn new(srcv3: Vec3, dstv3: Vec3, radius: f32, original_dir: Vec3) -> Self {
@@ -1000,7 +1011,53 @@ impl HotDog {
             }
         }
 
+        // todo, what if we did one check like below
+        // if dst is colliding, always go back to src, project
+        // no step back, no fork on this behavior
+
+        // we still have to check no-collision to see if self.dst
+        // is a safe spot to raycast from
         let Some(n) = nearest else {
+            let validate_ray = C2Ray {
+                p: self.dst,
+                d: Vec2::ONE.normalize(),
+                t: 0.
+            };
+
+            let validate_r = self.radius + self.skin;
+
+            for tri in &walls {
+                let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
+                    continue;
+                };
+
+                let cap = C2Capsule {
+                    a: d1,
+                    b: d2,
+                    r: validate_r
+                };
+
+                if c2RaytoCapsule(validate_ray, cap).is_some() {
+                    let wall_normal_xz = Vec2::new(tri.normal.x, tri.normal.z).normalize();
+                    // mimic a collision at exactly the destination
+                    let fake_collision = C2Raycast {
+                        t: ray.t,
+                        n: wall_normal_xz
+                    };
+                    let dest_xz = self.step_back(ray, &fake_collision, &walls, None);
+                    let step = self.dst - dest_xz;
+                    let push_out = step.project_onto(fake_collision.n);
+                    let mut next_move = step - push_out;
+
+                    let next_dir = ((dest_xz + next_move) - dest_xz).normalize();
+                    if next_dir.dot(self.original_dir) < 0. {
+                        next_move = Vec2::ZERO
+                    }
+
+                    return Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out, t: 0., angle_factor: 0.});
+                }
+            }
+
             return None;
         };
 
@@ -1041,8 +1098,13 @@ impl HotDog {
         // or maybe even assume end is bad, and just start with the binary search
         //
         // 0 is end
-        // 9 is 10% away from start, then we check start after with the special panic case
-        let iterations = 9;
+        // 3 is 25% away from start
+        // I'd originally set this to 9, but in practice, most iterations
+        // return on either 0 or `iterations`.
+        //
+        // after running through the profiler, this is like 1.5% execution time
+        // it really doesn't matter
+        let iterations = 4;
         let locations: Vec<Vec2> = (0..iterations).map(|i| {
             end.lerp(start, i as f32 / iterations as f32)
         }).collect();
@@ -1054,8 +1116,9 @@ impl HotDog {
         }
 
         let validate_r = self.radius + self.skin;
-
+        let mut fi = 0;
         for (i, dest_xz) in locations.iter().enumerate() {
+            fi = i;
 
             let ray = C2Ray {
                 p: *dest_xz,
@@ -1086,6 +1149,10 @@ impl HotDog {
             }
 
             if !collided {
+                fi_list.with_borrow_mut(|hm| {
+                    let f = hm.get(&fi).unwrap_or(&0);
+                    hm.insert(fi, f + 1);
+                });
                 return *dest_xz;
             }
 
@@ -1122,6 +1189,11 @@ impl HotDog {
                 panic!("start is in wall");
             }
         }
+        
+        fi_list.with_borrow_mut(|hm| {
+            let f = hm.get(&fi).unwrap_or(&0);
+            hm.insert(fi, f + 1);
+        });
 
         dest_xz
     }

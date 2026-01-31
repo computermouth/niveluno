@@ -1,6 +1,6 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
 use glam::Vec3;
-use mcap::{HotDog, SKIN_FACTOR, Surface, get_face_normal, get_step_push};
+use mcap::{HotDog, Surface, get_face_normal, get_step_push};
 use raylib::prelude::*;
 
 pub struct State {
@@ -14,7 +14,6 @@ pub struct State {
 
 impl State {
     pub fn new() -> Self {
-        let two_skin = SKIN_FACTOR * 2.;
         Self {
             cam_start_pos: at_origin(Vector3::new(0., 10., -10.)),
             cam_start_tgt: at_origin(Vector3::zero()),

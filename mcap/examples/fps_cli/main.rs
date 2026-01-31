@@ -2,7 +2,7 @@ use std::iter;
 
 use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing, print_fi
+    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
 };
 use modelz;
 use rand::Rng;
@@ -46,11 +46,11 @@ struct Player {
 }
 
 fn main() {
-    let (mut rl, thread) = raylib::init().size(640, 480).title("gui showcase").build();
+    // let (mut rl, thread) = raylib::init().size(640, 480).title("gui showcase").build();
 
     let origin = at_origin(Vector3::zero());
 
-    let model = rl.load_model(&thread, "res/auto.glb").unwrap();
+    // let model = rl.load_model(&thread, "res/auto.glb").unwrap();
     let collison_triangles =
         triangles::get_triangles(modelz::Model3D::load("res/auto.glb").unwrap());
     let surfaces: Vec<_> = collison_triangles
@@ -82,7 +82,8 @@ fn main() {
         airborne: true,
     };
 
-    rl.disable_cursor();
+
+    // rl.disable_cursor();
 
     let mut total = 0.;
     let mut fc: f32 = 0.;
@@ -90,17 +91,18 @@ fn main() {
     let mut time_passed = 0.;
 
     let mut rng = rand::rng();
+    let some: f32 = rng.random();
 
     let mut ws = 1.;
     let mut ad = 0.;
     let mut mouse_in = Vector2::zero();
 
-    while !rl.window_should_close() {
-        let fd = rl.get_frame_time();
-        let time = rl.get_time();
-        let fps = rl.get_fps();
+    loop {
+        let fd = rng.random_range(0.001f32..0.016f32);
+        // let time = rl.get_time();
+        // let fps = rl.get_fps();
 
-        total += fps as f32;
+        // total += fps as f32;
         fc += 1.0;
 
 
@@ -135,10 +137,10 @@ fn main() {
         )
         .normalized();
 
-        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT)) &&
-            rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
-                rl.toggle_fullscreen();
-        }
+        // if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT)) &&
+        //     rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
+        //         rl.toggle_fullscreen();
+        // }
 
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
         let right_dir = -forward_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalized();
@@ -168,6 +170,12 @@ fn main() {
 
                 // set up next destination
                 ldst = lpos + Vec3::new(hdc.next_move.x, 0., hdc.next_move.y);
+
+                // bailing on no-move collision
+                if hdc.next_move_len == 0. {
+                    ldst = lpos;
+                    exit_early = true;
+                }
 
                 // if final collision, ditch remaining dst
                 if i == max_iter - 1 {
@@ -217,99 +225,97 @@ fn main() {
             90.0,
         );
 
-        let mut d = rl.begin_drawing(&thread);
-        {
-            // draws
+        // let mut d = rl.begin_drawing(&thread);
+        // {
+        //     // draws
 
-            d.clear_background(Color::new(16, 16, 32, 255));
-            d.draw_mode3D(camera, |mut d3d, _| {
-                d3d.draw_model(&model, origin, 1.0, Color::WHITE);
+        //     d.clear_background(Color::new(16, 16, 32, 255));
+        //     d.draw_mode3D(camera, |mut d3d, _| {
+        //         d3d.draw_model(&model, origin, 1.0, Color::WHITE);
 
-                fn draw_surf(
-                    d3d: &mut RaylibMode3D<'_, RaylibDrawHandle<'_>>,
-                    tri: &Triangle,
-                    color: Color,
-                ) {
-                    let v = tri.verts();
-                    let t1 = (v[0] + (tri.normal() * 0.05)).to_rayv3();
-                    let t2 = (v[1] + (tri.normal() * 0.05)).to_rayv3();
-                    let t3 = (v[2] + (tri.normal() * 0.05)).to_rayv3();
-                    d3d.draw_triangle3D(t1, t2, t3, color);
-                    d3d.draw_line_3D(t1, t2, Color::WHITE);
-                    d3d.draw_line_3D(t1, t3, Color::WHITE);
-                    d3d.draw_line_3D(t3, t2, Color::WHITE);
+        //         fn draw_surf(
+        //             d3d: &mut RaylibMode3D<'_, RaylibDrawHandle<'_>>,
+        //             tri: &Triangle,
+        //             color: Color,
+        //         ) {
+        //             let v = tri.verts();
+        //             let t1 = (v[0] + (tri.normal() * 0.05)).to_rayv3();
+        //             let t2 = (v[1] + (tri.normal() * 0.05)).to_rayv3();
+        //             let t3 = (v[2] + (tri.normal() * 0.05)).to_rayv3();
+        //             d3d.draw_triangle3D(t1, t2, t3, color);
+        //             d3d.draw_line_3D(t1, t2, Color::WHITE);
+        //             d3d.draw_line_3D(t1, t3, Color::WHITE);
+        //             d3d.draw_line_3D(t3, t2, Color::WHITE);
 
-                    let center = (t1 + t2 + t3) / 3.;
-                    d3d.draw_line_3D(center, center + tri.normal().to_rayv3(), Color::ORANGE);
-                }
+        //             let center = (t1 + t2 + t3) / 3.;
+        //             d3d.draw_line_3D(center, center + tri.normal().to_rayv3(), Color::ORANGE);
+        //         }
 
-                for surf in &surfaces {
-                    match surf {
-                        Surface::Wall(tri) => draw_surf(&mut d3d, tri, Color::GREEN.alpha(0.5)),
-                        Surface::Floor(tri) => draw_surf(&mut d3d, tri, Color::RED.alpha(0.5)),
-                        Surface::Slide(tri) => draw_surf(&mut d3d, tri, Color::BLUE.alpha(0.5)),
-                        Surface::Cieling(tri) => draw_surf(&mut d3d, tri, Color::YELLOW.alpha(0.5)),
-                    }
-                }
+        //         for surf in &surfaces {
+        //             match surf {
+        //                 Surface::Wall(tri) => draw_surf(&mut d3d, tri, Color::GREEN.alpha(0.5)),
+        //                 Surface::Floor(tri) => draw_surf(&mut d3d, tri, Color::RED.alpha(0.5)),
+        //                 Surface::Slide(tri) => draw_surf(&mut d3d, tri, Color::BLUE.alpha(0.5)),
+        //                 Surface::Cieling(tri) => draw_surf(&mut d3d, tri, Color::YELLOW.alpha(0.5)),
+        //             }
+        //         }
 
-                // player cylinder
-                d3d.draw_cylinder_wires(
-                    player.pos,
-                    player.radius,
-                    player.radius,
-                    player.height,
-                    16,
-                    Color::YELLOW,
-                );
+        //         // player cylinder
+        //         d3d.draw_cylinder_wires(
+        //             player.pos,
+        //             player.radius,
+        //             player.radius,
+        //             player.height,
+        //             16,
+        //             Color::YELLOW,
+        //         );
 
-                // collision circle
-                d3d.draw_circle_3D(
-                    player_chest,
-                    player.radius,
-                    Vector3::new(1., 0., 0.),
-                    90.,
-                    Color::SKYBLUE,
-                );
-                // top step circle
-                d3d.draw_circle_3D(
-                    player_step_top,
-                    player.radius,
-                    Vector3::new(1., 0., 0.),
-                    90.,
-                    Color::RED,
-                );
-                // bottom step circle
-                d3d.draw_circle_3D(
-                    player_step_bot,
-                    player.radius,
-                    Vector3::new(1., 0., 0.),
-                    90.,
-                    Color::RED,
-                );
-            });
+        //         // collision circle
+        //         d3d.draw_circle_3D(
+        //             player_chest,
+        //             player.radius,
+        //             Vector3::new(1., 0., 0.),
+        //             90.,
+        //             Color::SKYBLUE,
+        //         );
+        //         // top step circle
+        //         d3d.draw_circle_3D(
+        //             player_step_top,
+        //             player.radius,
+        //             Vector3::new(1., 0., 0.),
+        //             90.,
+        //             Color::RED,
+        //         );
+        //         // bottom step circle
+        //         d3d.draw_circle_3D(
+        //             player_step_bot,
+        //             player.radius,
+        //             Vector3::new(1., 0., 0.),
+        //             90.,
+        //             Color::RED,
+        //         );
+        //     });
 
-            d.draw_text(&format!("FPS Demo"), 20, 20, 20, Color::WHITE);
-            d.draw_text(
-                &format!(
-                    "p: {:.1} {:.1} {:.1}",
-                    player.pos.x, player.pos.y, player.pos.z
-                ),
-                20,
-                40,
-                20,
-                Color::WHITE,
-            );
-            d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
-            d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
-            d.draw_text(
-                &format!("func: HotDogWalls"),
-                20,
-                100,
-                20,
-                Color::WHITE,
-            );
-        }
+        //     d.draw_text(&format!("FPS Demo"), 20, 20, 20, Color::WHITE);
+        //     d.draw_text(
+        //         &format!(
+        //             "p: {:.1} {:.1} {:.1}",
+        //             player.pos.x, player.pos.y, player.pos.z
+        //         ),
+        //         20,
+        //         40,
+        //         20,
+        //         Color::WHITE,
+        //     );
+        //     d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
+        //     d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
+        //     d.draw_text(
+        //         &format!("func: HotDogWalls"),
+        //         20,
+        //         100,
+        //         20,
+        //         Color::WHITE,
+        //     );
+        // }
     }
-
-    print_fi();
 }
