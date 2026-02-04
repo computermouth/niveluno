@@ -619,6 +619,88 @@ pub fn solve_plane_y(normal: Vec3, origin_offset: f32, x: f32, z: f32) -> f32 {
 }
 
 // pos here is the feet/bottom
+pub fn find_floor_height_hotdog(
+    pos: Vec3,
+    floor_snap_dist: f32,
+    surfaces: &[&Surface],
+    radius: f32,
+) -> Option<(Triangle, f32)> {
+    let mut best_y = f32::NEG_INFINITY;
+    let mut best_tri = None;
+
+    // center ray check
+    for s in surfaces {
+        // all upward facing normals
+        let tri = match s {
+            Surface::Floor(t) => t,
+            _ => continue,
+        };
+
+        // check if point is inside triangle
+        if !flattened_point_inside_flattened_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2])
+        {
+            continue;
+        }
+
+        // get y at xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
+
+        // within floor snap range both below and above pos (bottom)
+        if (pos.y - floor_snap_dist..=pos.y + floor_snap_dist).contains(&y) && y > best_y {
+            best_y = y;
+            best_tri = Some(*tri);
+        }
+    }
+
+    // early return if the point is inside a triangle
+    // otherwise snapping floors on change to/from incline gets weird
+    match best_tri {
+        Some(tri) => return Some((tri, best_y)),
+        None => {},
+    }
+
+    // check if we're teetering on an edge with more than floor snap distance
+    for s in surfaces {
+        // all upward facing normals
+        let tri = match s {
+            Surface::Floor(t) | Surface::Slide(t) => t,
+            _ => continue,
+        };
+
+        let posv2 = Vec2::new(pos.x, pos.z);
+        let p1v2 = Vec2::new(tri.verts[0].x, tri.verts[0].z);
+        let p2v2 = Vec2::new(tri.verts[1].x, tri.verts[1].z);
+        let p3v2 = Vec2::new(tri.verts[2].x, tri.verts[2].z);
+
+        // check if point is inside radius-expanded edges,
+        // 2x SKIN_FACTOR to ensure we're always dropping down outside a wall that connects to a floor
+        //
+        // but also fall back to using point in triangle with slides
+        if !flattened_point_inside_flattened_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2]) && 
+            !(closest_point_on_segment_v2(posv2, p1v2, p2v2).distance(posv2) <= radius + radius * SKIN_FACTOR * 2.) &&
+            !(closest_point_on_segment_v2(posv2, p2v2, p3v2).distance(posv2) <= radius + radius * SKIN_FACTOR * 2.) &&
+            !(closest_point_on_segment_v2(posv2, p3v2, p1v2).distance(posv2) <= radius + radius * SKIN_FACTOR * 2.)
+        {
+            continue;
+        }
+
+        // get y at xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
+
+        // within floor snap range both below and above pos (bottom)
+        if (pos.y - floor_snap_dist..=pos.y + floor_snap_dist).contains(&y) && y > best_y {
+            best_y = y;
+            best_tri = Some(*tri);
+        }
+    }
+
+    match best_tri {
+        Some(tri) => Some((tri, best_y)),
+        None => None,
+    }
+}
+
+// pos here is the feet/bottom
 pub fn find_floor_height_m64(
     pos: Vec3,
     floor_snap_dist: f32,

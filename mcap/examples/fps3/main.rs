@@ -2,7 +2,7 @@ use std::iter;
 
 use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
+    HotDog, Surface, Triangle, Vec3, find_floor_height_hotdog, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
 };
 use modelz;
 use raylib::prelude::*;
@@ -66,8 +66,14 @@ fn main() {
         })
         .collect();
 
-    let walls: Vec<_> = surfaces.iter().filter(|s| if let Surface::Wall(_) = s {true} else {false}).collect();
-    let floors: Vec<_> = surfaces.iter().filter(|s| if let Surface::Floor(_) = s {true} else {false}).collect();
+    let walls: Vec<_> = surfaces.iter().filter(|s| match s {
+        Surface::Wall(_) => true,
+        _ => false,
+    }).collect();
+    let floors: Vec<_> = surfaces.iter().filter(|s| match s {
+        Surface::Floor(_) | Surface::Slide(_) => true,
+        _ => false,
+    }).collect();
 
     let mut player = Player {
         // bottom of cylinder
@@ -150,12 +156,6 @@ fn main() {
                 // set up next destination
                 ldst = lpos + Vec3::new(hdc.next_move.x, 0., hdc.next_move.y);
 
-                // bailing on no-move collision
-                if hdc.next_move_len == 0. {
-                    ldst = lpos;
-                    exit_early = true;
-                }
-
                 // if final collision, ditch remaining dst
                 if i == max_iter - 1 {
                     ldst = lpos;
@@ -171,7 +171,8 @@ fn main() {
             lout = ldst.with_y(ldst.y - player.chest_height);
 
             let snap = player.height - player.chest_height;
-            if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
+            if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
+            // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal
