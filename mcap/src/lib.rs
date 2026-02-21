@@ -701,6 +701,76 @@ pub fn find_floor_height_hotdog(
 }
 
 // pos here is the feet/bottom
+pub fn find_floor_height_hotdog_v2(
+    pos: Vec3,
+    floor_snap_dist: f32,
+    surfaces: &[&Surface],
+    radius: f32,
+) -> Option<(Triangle, f32)> {
+    let mut best_dist = f32::INFINITY;
+    let mut best_y = f32::NEG_INFINITY;
+    let mut best_tri = None;
+
+    let posv2 = Vec2::new(pos.x, pos.z);
+
+    // check if we're teetering on an edge with more than floor snap distance
+    for s in surfaces {
+        // all upward facing normals
+        let tri = match s {
+            Surface::Floor(t) | Surface::Slide(t) => t,
+            _ => continue,
+        };
+
+        let p1v2 = Vec2::new(tri.verts[0].x, tri.verts[0].z);
+        let p2v2 = Vec2::new(tri.verts[1].x, tri.verts[1].z);
+        let p3v2 = Vec2::new(tri.verts[2].x, tri.verts[2].z);
+
+        // check if point is inside radius-expanded edges,
+        // 2x SKIN_FACTOR to ensure we're always dropping down outside a wall that connects to a floor
+        //
+        // but also fall back to using point in triangle with slides
+        let plane_pos: Vec2 = if flattened_point_inside_flattened_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2]) {
+            posv2
+        } else {
+            let cp1 = closest_point_on_segment_v2(posv2, p1v2, p2v2);
+            let cp2 = closest_point_on_segment_v2(posv2, p2v2, p3v2);
+            let cp3 = closest_point_on_segment_v2(posv2, p3v2, p1v2);
+            let cp1d = cp1.distance(posv2);
+            let cp2d = cp2.distance(posv2);
+            let cp3d = cp3.distance(posv2);
+            let threshold = radius + radius * SKIN_FACTOR * 2.;
+            if cp1d <= threshold || cp2d <= threshold || cp3d <= threshold {
+                if cp1d <= cp2d && cp1d <= cp3d { cp1 } else if cp2d <= cp3d { cp2 } else { cp3 }
+            } else {
+                // neither inside flattened triangle, nor within threshold
+                continue;
+            }
+        };
+
+        // get y at plane_pos.xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, plane_pos.x, plane_pos.y);
+
+        // within floor snap range both below and above pos (bottom)
+        // add a SKIN_FACTOR just for fun (my step-{up,down} is coincidentally a multiple of my minimum alignment in blender)
+        let snap = floor_snap_dist + SKIN_FACTOR;
+        let dist = plane_pos.distance(posv2);
+        // store according to which plane_pos is nearest to pos_v2
+        if (pos.y - snap..=pos.y + snap).contains(&y) && dist < best_dist {
+            best_dist = dist;
+            best_y = y;
+            best_tri = Some(*tri);
+        }
+    }
+
+    match best_tri {
+        Some(tri) => {
+            Some((tri, best_y))
+        },
+        None => None,
+    }
+}
+
+// pos here is the feet/bottom
 pub fn find_floor_height_m64(
     pos: Vec3,
     floor_snap_dist: f32,
@@ -727,7 +797,9 @@ pub fn find_floor_height_m64(
         let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
 
         // within floor snap range both below and above pos (bottom)
-        if (pos.y - floor_snap_dist..=pos.y + floor_snap_dist).contains(&y) && y > best_y {
+        // add a SKIN_FACTOR just for fun (my step-{up,down} is coincidentally a multiple of my minimum alignment in blender)
+        let snap = floor_snap_dist + SKIN_FACTOR;
+        if (pos.y - snap..=pos.y + snap).contains(&y) && y > best_y {
             best_y = y;
             best_tri = Some(*tri);
         }
@@ -1093,55 +1165,53 @@ impl HotDog {
             }
         }
 
-        // todo, what if we did one check like below
-        // if dst is colliding, always go back to src, project
-        // no step back, no fork on this behavior
-
-        // we still have to check no-collision to see if self.dst
-        // is a safe spot to raycast from
-        let Some(n) = nearest else {
-            let validate_ray = C2Ray {
-                p: self.dst,
-                d: Vec2::ONE.normalize(),
-                t: 0.
-            };
-
-            let validate_r = self.radius + self.skin;
-
-            for tri in &walls {
-                let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
-                    continue;
+        // if the current resting position reads as a collision,
+        // update nearest, otherwise just return
+        let nearest = match nearest {
+            Some(n) => Some(n),
+            None => {
+                let validate_ray = C2Ray {
+                    p: self.dst,
+                    d: Vec2::ONE.normalize(),
+                    t: 0.
                 };
 
-                let cap = C2Capsule {
-                    a: d1,
-                    b: d2,
-                    r: validate_r
-                };
+                let validate_r = self.radius + self.skin;
+                let mut coll = None;
 
-                if c2RaytoCapsule(validate_ray, cap).is_some() {
-                    let wall_normal_xz = Vec2::new(tri.normal.x, tri.normal.z).normalize();
-                    // mimic a collision at exactly the destination
-                    let fake_collision = C2Raycast {
-                        t: ray.t,
-                        n: wall_normal_xz
+                for tri in &walls {
+                    let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.srcv3.y) else {
+                        continue;
                     };
-                    let dest_xz = self.step_back(ray, &fake_collision, &walls, None);
-                    let step = self.dst - dest_xz;
-                    let push_out = step.project_onto(fake_collision.n);
-                    let mut next_move = step - push_out;
 
-                    let next_dir = ((dest_xz + next_move) - dest_xz).normalize();
-                    if next_dir.dot(self.original_dir) < 0. {
-                        next_move = Vec2::ZERO
+                    let cap = C2Capsule {
+                        a: d1,
+                        b: d2,
+                        r: validate_r
+                    };
+
+                    if c2RaytoCapsule(validate_ray, cap).is_some() {
+                        let wall_normal_xz = Vec2::new(tri.normal.x, tri.normal.z).normalize();
+                        // mimic a collision at exactly the destination
+                        coll = Some(C2Raycast {
+                            t: ray.t,
+                            n: wall_normal_xz
+                        });
+                        break;
                     }
-
-                    return Some(HotDogCollision{dest_xz, next_move, next_move_len: next_move.length(), push_out, t: 0., angle_factor: 0.});
                 }
-            }
 
-            return None;
+                coll
+            }
         };
+
+        let n = match nearest {
+            Some(n) => n,
+            None => return None,
+        };
+
+        // todo, what if when dst is colliding,
+        // always go back to src, project, no step back
 
         // check if we need to step back from the collision point
         let dest_xz = self.step_back(ray, &n, &walls, None);
@@ -1231,6 +1301,7 @@ impl HotDog {
             }
 
             if !collided {
+                // todo, remove 
                 fi_list.with_borrow_mut(|hm| {
                     let f = hm.get(&fi).unwrap_or(&0);
                     hm.insert(fi, f + 1);
@@ -1272,6 +1343,7 @@ impl HotDog {
             }
         }
         
+        // todo, remove
         fi_list.with_borrow_mut(|hm| {
             let f = hm.get(&fi).unwrap_or(&0);
             hm.insert(fi, f + 1);

@@ -2,7 +2,7 @@ use std::iter;
 
 use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height_hotdog, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
+    HotDog, Surface, Triangle, Vec3, find_floor_height_hotdog, find_floor_height_hotdog_v2, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
 };
 use modelz;
 use raylib::prelude::*;
@@ -135,6 +135,8 @@ fn main() {
 
         let src = player.pos + Vector3::new(0., player.chest_height, 0.);
         let dst = src + (move_dir * move_speed * fd);
+
+        let mut floor_draw = None;
         
         let max_iter = 5;
 
@@ -142,6 +144,7 @@ fn main() {
         let mut ldst = dst.to_mcapv3();
         let mut lout = ldst.with_y(ldst.y - player.chest_height);
         for i in 0..max_iter {
+            // the body of this should be a function to invoke
             let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
             
             // on no-collision or no-move
@@ -171,20 +174,72 @@ fn main() {
             lout = ldst.with_y(ldst.y - player.chest_height);
 
             let snap = player.height - player.chest_height;
-            if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
+            // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
+            // if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
+            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, snap, &floors, player.radius) {
             // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal
                 // step.y = 0.;
                 // step -= floor.normal * step.dot(floor.normal);
+                player.airborne = false;
+                floor_draw = Some(floor);
             } else {
                 // walked off ledge, become airborne
                 player.airborne = true;
             }
 
-            if exit_early {
+            if exit_early || i == max_iter - 1 {
                 break;
+            }
+        }
+
+
+        // gravity pass
+        //
+        // gravity pass is it's own thing because
+        // if we just do the above with gravity,
+        // check_walls_c2 will prevent our downward movement
+        // when colliding with a wall
+        let mut lpos = lout.with_y(lout.y + player.chest_height);
+        let mut ldst = lpos.with_y(lpos.y - 9.8 * fd);
+        let mut lout = lout;
+
+        if player.airborne {
+
+            let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
+            
+            if let Some(hdc) = hotdog.check_walls_c2(&walls){
+                // update current position
+                lpos = Vec3::new(hdc.dest_xz.x, lpos.y, hdc.dest_xz.y);
+
+                // set up next destination
+                ldst = lpos + Vec3::new(hdc.next_move.x, 0., hdc.next_move.y);
+
+                // if next move is basically 0, exit after floor check
+                if hdc.next_move_len < f32::EPSILON {
+                    ldst = lpos;
+                }
+            }
+
+            lout = ldst.with_y(ldst.y - player.chest_height);
+
+            let snap = player.height - player.chest_height;
+            // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
+            // if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
+            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, snap, &floors, player.radius) {
+            // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
+                lout.y = y - player.radius * 0.001;
+                // // todo, apply this to inter-frame velocity
+                // // zero out y, project step onto floor normal
+                // step.y = 0.;
+                // step -= floor.normal * step.dot(floor.normal);
+                player.airborne = false;
+                floor_draw = Some(floor);
+            } else {
+                // walked off ledge, become airborne
+                player.airborne = true;
             }
         }
 
@@ -237,6 +292,10 @@ fn main() {
                         Surface::Slide(tri) => draw_surf(&mut d3d, tri, Color::BLUE.alpha(0.5)),
                         Surface::Cieling(tri) => draw_surf(&mut d3d, tri, Color::YELLOW.alpha(0.5)),
                     }
+                }
+
+                if let Some(ft) = floor_draw {
+                    draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5));
                 }
 
                 // player cylinder
@@ -292,6 +351,13 @@ fn main() {
                 &format!("func: HotDogWalls"),
                 20,
                 100,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!("airborn: {:?}", player.airborne),
+                20,
+                120,
                 20,
                 Color::WHITE,
             );
