@@ -1,6 +1,6 @@
 use mcap::{
     Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64,
-    get_step_push_most_opposing,
+    get_step_push_most_opposing, get_step_push_oot,
 };
 use modelz;
 use raylib::prelude::*;
@@ -125,19 +125,23 @@ fn main() {
             GetStepPushM64,
             GetStepPush,
             GetStepPushMostOpposing,
+            GetStepPushOot,
+            __END,
         }
         if rl.is_key_pressed(KeyboardKey::KEY_N) {
-            findex = (findex + 1) % 3;
+            findex = (findex + 1) % CollFunc::__END as usize;
         }
         let coll_func = vec![
             get_step_push_m64,
             get_step_push,
             get_step_push_most_opposing,
+            get_step_push_oot,
         ][findex];
         let coll_func_debug = &vec![
             CollFunc::GetStepPushM64,
             CollFunc::GetStepPush,
             CollFunc::GetStepPushMostOpposing,
+            CollFunc::GetStepPushOot,
         ][findex];
 
         let tic = movement / iterations as f32;

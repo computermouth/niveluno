@@ -1,8 +1,8 @@
-use std::iter;
+use std::{iter, ops::Add};
 
 use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height_hotdog, find_floor_height_hotdog_v2, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
+    HotDog, HotDogv2, Surface, Triangle, Vec3, find_floor_height_hotdog, find_floor_height_hotdog_v2, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
 };
 use modelz;
 use raylib::prelude::*;
@@ -133,7 +133,7 @@ fn main() {
         let move_speed = 10.0;
         let move_dir = (forward_dir * ws + right_dir * ad).normalized();
 
-        let src = player.pos + Vector3::new(0., player.chest_height, 0.);
+        let src = player.pos;
         let dst = src + (move_dir * move_speed * fd);
 
         let mut floor_draw = None;
@@ -142,10 +142,10 @@ fn main() {
 
         let mut lpos = src.to_mcapv3();
         let mut ldst = dst.to_mcapv3();
-        let mut lout = ldst.with_y(ldst.y - player.chest_height);
+        let mut lout = ldst;
         for i in 0..max_iter {
             // the body of this should be a function to invoke
-            let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
+            let hotdog = HotDogv2::new(lpos, ldst, player.radius, player.height, 0.002, move_dir.to_mcapv3());
             
             // on no-collision or no-move
             let mut exit_early = true;
@@ -171,7 +171,7 @@ fn main() {
                 }
             }
 
-            lout = ldst.with_y(ldst.y - player.chest_height);
+            lout = ldst;
 
             let snap = player.height - player.chest_height;
             // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
@@ -202,13 +202,13 @@ fn main() {
         // if we just do the above with gravity,
         // check_walls_c2 will prevent our downward movement
         // when colliding with a wall
-        let mut lpos = lout.with_y(lout.y + player.chest_height);
+        let mut lpos = lout;
         let mut ldst = lpos.with_y(lpos.y - 9.8 * fd);
         let mut lout = lout;
 
         if player.airborne {
 
-            let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
+            let hotdog = HotDogv2::new(lpos, ldst, player.radius, player.height, 0.002, move_dir.to_mcapv3());
             
             if let Some(hdc) = hotdog.check_walls_c2(&walls){
                 // update current position
@@ -223,7 +223,7 @@ fn main() {
                 }
             }
 
-            lout = ldst.with_y(ldst.y - player.chest_height);
+            lout = ldst;
 
             let snap = player.height - player.chest_height;
             // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
@@ -310,7 +310,7 @@ fn main() {
 
                 // collision circle
                 d3d.draw_circle_3D(
-                    player_chest,
+                    player_top,
                     player.radius,
                     Vector3::new(1., 0., 0.),
                     90.,

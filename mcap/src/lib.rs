@@ -1,4 +1,5 @@
-use core::f32::{self, INFINITY, NEG_INFINITY};
+use core::f32;
+use core::f32::{INFINITY, NEG_INFINITY};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -307,6 +308,83 @@ pub fn get_step_push_m64(
         became_airborne: airborne,
         landed: false,
     }
+}
+
+pub fn get_step_push_oot(
+    pos: Vec3,
+    step: Vec3,
+    radius: f32,
+    chest_height: f32,
+    floor_snap_dist: f32,
+    surfaces: &[&Surface],
+) -> StepResult {
+    let target = pos + step;
+
+    let walls: Vec<&Triangle> = surfaces.iter().filter_map(|s| match s {
+        Surface::Wall(w) => Some(w),
+        _ => None,
+    }).collect();
+
+    let (out_pos, collided) = push_out_walls(target, radius, walls);
+
+    StepResult {
+        collided: collided,
+        collisions: vec![],
+        collision_points: vec![],
+        final_pos: out_pos,
+        out_step: step,
+        became_airborne: false,
+        landed: false,
+    }
+}
+
+pub fn push_out_walls(
+    pos: Vec3,
+    radius: f32,
+    walls: Vec<&Triangle>,
+) -> (Vec3, bool) {
+    let mut out_x = pos.x;
+    let mut out_z = pos.z;
+    let mut hit = false;
+
+    let radius = radius + radius * SKIN_FACTOR * 10.;
+
+    for tri in walls {
+        let n = tri.normal;
+        let xz_len = (n.x * n.x + n.z * n.z).sqrt();
+
+        let cur = Vec3::new(out_x, pos.y, out_z);
+        let nearest = closest_point_triangle(cur, &tri.verts);
+        let dist = nearest.distance(cur);
+
+        if dist.abs() >= radius {
+            continue;
+        }
+
+        // get appropriate deflection dir
+        let diff = cur - nearest;
+        let diff_xz = Vec2::new(diff.x, diff.z);
+        let diff_xz_len = diff_xz.length();
+
+        let (push_dir_x, push_dir_z) = if diff_xz_len > f32::EPSILON {
+            (diff_xz.x / diff_xz_len, diff_xz.y / diff_xz_len)
+        } else {
+            // diff is ~ 0
+            // center is directly above/below the nearest point
+            // fall back to face normal
+            //
+            // we should be able to ensure this doesn't happen
+            // by padding downward raycasts a little bit
+            (n.x / xz_len, n.z / xz_len)
+        };
+
+        let push = radius - dist;
+        out_x += push_dir_x * push;
+        out_z += push_dir_z * push;
+        hit = true;
+    }
+
+    (Vec3::new(out_x, pos.y, out_z), hit)
 }
 
 pub fn closest_point_on_segment_v3(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
@@ -1365,6 +1443,253 @@ pub struct HotDogCollision {
     pub angle_factor: f32,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub struct HotDogv2 {
+    src: Vec2,
+    src_y: f32,
+    dst: Vec2,
+    skin: f32,
+    radius: f32,
+    original_dir: Vec2,
+}
+
+#[derive(Debug)]
+pub struct HotDogCollisionv2 {
+    pub dest_xz: Vec2,
+    pub next_move: Vec2,
+    pub next_move_len: f32,
+}
+
+impl HotDogv2 {
+    pub fn new(srcv3: Vec3, dstv3: Vec3, radius: f32, check_height: f32, skin_factor: f32, original_dir: Vec3) -> Self {
+        let src = Vec2::new(srcv3.x, srcv3.z);
+        let dst = Vec2::new(dstv3.x, dstv3.z);
+        let skin= radius * skin_factor;
+        let hd = Self {
+            src,
+            src_y: srcv3.y + check_height,
+            dst,
+            radius,
+            skin,
+            original_dir: Vec2::new(original_dir.x, original_dir.z).normalize(),
+        };
+
+        hd
+    }
+
+    pub fn check_walls_c2(&self, surfaces: &[&Surface]) -> Option<HotDogCollisionv2> {
+
+        let walls: Vec<&Triangle> = surfaces.iter().filter_map(|s| match s {
+            Surface::Wall(w) => Some(w),
+            _ => None,
+        }).collect();
+
+        let diff = self.dst - self.src;
+
+        let ray = C2Ray {
+            p: self.src,
+            d: diff.normalize(),
+            t: diff.length()
+        };
+
+        let mut nearest: Option<C2Raycast> = None;
+        for tri in &walls {
+
+            // REQUIRED RELEVANCE CHECKS
+
+            // get line segment on the y plane
+            // -- trims deadspace on wall edges that aren't vertical/horizontal
+            // -- ie a triangle on the side of a ramp
+            // -- but also skips triangles that don't cross src.y
+            let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.src_y) else {
+                continue;
+            };
+
+            let cap = C2Capsule {
+                a: d1,
+                b: d2,
+                r: self.radius + self.skin
+            };
+            if let Some(coll) = c2RaytoCapsule(ray, cap) {
+
+                match &nearest {
+                    None => nearest = Some(coll),
+                    Some(n) => {
+                        if n.t > coll.t {
+                            // last nearest is further away than coll
+                            nearest = Some(coll)
+                        }
+                    }
+                }
+            }
+        }
+
+        // if the current resting position reads as a collision,
+        // update nearest, otherwise just return
+        let nearest = match nearest {
+            Some(n) => Some(n),
+            None => {
+                let validate_ray = C2Ray {
+                    p: self.dst,
+                    d: Vec2::ONE.normalize(),
+                    t: 0.
+                };
+
+                let validate_r = self.radius + self.skin;
+                let mut coll = None;
+
+                for tri in &walls {
+                    let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.src_y) else {
+                        continue;
+                    };
+
+                    let cap = C2Capsule {
+                        a: d1,
+                        b: d2,
+                        r: validate_r
+                    };
+
+                    if c2RaytoCapsule(validate_ray, cap).is_some() {
+                        let wall_normal_xz = Vec2::new(tri.normal.x, tri.normal.z).normalize();
+                        // mimic a collision at exactly the destination
+                        coll = Some(C2Raycast {
+                            t: ray.t,
+                            n: wall_normal_xz
+                        });
+                        break;
+                    }
+                }
+
+                coll
+            }
+        };
+
+        let n = match nearest {
+            Some(n) => n,
+            None => return None,
+        };
+
+        // todo, what if when dst is colliding,
+        // always go back to src, project, no step back
+
+        // check if we need to step back from the collision point
+        let dest_xz = self.step_back(ray, &n, &walls);
+
+        // project step onto wall plane (remove component going into wall)
+        let step = self.dst - dest_xz;
+        let push_out = step.project_onto(n.n);
+        let mut next_move = step - push_out;
+
+        // see if we've bounced off so much stuff that now we're heading backwards
+        let next_dir = ((dest_xz + next_move) - dest_xz).normalize();
+        if next_dir.dot(self.original_dir) < 0. {
+            next_move = Vec2::ZERO
+        }
+        Some(HotDogCollisionv2{dest_xz, next_move, next_move_len: next_move.length()})
+    }
+
+    // todo, add last_wall, and check that one first before all the other walls
+    pub fn step_back(&self, ray: C2Ray, collision: &C2Raycast, walls: &[&Triangle]) -> Vec2 {
+
+        // todo, remove, along with the pub for this fn
+        if (self.dst - self.src).length() <= self.skin {
+            return self.src;
+        }
+
+        // end at the collision point, minus skin
+        let start = ray.p;
+        // let end = start + ray.d * (collision.t - self.skin);
+        let end = start + ray.d * collision.t - self.skin * collision.n;
+
+        // todo, check end first, then do a binary search from halfway between
+        // or maybe even assume end is bad, and just start with the binary search
+        //
+        // 0 is end
+        // 3 is 25% away from start
+        // I'd originally set this to 9, but in practice, most iterations
+        // return on either 0 or `iterations`.
+        //
+        // after running through the profiler, this is like 1.5% execution time
+        // it really doesn't matter
+        let iterations = 4;
+        let locations: Vec<Vec2> = (0..iterations).map(|i| {
+            end.lerp(start, i as f32 / iterations as f32)
+        }).collect();
+
+        let validate_r = self.radius + self.skin;
+        let mut fi = 0;
+        for (i, dest_xz) in locations.iter().enumerate() {
+            fi = i;
+
+            let ray = C2Ray {
+                p: *dest_xz,
+                d: Vec2::ONE.normalize(),
+                t: 0.
+            };
+
+            let mut collided = false;
+
+            // check if we're inside a wall after move
+            for tri in walls {
+                // if can't collide, skip
+                let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.src_y) else {
+                    continue;
+                };
+
+                // if we're still too close
+                let cap = C2Capsule {
+                    a: d1,
+                    b: d2,
+                    r: validate_r
+                };
+
+                if c2RaytoCapsule(ray, cap).is_some() {
+                    collided = true;
+                    break;
+                }
+            }
+
+            if !collided {
+                return *dest_xz;
+            }
+
+        }
+
+        // check start, panic on failure
+        // as start should always be known-good
+        let dest_xz = start;
+
+        let ray = C2Ray {
+            p: dest_xz,
+            d: Vec2::ONE.normalize(),
+            t: 0.
+        };
+
+        // check if we're inside a wall after move
+        for tri in walls {
+            // if can't collide, skip
+            let Some((d1, d2)) = triangle_slice_at_y(&tri.verts, self.src_y) else {
+                continue;
+            };
+
+            // if we're still too close
+            let cap = C2Capsule {
+                a: d1,
+                b: d2,
+                r: validate_r
+            };
+
+            if c2RaytoCapsule(ray, cap).is_some() {
+                panic!("start is in wall");
+            }
+        }
+
+        dest_xz
+    }
+
+
+}
+
 // ANGLEFACTORNOTES
 // ========================================================================
 //
@@ -1775,4 +2100,57 @@ fn c2RaytoCapsule(A: C2Ray, B: C2Capsule) -> Option<C2Raycast>
 	}
 
 	None
+}
+
+/// Renderkit/Embree
+/// Copyright 2009-2021 Intel Corporation
+/// SPDX-License-Identifier: Apache-2.0
+pub fn closest_point_triangle(p: Vec3, tri: &[Vec3; 3]) -> Vec3
+{
+    let a = &tri[0];
+    let b = &tri[1];
+    let c = &tri[2];
+    let ab = b - a;
+    let ac = c - a;
+    let ap = p - a;
+
+    let d1 = ab.dot(ap);
+    let d2 = ac.dot(ap);
+    if d1 <= 0. && d2 <= 0. { return *a; } //#1
+
+    let bp = p - b;
+    let d3 = ab.dot(bp);
+    let d4 = ac.dot(bp);
+    if d3 >= 0. && d4 <= d3 { return *b; } //#2
+
+    let cp = p - c;
+    let d5 = ab.dot(cp);
+    let d6 = ac.dot(cp);
+    if d6 >= 0. && d5 <= d6 { return *c; } //#3
+
+    let vc = d1 * d4 - d3 * d2;
+    if vc <= 0. && d1 >= 0. && d3 <= 0.
+    {
+        let v = d1 / (d1 - d3);
+        return a + v * ab; //#4
+    }
+        
+    let vb = d5 * d2 - d1 * d6;
+    if vb <= 0. && d2 >= 0. && d6 <= 0.
+    {
+        let v = d2 / (d2 - d6);
+        return a + v * ac; //#5
+    }
+        
+    let va = d3 * d6 - d5 * d4;
+    if va <= 0. && (d4 - d3) >= 0. && (d5 - d6) >= 0.
+    {
+        let v = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        return b + v * (c - b); //#6
+    }
+
+    let denom = 1. / (va + vb + vc);
+    let v = vb * denom;
+    let w = vc * denom;
+    a + v * ab + w * ac //#0
 }
