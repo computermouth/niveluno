@@ -39,10 +39,23 @@ struct Player {
     cam_pitch: f32,
     cam_yaw: f32,
     height: f32,
-    chest_height: f32,
+    snap: f32,
     radius: f32,
     airborne: bool,
 }
+
+// this was my pride and joy amongst the attempts in this repo to make
+// something robust and ray-based, but there's still issues with the
+// 2d circular test approach. it seems that a wall push is going to be
+// unavoidable in certain scenarios, or at least, pretty hairy to work around
+
+// all in all, the 2d circular test approach would work great if it weren't for
+// gravity and jumping. everything works until integrating vertical movement
+// outside of floor snaps.
+
+// anyway, abandoned for general purpose use, and honestly a wall-push
+// is probably more performant in any case, and will work just as well for fps
+// as it would for like pokemon-esque flat plane movement
 
 fn main() {
     let (mut rl, thread) = raylib::init().size(640, 480).title("gui showcase").build();
@@ -82,7 +95,7 @@ fn main() {
         cam_pitch: 0.,
         cam_yaw: 0.,
         height: 3.,
-        chest_height: 2.,
+        snap: 1.,
         radius: 1.,
         airborne: true,
     };
@@ -145,12 +158,31 @@ fn main() {
         let mut lout = ldst;
         for i in 0..max_iter {
             // the body of this should be a function to invoke
-            let hotdog = HotDogv2::new(lpos, ldst, player.radius, player.height, 0.002, move_dir.to_mcapv3());
+            let hotdog_top = HotDogv2::new(lpos, ldst, player.radius, player.height - 0.002, 0.002, move_dir.to_mcapv3());
+            let hotdog_bot = HotDogv2::new(lpos, ldst, player.radius, player.snap + 0.002, 0.002, move_dir.to_mcapv3());
             
             // on no-collision or no-move
             let mut exit_early = true;
+
+            // I don't think this is gonna work out
+            let first_hdc = match (
+                hotdog_top.check_walls_c2(&walls),
+                None,
+                // hotdog_bot.check_walls_c2(&walls)
+            ) {
+                (None, None) => None,
+                (Some(hdc), None) => Some(hdc),
+                (None, Some(hdc)) => Some(hdc),
+                (Some(hdc1), Some(hdc2)) => {
+                    if hdc1.next_move_len < hdc2.next_move_len {
+                        Some(hdc1)
+                    } else {
+                        Some(hdc2)
+                    }
+                }
+            };
             
-            if let Some(hdc) = hotdog.check_walls_c2(&walls){
+            if let Some(hdc) = first_hdc{
                 exit_early = false;
 
                 // update current position
@@ -173,10 +205,9 @@ fn main() {
 
             lout = ldst;
 
-            let snap = player.height - player.chest_height;
             // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
             // if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
-            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, snap, &floors, player.radius) {
+            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, player.snap, &floors, player.radius) {
             // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
@@ -208,7 +239,7 @@ fn main() {
 
         if player.airborne {
 
-            let hotdog = HotDogv2::new(lpos, ldst, player.radius, player.height, 0.002, move_dir.to_mcapv3());
+            let hotdog = HotDogv2::new(lpos, ldst, player.radius, player.height - 0.002, 0.002, move_dir.to_mcapv3());
             
             if let Some(hdc) = hotdog.check_walls_c2(&walls){
                 // update current position
@@ -225,10 +256,9 @@ fn main() {
 
             lout = ldst;
 
-            let snap = player.height - player.chest_height;
             // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
             // if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
-            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, snap, &floors, player.radius) {
+            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, player.snap, &floors, player.radius) {
             // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
@@ -247,11 +277,11 @@ fn main() {
 
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
-        let player_chest = player.pos + Vector3::new(0., player.chest_height, 0.);
+        let player_bot_collision = player.pos + Vector3::new(0., player.snap + 0.1, 0.);
         let player_step_top =
-            player.pos + Vector3::new(0., player.height - player.chest_height, 0.);
+            player.pos + Vector3::new(0., player.snap, 0.);
         let player_step_bot =
-            player.pos - Vector3::new(0., player.height - player.chest_height, 0.);
+            player.pos - Vector3::new(0., player.snap, 0.);
         let camera = Camera3D::perspective(
             player_top + camera_dir * 5.,
             player_top,
@@ -311,6 +341,14 @@ fn main() {
                 // collision circle
                 d3d.draw_circle_3D(
                     player_top,
+                    player.radius,
+                    Vector3::new(1., 0., 0.),
+                    90.,
+                    Color::SKYBLUE,
+                );
+                // collision circle
+                d3d.draw_circle_3D(
+                    player_bot_collision,
                     player.radius,
                     Vector3::new(1., 0., 0.),
                     90.,
