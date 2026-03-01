@@ -849,6 +849,76 @@ pub fn find_floor_height_hotdog_v2(
 }
 
 // pos here is the feet/bottom
+pub fn find_floor_height_hotdog_v3(
+    pos: Vec3,
+    floor_snap_dist: f32,
+    surfaces: &[&Surface],
+    radius: f32,
+) -> Option<(Surface, f32)> {
+    let mut best_dist = f32::INFINITY;
+    let mut best_y = f32::NEG_INFINITY;
+    let mut best_surf = None;
+
+    let posv2 = Vec2::new(pos.x, pos.z);
+
+    // check if we're teetering on an edge with more than floor snap distance
+    for s in surfaces {
+        // all upward facing normals
+        let tri = match s {
+            Surface::Floor(t) | Surface::Slide(t) => t,
+            _ => continue,
+        };
+
+        let p1v2 = Vec2::new(tri.verts[0].x, tri.verts[0].z);
+        let p2v2 = Vec2::new(tri.verts[1].x, tri.verts[1].z);
+        let p3v2 = Vec2::new(tri.verts[2].x, tri.verts[2].z);
+
+        // check if point is inside radius-expanded edges,
+        // 2x SKIN_FACTOR to ensure we're always dropping down outside a wall that connects to a floor
+        //
+        // but also fall back to using point in triangle with slides
+        let plane_pos: Vec2 = if flattened_point_inside_flattened_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2]) {
+            posv2
+        } else {
+            let cp1 = closest_point_on_segment_v2(posv2, p1v2, p2v2);
+            let cp2 = closest_point_on_segment_v2(posv2, p2v2, p3v2);
+            let cp3 = closest_point_on_segment_v2(posv2, p3v2, p1v2);
+            let cp1d = cp1.distance(posv2);
+            let cp2d = cp2.distance(posv2);
+            let cp3d = cp3.distance(posv2);
+            let threshold = radius + radius * SKIN_FACTOR * 2.;
+            if cp1d <= threshold || cp2d <= threshold || cp3d <= threshold {
+                if cp1d <= cp2d && cp1d <= cp3d { cp1 } else if cp2d <= cp3d { cp2 } else { cp3 }
+            } else {
+                // neither inside flattened triangle, nor within threshold
+                continue;
+            }
+        };
+
+        // get y at plane_pos.xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, plane_pos.x, plane_pos.y);
+
+        // within floor snap range both below and above pos (bottom)
+        // add a SKIN_FACTOR just for fun (my step-{up,down} is coincidentally a multiple of my minimum alignment in blender)
+        let snap = floor_snap_dist + SKIN_FACTOR;
+        let dist = plane_pos.distance(posv2);
+        // store according to which plane_pos is nearest to pos_v2
+        if (pos.y - snap..=pos.y + snap).contains(&y) && dist < best_dist {
+            best_dist = dist;
+            best_y = y;
+            best_surf = Some(**s);
+        }
+    }
+
+    match best_surf {
+        Some(surf) => {
+            Some((surf, best_y))
+        },
+        None => None,
+    }
+}
+
+// pos here is the feet/bottom
 pub fn find_floor_height_m64(
     pos: Vec3,
     floor_snap_dist: f32,
