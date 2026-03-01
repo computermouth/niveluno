@@ -1,5 +1,5 @@
 use glam::Vec2;
-use mcap::{Surface, Triangle, Vec3, closest_point_triangle, find_floor_height_m64, get_face_normal};
+use mcap::{SKIN_FACTOR, Surface, Triangle, Vec3, closest_point_triangle, find_cieling_height_m64, find_floor_height_m64, find_floor_height_m64_2, get_face_normal};
 use modelz;
 use raylib::prelude::*;
 
@@ -35,6 +35,7 @@ pub fn push_out_walls_2(
     radius: f32,
     walls: &Vec<&Triangle>,
 ) -> (Vec3, bool) {
+    let radius = radius - SKIN_FACTOR * 2.;
     let sph_y = pos.y + check_height;
     let mut out_x = pos.x;
     let mut out_z = pos.z;
@@ -45,11 +46,20 @@ pub fn push_out_walls_2(
         let xz_len = (n.x * n.x + n.z * n.z).sqrt();
 
         let cur = Vec3::new(out_x, sph_y, out_z);
+
+        // skip if on the back side of the triangle
+        let signed = n.dot(cur) + tri.origin_offset;
+        if signed < 0.0 {
+            continue;
+        }
+
         let nearest = closest_point_triangle(cur, &tri.verts);
         
         let dist = nearest.distance(cur);
 
-        if dist.abs() >= radius {
+        // // old radius check for both sides of wall
+        // if dist.abs() >= radius {
+        if dist >= radius {
             continue;
         }
 
@@ -81,7 +91,7 @@ pub fn push_out_walls_2(
 
 struct Player {
     pos: Vector3, // foot position
-    vel_y: f32,
+    velocity: Vector3,
     cam_pitch: f32,
     cam_yaw: f32,
     height: f32,
@@ -90,8 +100,9 @@ struct Player {
     on_ground: bool,
 }
 
-const GRAVITY: f32 = -9.8;
-const TERMINAL_VEL: f32 = -20.0;
+// 4x regular gravity, 4x regular terminal velocity
+const GRAVITY: f32 = -36.0;
+const TERMINAL_VEL: f32 = -216.0;
 
 fn main() {
     let (mut rl, thread) = raylib::init().size(640, 480).title("fps6 - OoT style").build();
@@ -119,6 +130,7 @@ fn main() {
         .iter()
         .filter_map(|s| match s {
             Surface::Wall(t) => Some(t),
+            Surface::Slide(t) => Some(t),
             _ => None,
         })
         .collect();
@@ -128,9 +140,14 @@ fn main() {
         .filter(|s| matches!(s, Surface::Floor(_) | Surface::Slide(_)))
         .collect();
 
+    let cielings: Vec<&Surface> = surfaces
+        .iter()
+        .filter(|s| matches!(s, Surface::Cieling(_)))
+        .collect();
+
     let mut player = Player {
         pos: origin - Vector3::new(0., 5., 0.),
-        vel_y: 0.,
+        velocity: Vector3::new(0., 0., 0.),
         cam_pitch: 0.,
         cam_yaw: 0.,
         height: 3.,
@@ -175,32 +192,66 @@ fn main() {
         let d = rl.is_key_down(KeyboardKey::KEY_D);
         let ws = w as i8 as f32 - s as i8 as f32;
         let ad = a as i8 as f32 - d as i8 as f32;
+        let space = rl.is_key_down(KeyboardKey::KEY_SPACE);
 
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
         let right_dir = -forward_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalized();
 
-        let move_speed = 10.0;
         let move_dir = (forward_dir * ws + right_dir * ad).normalized();
+        let move_speed = match player.on_ground {
+            true => 100.0,
+            false => 80.0
+        };
+        let friction = match player.on_ground {
+            true => 10.,
+            false => 9.,
+        };
+        let friction_factor = 1.0 - (friction * fd).min(1.0);
+        player.velocity = player.velocity * Vector3::new(friction_factor, 1., friction_factor);
+        player.velocity = player.velocity + move_dir.scale_by(move_speed) * fd;
 
-        let mut pos = player.pos.to_mcapv3();
-        pos.x += move_dir.x * move_speed * fd;
-        pos.z += move_dir.z * move_speed * fd;
-        pos.y += player.vel_y * fd;
+        if space && player.on_ground {
+            player.velocity.y = 15.;
+        }
+
+        let mut pos = (player.pos + player.velocity * fd).to_mcapv3();
 
         // wall push
         (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, &wall_tris);
+        // maybe second smaller wall push for fun
+        // (pos, _) = push_out_walls_2(pos, player.chest_height / 2., player.radius / 2., &wall_tris);
 
         // floor find, snap, gravity
         let snap = 1.;
         let mut draw_floor = None;
-        if let Some((floor, y)) = find_floor_height_m64(pos, snap, &floors) {
-            pos.y = y;
-            player.vel_y = player.vel_y.max(0.0);
-            player.on_ground = true;
-            draw_floor = Some(floor);
+        let mut draw_ciel = None;
+        // if let Some((floor, y)) = find_floor_height_m64(pos, snap, &floors) {
+        // todo, figure out proper sliding
+        if let Some((floor, y)) = find_floor_height_m64_2(pos, snap, &floors) {
+            if player.velocity.y <= 0. {
+                pos.y = y;
+                player.velocity.y = player.velocity.y.max(0.0);
+                // don't enable jumping if we're on a slide
+                if let Surface::Floor(_) = floor {
+                    player.on_ground = true;
+                }
+                match floor {
+                    Surface::Floor(t) | Surface::Slide(t) => draw_floor = Some(t),
+                    _ => unreachable!()
+                }
+            } else {
+                player.on_ground = false;
+            }
         } else {
-            player.vel_y = (player.vel_y + GRAVITY * fd).max(TERMINAL_VEL);
+            player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
             player.on_ground = false;
+        }
+
+        // cieling clamp
+        if let Some((ciel, y)) = find_cieling_height_m64(pos, player.chest_height, player.radius / 2., &cielings) {
+            pos.y = y - player.height;
+            player.velocity.y = player.velocity.y.min(0.0);
+            draw_ciel = Some(ciel);
         }
 
         player.pos = pos.to_rayv3();
@@ -250,6 +301,9 @@ fn main() {
                 if let Some(ft) = draw_floor {
                     draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5));
                 }
+                if let Some(ft) = draw_ciel {
+                    draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5));
+                }
 
                 // player cylinder
                 d3d.draw_cylinder_wires(
@@ -286,7 +340,7 @@ fn main() {
                 Color::WHITE,
             );
             d.draw_text(
-                &format!("vel_y: {:.2}", player.vel_y),
+                &format!("velocity: {:0.2} {:0.2} {:0.2}", player.velocity.x, player.velocity.y, player.velocity.z),
                 20,
                 120,
                 20,

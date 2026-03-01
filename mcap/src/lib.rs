@@ -890,6 +890,92 @@ pub fn find_floor_height_m64(
     }
 }
 
+// pos here is the feet/bottom
+pub fn find_floor_height_m64_2(
+    pos: Vec3,
+    floor_snap_dist: f32,
+    surfaces: &[&Surface],
+) -> Option<(Surface, f32)> {
+    let mut best_y = f32::NEG_INFINITY;
+    let mut best_surf = None;
+
+    for s in surfaces {
+        // all upward facing normals
+        let tri = match s {
+            Surface::Floor(t) | Surface::Slide(t) => t,
+            _ => continue,
+        };
+
+        // todo, could swap this with flattened_cylinder_intersects_flattened_triangle(very_small_radius)
+        // to ensure that we don't floating point raycast down between the seam of 2 neighboring triangles
+        if !flattened_point_inside_flattened_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2])
+        {
+            continue;
+        }
+
+        // get y at xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
+
+        // within floor snap range both below and above pos (bottom)
+        // add a SKIN_FACTOR just for fun (my step-{up,down} is coincidentally a multiple of my minimum alignment in blender)
+        let snap = floor_snap_dist + SKIN_FACTOR;
+        if (pos.y - snap..=pos.y + snap).contains(&y) && y > best_y {
+            best_y = y;
+            best_surf = Some(**s);
+        }
+    }
+
+    if best_surf.is_some() {
+        Some((best_surf.unwrap(), best_y))
+    } else {
+        None
+    }
+}
+
+// pos here is the feet/bottom
+pub fn find_cieling_height_m64(
+    pos: Vec3,
+    height: f32, // offset from the bottom
+    range_above: f32, // range above offset which procs 
+    surfaces: &[&Surface],
+) -> Option<(Triangle, f32)> {
+    let mut best_y = f32::INFINITY;
+    let mut best_tri = None;
+
+    for s in surfaces {
+        // all downward facing normals
+        let tri = match s {
+            Surface::Cieling(t) => t,
+            _ => continue,
+        };
+
+        // todo, could swap this with flattened_cylinder_intersects_flattened_triangle(very_small_radius)
+        // to ensure that we don't floating point raycast down between the seam of 2 neighboring triangles
+        if !flattened_point_inside_flattened_triangle(pos, tri.verts[0], tri.verts[1], tri.verts[2])
+        {
+            continue;
+        }
+
+        // get y at xz
+        let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
+        // move down by a SKIN_FACTOR just for fun
+        let y = y - SKIN_FACTOR;
+
+        // within head snap range
+        if (pos.y + height..=pos.y + height + range_above).contains(&y) && y < best_y {
+        // if y > pos.y && (pos.y + height + SKIN_FACTOR) > y && y < best_y {
+            best_y = y;
+            best_tri = Some(*tri);
+        }
+    }
+
+    if best_tri.is_some() {
+        Some((best_tri.unwrap(), best_y))
+    } else {
+        None
+    }
+}
+
 // raylib's function for - Check if point is inside a triangle defined by three points (p1, p2, p3)
 pub fn flattened_point_inside_flattened_triangle(
     point: Vec3,
@@ -971,7 +1057,7 @@ pub fn print_fi(){
 }
 
 // quake uses ~0.2%
-const SKIN_FACTOR: f32 = 0.002;
+pub const SKIN_FACTOR: f32 = 0.002;
 
 impl HotDog {
     pub fn new(srcv3: Vec3, dstv3: Vec3, radius: f32, original_dir: Vec3) -> Self {
