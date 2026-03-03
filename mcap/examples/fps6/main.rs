@@ -1,5 +1,5 @@
 use glam::Vec2;
-use mcap::{SKIN_FACTOR, Surface, Triangle, Vec3, closest_point_triangle, find_cieling_height_m64, find_floor_height_m64, find_floor_height_m64_2, get_face_normal};
+use mcap::{SKIN_FACTOR, Surface, Triangle, Vec3, closest_point_triangle, find_ciel_height_hotdog_v3, find_cieling_height_m64, find_floor_height_hotdog_v3, find_floor_height_m64, find_floor_height_m64_2, get_face_normal};
 use modelz;
 use raylib::prelude::*;
 
@@ -33,7 +33,7 @@ pub fn push_out_walls_2(
     pos: Vec3,
     check_height: f32,
     radius: f32,
-    walls: &Vec<&Triangle>,
+    walls: &[&Triangle],
 ) -> (Vec3, bool) {
     let radius = radius - SKIN_FACTOR * 2.;
     let sph_y = pos.y + check_height;
@@ -130,7 +130,6 @@ fn main() {
         .iter()
         .filter_map(|s| match s {
             Surface::Wall(t) => Some(t),
-            Surface::Slide(t) => Some(t),
             _ => None,
         })
         .collect();
@@ -218,37 +217,54 @@ fn main() {
 
         // wall push
         (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, &wall_tris);
-        // maybe second smaller wall push for fun
-        // (pos, _) = push_out_walls_2(pos, player.chest_height / 2., player.radius / 2., &wall_tris);
 
         // floor find, snap, gravity
         let snap = 1.;
         let mut draw_floor = None;
         let mut draw_ciel = None;
-        // if let Some((floor, y)) = find_floor_height_m64(pos, snap, &floors) {
-        // todo, figure out proper sliding
-        if let Some((floor, y)) = find_floor_height_m64_2(pos, snap, &floors) {
-            if player.velocity.y <= 0. {
-                pos.y = y;
-                player.velocity.y = player.velocity.y.max(0.0);
-                // don't enable jumping if we're on a slide
-                if let Surface::Floor(_) = floor {
+
+        // radius is the range from player's center they start falling at
+        // here, when center is half-radius off a ledge, starts falling
+        match find_floor_height_hotdog_v3(pos, snap, snap / 4., &floors, player.radius / 2.) {
+            Some((Surface::Floor(floor), y)) => {
+                // don't floor snap if we're not moving down
+                // mitigates not reaching escape velocity of snap with jump
+                if player.velocity.y <= 0. {
+                    pos.y = y;
+                    player.velocity.y = player.velocity.y.max(0.0);
                     player.on_ground = true;
+                    draw_floor = Some(floor);
+                } else {
+                // falling
+                player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
+                player.on_ground = false;
                 }
-                match floor {
-                    Surface::Floor(t) | Surface::Slide(t) => draw_floor = Some(t),
-                    _ => unreachable!()
-                }
-            } else {
+            },
+            Some((Surface::Slide(slide), y)) => {
+                pos.y = y;
+                let n = slide.normal().to_rayv3();
+                let g = Vector3::new(0.0, GRAVITY, 0.0);
+                let g_slide = g - n * g.dot(n);
+
+                // remove velocity into the slope
+                let vel_into_slope = n * player.velocity.dot(n);
+                player.velocity = player.velocity - vel_into_slope;
+
+                // just feels better with 2x grav
+                player.velocity = player.velocity + g_slide * fd * 2.;
+
+                player.on_ground = false;
+                draw_floor = Some(slide);
+            },
+            _ => {
+                // falling
+                player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
                 player.on_ground = false;
             }
-        } else {
-            player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
-            player.on_ground = false;
         }
 
         // cieling clamp
-        if let Some((ciel, y)) = find_cieling_height_m64(pos, player.chest_height, player.radius / 2., &cielings) {
+        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, &cielings, player.radius / 2.) {
             pos.y = y - player.height;
             player.velocity.y = player.velocity.y.min(0.0);
             draw_ciel = Some(ciel);
@@ -308,8 +324,8 @@ fn main() {
                 // player cylinder
                 d3d.draw_cylinder_wires(
                     player.pos,
-                    player.radius,
-                    player.radius,
+                    player.radius / 2.,
+                    player.radius / 2.,
                     player.height,
                     16,
                     Color::YELLOW,
@@ -317,6 +333,26 @@ fn main() {
 
                 // wall-test sphere at chest height
                 d3d.draw_sphere_wires(player_chest, player.radius, 7, 7, Color::SKYBLUE);
+
+                // step cylinder
+                d3d.draw_cylinder_wires(
+                    player.pos - Vector3::new(0., snap / 4., 0.),
+                    player.radius,
+                    player.radius,
+                    snap / 4. + snap,
+                    15,
+                    Color::RED,
+                );
+
+                // cieling cylinder
+                d3d.draw_cylinder_wires(
+                    player.pos + Vector3::new(0., player.chest_height, 0.),
+                    player.radius,
+                    player.radius,
+                    player.height - player.chest_height,
+                    14,
+                    Color::YELLOWGREEN,
+                );
             });
 
             d.draw_text("fps6 - oot", 20, 20, 20, Color::WHITE);
