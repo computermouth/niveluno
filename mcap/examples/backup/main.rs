@@ -1,10 +1,14 @@
 use ::core::f32;
 
+use mcap::scrap as mcap;
+
 use glam::Vec2;
 use line_clipping::cohen_sutherland::clip_line;
 use line_clipping::{LineSegment, Point, Window};
 use mcap::{
-    C2Ray, C2Raycast, HotDog, Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment_v3, get_face_normal, get_step_push, rect_wall_for_hotdog, triangle_slice_at_y
+    C2Ray, C2Raycast, HotDog, Surface, Triangle, Vec3, circle_wall_for_hotdog,
+    closest_point_on_segment_v3, get_face_normal, get_step_push, rect_wall_for_hotdog,
+    triangle_slice_at_y,
 };
 use modelz;
 use raylib::prelude::*;
@@ -46,37 +50,51 @@ fn main() {
     let fh = SCREEN_H as f32;
 
     let walls = vec![
-        [Vec3::new(fw * 1.0 / 8., 0., fh * 2.0 / 8.), Vec3::new(fw * 7. / 8., 0., fh * 2.0 / 8.)],
-        [Vec3::new(fw * 3.0 / 8., 0., fh * 2.5 / 8.), Vec3::new(fw * 7. / 8., 0., fh * 2.5 / 8.)],
-        [Vec3::new(fw * 4.0 / 8., 0., fh * 3.0 / 8.), Vec3::new(fw * 7. / 8., 0., fh * 3.0 / 8.)],
-        [Vec3::new(fw * 5.0 / 8., 0., fh * 3.5 / 8.), Vec3::new(fw * 7. / 8., 0., fh * 3.5 / 8.)],
-        [Vec3::new(fw * 5.5 / 8., 0., fh * 4.0 / 8.), Vec3::new(fw * 7. / 8., 0., fh * 4.0 / 8.)],
-        [Vec3::new(fw * 6.0 / 8., 0., fh * 4.5 / 8.), Vec3::new(fw * 7. / 8., 0., fh * 4.5 / 8.)],
+        [
+            Vec3::new(fw * 1.0 / 8., 0., fh * 2.0 / 8.),
+            Vec3::new(fw * 7. / 8., 0., fh * 2.0 / 8.),
+        ],
+        [
+            Vec3::new(fw * 3.0 / 8., 0., fh * 2.5 / 8.),
+            Vec3::new(fw * 7. / 8., 0., fh * 2.5 / 8.),
+        ],
+        [
+            Vec3::new(fw * 4.0 / 8., 0., fh * 3.0 / 8.),
+            Vec3::new(fw * 7. / 8., 0., fh * 3.0 / 8.),
+        ],
+        [
+            Vec3::new(fw * 5.0 / 8., 0., fh * 3.5 / 8.),
+            Vec3::new(fw * 7. / 8., 0., fh * 3.5 / 8.),
+        ],
+        [
+            Vec3::new(fw * 5.5 / 8., 0., fh * 4.0 / 8.),
+            Vec3::new(fw * 7. / 8., 0., fh * 4.0 / 8.),
+        ],
+        [
+            Vec3::new(fw * 6.0 / 8., 0., fh * 4.5 / 8.),
+            Vec3::new(fw * 7. / 8., 0., fh * 4.5 / 8.),
+        ],
     ];
 
-    let surfaces: Vec<_> = walls.iter()
+    let surfaces: Vec<_> = walls
+        .iter()
         .map(|[p1, p2]| {
             [
-                Vec3::new(p1.x as f32, 0.,p1.z as f32),
-                Vec3::new(p2.x as f32, 1.,p2.z as f32),
-                Vec3::new(p2.x as f32, 0.,p2.z as f32),
+                Vec3::new(p1.x as f32, 0., p1.z as f32),
+                Vec3::new(p2.x as f32, 1., p2.z as f32),
+                Vec3::new(p2.x as f32, 0., p2.z as f32),
             ]
-        }).map(|t| {
-            Surface::new(
-                [
-                    t[0],
-                    t[1],
-                    t[2],
-                ],
-                get_face_normal(t[0], t[1], t[2]),
-            )
         })
+        .map(|t| Surface::new([t[0], t[1], t[2]], get_face_normal(t[0], t[1], t[2])))
         .collect();
 
-    let wsurfs: Vec<_> = surfaces.iter().filter_map(|s| match s {
-        Surface::Wall(w) => Some(w),
-        _ => None,
-    }).collect();
+    let wsurfs: Vec<_> = surfaces
+        .iter()
+        .filter_map(|s| match s {
+            Surface::Wall(w) => Some(w),
+            _ => None,
+        })
+        .collect();
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -155,7 +173,12 @@ fn main() {
             };
 
             let dest_xz = hotdog.step_back(ray, &collision, &wsurfs, Some(&mut d));
-            d.draw_circle(dest_xz.x as i32, dest_xz.y as i32, radius, Color::GREEN.alpha(0.5));
+            d.draw_circle(
+                dest_xz.x as i32,
+                dest_xz.y as i32,
+                radius,
+                Color::GREEN.alpha(0.5),
+            );
 
             d.draw_text(&format!("FPS Demo"), 20, 20, 20, Color::BLACK);
             d.draw_text(

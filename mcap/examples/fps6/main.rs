@@ -1,5 +1,12 @@
 use glam::Vec2;
-use mcap::{SKIN_FACTOR, Surface, Triangle, Vec3, closest_point_triangle, find_ciel_height_hotdog_v3, find_cieling_height_m64, find_floor_height_hotdog_v3, find_floor_height_m64, find_floor_height_m64_2, get_face_normal};
+
+use mcap::scrap as mcap;
+
+use mcap::{
+    SKIN_FACTOR, Surface, Triangle, Vec3, closest_point_triangle, find_ciel_height_hotdog_v3,
+    find_cieling_height_m64, find_floor_height_hotdog_v3, find_floor_height_m64,
+    find_floor_height_m64_2, get_face_normal,
+};
 use modelz;
 use raylib::prelude::*;
 
@@ -54,7 +61,7 @@ pub fn push_out_walls_2(
         }
 
         let nearest = closest_point_triangle(cur, &tri.verts);
-        
+
         let dist = nearest.distance(cur);
 
         // // old radius check for both sides of wall
@@ -105,7 +112,10 @@ const GRAVITY: f32 = -36.0;
 const TERMINAL_VEL: f32 = -216.0;
 
 fn main() {
-    let (mut rl, thread) = raylib::init().size(640, 480).title("fps6 - OoT style").build();
+    let (mut rl, thread) = raylib::init()
+        .size(640, 480)
+        .title("fps6 - OoT style")
+        .build();
 
     let origin = at_origin(Vector3::zero());
 
@@ -178,8 +188,7 @@ fn main() {
         )
         .normalized();
 
-        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT)
-            || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT))
+        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT))
             && rl.is_key_pressed(KeyboardKey::KEY_ENTER)
         {
             rl.toggle_fullscreen();
@@ -199,7 +208,7 @@ fn main() {
         let move_dir = (forward_dir * ws + right_dir * ad).normalized();
         let move_speed = match player.on_ground {
             true => 100.0,
-            false => 80.0
+            false => 80.0,
         };
         let friction = match player.on_ground {
             true => 10.,
@@ -235,11 +244,11 @@ fn main() {
                     player.on_ground = true;
                     draw_floor = Some(floor);
                 } else {
-                // falling
-                player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
-                player.on_ground = false;
+                    // falling
+                    player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
+                    player.on_ground = false;
                 }
-            },
+            }
             Some((Surface::Slide(slide), y)) => {
                 pos.y = y;
                 let n = slide.normal().to_rayv3();
@@ -255,7 +264,7 @@ fn main() {
 
                 player.on_ground = false;
                 draw_floor = Some(slide);
-            },
+            }
             _ => {
                 // falling
                 player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
@@ -264,7 +273,13 @@ fn main() {
         }
 
         // cieling clamp
-        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, &cielings, player.radius / 2.) {
+        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(
+            pos,
+            player.chest_height,
+            player.radius,
+            &cielings,
+            player.radius / 2.,
+        ) {
             pos.y = y - player.height;
             player.velocity.y = player.velocity.y.min(0.0);
             draw_ciel = Some(ciel);
@@ -376,7 +391,10 @@ fn main() {
                 Color::WHITE,
             );
             d.draw_text(
-                &format!("velocity: {:0.2} {:0.2} {:0.2}", player.velocity.x, player.velocity.y, player.velocity.z),
+                &format!(
+                    "velocity: {:0.2} {:0.2} {:0.2}",
+                    player.velocity.x, player.velocity.y, player.velocity.z
+                ),
                 20,
                 120,
                 20,

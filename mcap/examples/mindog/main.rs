@@ -1,9 +1,11 @@
 use ::core::f32;
+use mcap::scrap as mcap;
 
 use glam::Vec2;
 use line_clipping::{LineSegment, Point, Window};
 use mcap::{
-    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment_v2, closest_point_on_segment_v3, get_face_normal, get_step_push, rect_wall_for_hotdog, HotDog
+    HotDog, Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment_v2,
+    closest_point_on_segment_v3, get_face_normal, get_step_push, rect_wall_for_hotdog,
 };
 use modelz;
 use raylib::prelude::*;
@@ -40,7 +42,7 @@ fn main() {
 
     let y100 = Vector2::new(0., 100.);
     let x100 = Vector2::new(100., 0.);
-    
+
     let mut p_src = center_v2 - y100;
     let mut p_dst = center_v2 + y100;
     let radius = 20.;
@@ -96,26 +98,28 @@ fn main() {
         LineSegment::new(p9, p8),
     ];
 
-    let surfaces: Vec<_> = walls.iter()
+    let surfaces: Vec<_> = walls
+        .iter()
         .map(|t| {
             [
-                Vec3::new(t.p1.x as f32, 0.,t.p1.y as f32),
-                Vec3::new(t.p2.x as f32, 1.,t.p2.y as f32),
-                Vec3::new(t.p2.x as f32, 0.,t.p2.y as f32),
+                Vec3::new(t.p1.x as f32, 0., t.p1.y as f32),
+                Vec3::new(t.p2.x as f32, 1., t.p2.y as f32),
+                Vec3::new(t.p2.x as f32, 0., t.p2.y as f32),
             ]
-        }).map(|t| {
-            Surface::new(
-                [
-                    t[0],
-                    t[1],
-                    t[2],
-                ],
-                get_face_normal(t[0], t[1], t[2]),
-            )
         })
+        .map(|t| Surface::new([t[0], t[1], t[2]], get_face_normal(t[0], t[1], t[2])))
         .collect();
 
-    let wsurfs: Vec<_> = surfaces.iter().filter(|s| if let Surface::Wall(_) = s {true} else {false}).collect();
+    let wsurfs: Vec<_> = surfaces
+        .iter()
+        .filter(|s| {
+            if let Surface::Wall(_) = s {
+                true
+            } else {
+                false
+            }
+        })
+        .collect();
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -217,7 +221,9 @@ fn main() {
             let max_iter = 9;
             let cs = Color::YELLOW.lerp(Color::GREEN, 1.0 / (max_iter as f32 + 1.0));
             let ce = Color::YELLOW.lerp(Color::GREEN, max_iter as f32 / max_iter as f32 + 1.0);
-            let colors: Vec<Color> = (0..max_iter).map(|i| cs.lerp(ce, i as f32 / max_iter as f32)).collect();
+            let colors: Vec<Color> = (0..max_iter)
+                .map(|i| cs.lerp(ce, i as f32 / max_iter as f32))
+                .collect();
 
             let mut final_stop = p_dst;
 
@@ -226,9 +232,13 @@ fn main() {
             let mut lsrc = src;
             let mut ldst = dst;
             for i in 0..max_iter {
-                let hotdog = HotDog::new(lsrc, ldst, radius, Vec3::new(starting_dir.x, 0., starting_dir.y));
+                let hotdog = HotDog::new(
+                    lsrc,
+                    ldst,
+                    radius,
+                    Vec3::new(starting_dir.x, 0., starting_dir.y),
+                );
                 if let Some(hdc) = hotdog.check_walls_c2(&wsurfs) {
-
                     lsrc = Vec3::new(hdc.dest_xz.x, 0., hdc.dest_xz.y);
                     ldst = lsrc + Vec3::new(hdc.next_move.x, 0., hdc.next_move.y);
 
@@ -246,7 +256,12 @@ fn main() {
                         final_stop = hit + Vector2::new(hdc.next_move.x, hdc.next_move.y);
                     }
                     // stop redirect
-                    d.draw_line_ex(hit, hit + Vector2::new(hdc.next_move.x, hdc.next_move.y), 3., colors[i]);
+                    d.draw_line_ex(
+                        hit,
+                        hit + Vector2::new(hdc.next_move.x, hdc.next_move.y),
+                        3.,
+                        colors[i],
+                    );
                 } else {
                     // no collision
                     break;

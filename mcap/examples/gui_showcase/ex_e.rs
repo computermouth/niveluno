@@ -4,6 +4,7 @@ use mcap::{
     Surface, check_circle_tri_collision, find_floor_height_m64, get_face_normal, solve_plane_y,
 };
 use raylib::prelude::*;
+use mcap::scrap as mcap;
 
 pub struct State {
     cam_start_pos: Vector3,

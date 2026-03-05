@@ -1,6 +1,7 @@
 use crate::{Args, Example, Shape, ToVec3, at_origin};
 use mcap::{Surface, flattened_point_inside_flattened_triangle, get_face_normal};
 use raylib::prelude::*;
+use mcap::scrap as mcap;
 
 pub struct State {
     cam_start_pos: Vector3,

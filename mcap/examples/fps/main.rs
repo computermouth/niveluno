@@ -2,6 +2,8 @@ use mcap::{HotDog, Surface, Triangle, Vec3, get_face_normal, get_step_push, get_
 use modelz;
 use raylib::prelude::*;
 
+use mcap::scrap as mcap;
+
 mod triangles;
 
 trait ToVec3 {
@@ -41,20 +43,20 @@ struct Player {
 fn main() {
     let (mut rl, thread) = raylib::init().size(640, 480).title("gui showcase").build();
 
-
     rl.set_target_fps(30);
 
     let origin = at_origin(Vector3::zero());
 
-    let tri = Triangle { 
-        verts: [Vec3::new(80.0, 95.0, 120.0), Vec3::new(80.0, 95.0, 80.0), Vec3::new(80.0, 105.0, 80.0)],
+    let tri = Triangle {
+        verts: [
+            Vec3::new(80.0, 95.0, 120.0),
+            Vec3::new(80.0, 95.0, 80.0),
+            Vec3::new(80.0, 105.0, 80.0),
+        ],
         normal: Vec3::new(1.0, 0.0, 0.0),
-        origin_offset: -80.0 
+        origin_offset: -80.0,
     };
-    let surfaces = vec![Surface::new(
-        tri.verts(),
-        tri.normal)
-    ];
+    let surfaces = vec![Surface::new(tri.verts(), tri.normal)];
 
     let surfaces: Vec<_> = surfaces.iter().map(|s| s).collect();
 
@@ -74,7 +76,7 @@ fn main() {
     let mut total = 0.;
     let mut fc: f32 = 0.;
 
-    let mut last_hotdog= None;
+    let mut last_hotdog = None;
     let mut fail_open = false;
 
     while !rl.window_should_close() {
@@ -96,9 +98,10 @@ fn main() {
         )
         .normalized();
 
-        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT)) &&
-            rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
-                rl.toggle_fullscreen();
+        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT))
+            && rl.is_key_pressed(KeyboardKey::KEY_ENTER)
+        {
+            rl.toggle_fullscreen();
         }
 
         // player horizontal movement
@@ -117,7 +120,7 @@ fn main() {
 
         let src = player.pos + Vector3::new(0., player.chest_height, 0.);
         let dst = src + (move_dir * move_speed * fd);
-        
+
         let max_iter = 5;
         // let src = Vector3::new(81.000046, 99.75, 88.801704);
         // let dst = Vector3::new(80.99945, src.y, 89.13504);
@@ -126,14 +129,14 @@ fn main() {
         let mut lpos = src.to_mcapv3();
         let mut ldst = dst.to_mcapv3();
         let mut lout = ldst.with_y(ldst.y - player.chest_height);
-        
+
         for i in 0..max_iter {
             let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
 
             // on no-collision or no-move
             let mut exit_early = true;
-            
-            if let Some(hdc) = hotdog.check_walls_c2(&surfaces){
+
+            if let Some(hdc) = hotdog.check_walls_c2(&surfaces) {
                 exit_early = false;
 
                 eprintln!("hotdog: {:?} hdc: {:?}", hotdog, hdc);
@@ -200,10 +203,10 @@ fn main() {
             d.clear_background(Color::new(16, 16, 32, 255));
             d.draw_mode3D(camera, |mut d3d, _| {
                 d3d.draw_triangle3D(
-                    tri.verts[0].to_rayv3(), 
-                    tri.verts[1].to_rayv3(), 
+                    tri.verts[0].to_rayv3(),
+                    tri.verts[1].to_rayv3(),
                     tri.verts[2].to_rayv3(),
-                    Color::WHITE
+                    Color::WHITE,
                 );
 
                 fn draw_surf(

@@ -2,7 +2,8 @@
 // HotDog { src: Vec2(89.92252, 110.934685), srcv3: Vec3(89.92252, 96.15472, 110.934685), dst: Vec2(89.92252, 110.97825), skin: 0.001, radius: 1.0, y_dir: Vec2(0.0, 1.0), x_dir: Vec2(-1.0, 0.0), window: Window { x_min: -1.0, x_max: 1.0, y_min: 0.0, y_max: 0.0435638427734375 }, original_dir: Vec2(-0.0017964393, 0.99999845) }
 // thread 'main' panicked at src/li
 
-use mcap::{HotDog, Vec2, Vec3, Surface, get_face_normal};
+use mcap::scrap as mcap;
+use mcap::{HotDog, Surface, Vec2, Vec3, get_face_normal};
 use raylib::prelude::*;
 mod triangles;
 
@@ -30,8 +31,7 @@ pub fn at_origin(v: Vector3) -> Vector3 {
     v + Vector3::one() * 100.
 }
 
-fn main(){
-
+fn main() {
     let origin = at_origin(Vector3::zero());
 
     let collison_triangles =
@@ -51,10 +51,13 @@ fn main(){
         })
         .collect();
 
-    let walls: Vec<&Surface> = surfaces.iter().filter_map(|s| match s {
-        Surface::Wall(_) => Some(s),
-        _ => None,
-    }).collect();
+    let walls: Vec<&Surface> = surfaces
+        .iter()
+        .filter_map(|s| match s {
+            Surface::Wall(_) => Some(s),
+            _ => None,
+        })
+        .collect();
 
     let surfaces = vec![walls[122]];
 
@@ -88,7 +91,7 @@ fn main(){
         Surface::Wall(w) => w,
         _ => unreachable!(),
     };
-    
+
     let verts = wall.verts;
     let p0 = Vector2::new(verts[0].x, verts[0].z);
     let p1 = Vector2::new(verts[1].x, verts[1].z);
@@ -111,12 +114,9 @@ fn main(){
     // Uniform scale - no exaggeration, just make it fit
     let scale = 150.;
     let radius_scale = 0.2; // shrink everything proportionally to see intersection better
-    let to_screen = |v: Vector2| -> Vector2 {
-        screen_center + (v - center) * scale * radius_scale
-    };
+    let to_screen = |v: Vector2| -> Vector2 { screen_center + (v - center) * scale * radius_scale };
 
     while !rl.window_should_close() {
-
         let mut d = rl.begin_drawing(&thread);
         {
             d.clear_background(Color::WHITESMOKE);
@@ -136,11 +136,21 @@ fn main(){
             d.draw_circle_lines_v(sdst, 1.0 * scale * radius_scale, Color::RED);
 
             // Draw labels
-            d.draw_text(&format!("src: ({:.6}, {:.6})", src.x, src.z), 10, 10, 20, Color::BLUE);
-            d.draw_text(&format!("dst: ({:.6}, {:.6})", dst.x, dst.z), 10, 35, 20, Color::RED);
+            d.draw_text(
+                &format!("src: ({:.6}, {:.6})", src.x, src.z),
+                10,
+                10,
+                20,
+                Color::BLUE,
+            );
+            d.draw_text(
+                &format!("dst: ({:.6}, {:.6})", dst.x, dst.z),
+                10,
+                35,
+                20,
+                Color::RED,
+            );
             d.draw_text(&format!("scale: {}x", scale), 10, 60, 20, Color::DARKGRAY);
         }
-
     }
-
 }

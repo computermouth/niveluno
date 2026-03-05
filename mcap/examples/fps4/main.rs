@@ -1,8 +1,10 @@
 use std::iter;
+use mcap::scrap as mcap;
 
 use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing, print_fi
+    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push,
+    get_step_push_m64, get_step_push_most_opposing, print_fi,
 };
 use modelz;
 use rand::Rng;
@@ -67,8 +69,26 @@ fn main() {
         })
         .collect();
 
-    let walls: Vec<_> = surfaces.iter().filter(|s| if let Surface::Wall(_) = s {true} else {false}).collect();
-    let floors: Vec<_> = surfaces.iter().filter(|s| if let Surface::Floor(_) = s {true} else {false}).collect();
+    let walls: Vec<_> = surfaces
+        .iter()
+        .filter(|s| {
+            if let Surface::Wall(_) = s {
+                true
+            } else {
+                false
+            }
+        })
+        .collect();
+    let floors: Vec<_> = surfaces
+        .iter()
+        .filter(|s| {
+            if let Surface::Floor(_) = s {
+                true
+            } else {
+                false
+            }
+        })
+        .collect();
 
     let mut player = Player {
         // bottom of cylinder
@@ -103,8 +123,6 @@ fn main() {
         total += fps as f32;
         fc += 1.0;
 
-
-
         // let mut w = rl.is_key_down(KeyboardKey::KEY_W);
         // let mut a = rl.is_key_down(KeyboardKey::KEY_A);
         // let mut s = rl.is_key_down(KeyboardKey::KEY_S);
@@ -118,7 +136,7 @@ fn main() {
 
         time_passed += fd;
         if time_passed > 3. {
-            ws= rng.random_range(0f32..1f32);
+            ws = rng.random_range(0f32..1f32);
             ad = rng.random_range(0f32..1f32);
             mouse_in = Vector2::new(rng.random_range(-1f32..1f32), 0.) * 0.70;
             time_passed = 0.;
@@ -135,9 +153,10 @@ fn main() {
         )
         .normalized();
 
-        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT)) &&
-            rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
-                rl.toggle_fullscreen();
+        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT))
+            && rl.is_key_pressed(KeyboardKey::KEY_ENTER)
+        {
+            rl.toggle_fullscreen();
         }
 
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
@@ -148,7 +167,7 @@ fn main() {
 
         let src = player.pos + Vector3::new(0., player.chest_height, 0.);
         let dst = src + (move_dir * move_speed * fd);
-        
+
         let max_iter = 5;
 
         let mut lpos = src.to_mcapv3();
@@ -156,11 +175,11 @@ fn main() {
         let mut lout = ldst.with_y(ldst.y - player.chest_height);
         for i in 0..max_iter {
             let hotdog = HotDog::new(lpos, ldst, player.radius, move_dir.to_mcapv3());
-            
+
             // on no-collision or no-move
             let mut exit_early = true;
-            
-            if let Some(hdc) = hotdog.check_walls_c2(&walls){
+
+            if let Some(hdc) = hotdog.check_walls_c2(&walls) {
                 exit_early = false;
 
                 // update current position
@@ -301,13 +320,7 @@ fn main() {
             );
             d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
             d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
-            d.draw_text(
-                &format!("func: HotDogWalls"),
-                20,
-                100,
-                20,
-                Color::WHITE,
-            );
+            d.draw_text(&format!("func: HotDogWalls"), 20, 100, 20, Color::WHITE);
         }
     }
 

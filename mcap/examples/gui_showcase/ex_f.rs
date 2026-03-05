@@ -2,6 +2,7 @@ use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
 use glam::Vec3;
 use mcap::{HotDog, Surface, get_face_normal, get_step_push};
 use raylib::prelude::*;
+use mcap::scrap as mcap;
 
 pub struct State {
     cam_start_pos: Vector3,
@@ -133,10 +134,11 @@ impl Example for State {
         let src = self.start_pos;
         let dst = self.start_pos + self.velocity;
         let hotdog = HotDog::new(
-            src.to_mcapv3(), 
+            src.to_mcapv3(),
             dst.to_mcapv3(),
             1.0,
-            self.velocity.normalized().to_mcapv3());
+            self.velocity.normalized().to_mcapv3(),
+        );
 
         let hdc1 = hotdog.check_walls_c2(&surfs).unwrap();
 
@@ -153,21 +155,24 @@ impl Example for State {
         // next pos
         out.push((
             Shape::CylinderWires {
-                pos: Vector3::new(hdc1.dest_xz.x + hdc1.next_move.x, src.y, hdc1.dest_xz.y + hdc1.next_move.y),
+                pos: Vector3::new(
+                    hdc1.dest_xz.x + hdc1.next_move.x,
+                    src.y,
+                    hdc1.dest_xz.y + hdc1.next_move.y,
+                ),
                 height: 3.,
                 radius: 1.,
             },
             Color::PINK,
         ));
 
-        let hd2_src = Vec3::new(hdc1.dest_xz.x + hdc1.next_move.x, src.y, hdc1.dest_xz.y + hdc1.next_move.y);
-        let hd2_dst = hd2_src + Vec3::new(hdc1.next_move.x, 0., hdc1.next_move.y);
-        let hotdog2 = HotDog::new(
-            hd2_src,
-            hd2_dst,
-            1.,
-            self.velocity.normalized().to_mcapv3()
+        let hd2_src = Vec3::new(
+            hdc1.dest_xz.x + hdc1.next_move.x,
+            src.y,
+            hdc1.dest_xz.y + hdc1.next_move.y,
         );
+        let hd2_dst = hd2_src + Vec3::new(hdc1.next_move.x, 0., hdc1.next_move.y);
+        let hotdog2 = HotDog::new(hd2_src, hd2_dst, 1., self.velocity.normalized().to_mcapv3());
 
         let hdc2 = hotdog2.check_walls_c2(&surfs);
         if let Some(hdc2) = hdc2 {
@@ -181,14 +186,13 @@ impl Example for State {
                 Color::FUCHSIA,
             ));
 
-            let hd3_src = Vec3::new(hdc2.dest_xz.x + hdc2.next_move.x, src.y, hdc2.dest_xz.y + hdc2.next_move.y);
-            let hd3_dst = hd3_src + Vec3::new(hdc2.next_move.x, 0., hdc2.next_move.y);
-            let hotdog3 = HotDog::new(
-                hd3_src,
-                hd3_dst,
-                1.,
-                self.velocity.normalized().to_mcapv3()
+            let hd3_src = Vec3::new(
+                hdc2.dest_xz.x + hdc2.next_move.x,
+                src.y,
+                hdc2.dest_xz.y + hdc2.next_move.y,
             );
+            let hd3_dst = hd3_src + Vec3::new(hdc2.next_move.x, 0., hdc2.next_move.y);
+            let hotdog3 = HotDog::new(hd3_src, hd3_dst, 1., self.velocity.normalized().to_mcapv3());
             assert!(hotdog3.check_walls_c2(&surfs).is_none());
         }
 

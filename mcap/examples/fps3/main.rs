@@ -1,8 +1,11 @@
 use std::{iter, ops::Add};
+use mcap::scrap as mcap;
 
 use glam::Vec2;
 use mcap::{
-    HotDog, HotDogv2, Surface, Triangle, Vec3, find_floor_height_hotdog, find_floor_height_hotdog_v2, find_floor_height_m64, get_face_normal, get_step_push, get_step_push_m64, get_step_push_most_opposing
+    HotDog, HotDogv2, Surface, Triangle, Vec3, find_floor_height_hotdog,
+    find_floor_height_hotdog_v2, find_floor_height_m64, get_face_normal, get_step_push,
+    get_step_push_m64, get_step_push_most_opposing,
 };
 use modelz;
 use raylib::prelude::*;
@@ -79,14 +82,20 @@ fn main() {
         })
         .collect();
 
-    let walls: Vec<_> = surfaces.iter().filter(|s| match s {
-        Surface::Wall(_) => true,
-        _ => false,
-    }).collect();
-    let floors: Vec<_> = surfaces.iter().filter(|s| match s {
-        Surface::Floor(_) | Surface::Slide(_) => true,
-        _ => false,
-    }).collect();
+    let walls: Vec<_> = surfaces
+        .iter()
+        .filter(|s| match s {
+            Surface::Wall(_) => true,
+            _ => false,
+        })
+        .collect();
+    let floors: Vec<_> = surfaces
+        .iter()
+        .filter(|s| match s {
+            Surface::Floor(_) | Surface::Slide(_) => true,
+            _ => false,
+        })
+        .collect();
 
     let mut player = Player {
         // bottom of cylinder
@@ -127,9 +136,10 @@ fn main() {
         )
         .normalized();
 
-        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT)) &&
-            rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
-                rl.toggle_fullscreen();
+        if (rl.is_key_down(KeyboardKey::KEY_LEFT_ALT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_ALT))
+            && rl.is_key_pressed(KeyboardKey::KEY_ENTER)
+        {
+            rl.toggle_fullscreen();
         }
 
         // player horizontal movement
@@ -150,7 +160,7 @@ fn main() {
         let dst = src + (move_dir * move_speed * fd);
 
         let mut floor_draw = None;
-        
+
         let max_iter = 5;
 
         let mut lpos = src.to_mcapv3();
@@ -158,9 +168,23 @@ fn main() {
         let mut lout = ldst;
         for i in 0..max_iter {
             // the body of this should be a function to invoke
-            let hotdog_top = HotDogv2::new(lpos, ldst, player.radius, player.height - 0.002, 0.002, move_dir.to_mcapv3());
-            let hotdog_bot = HotDogv2::new(lpos, ldst, player.radius, player.snap + 0.002, 0.002, move_dir.to_mcapv3());
-            
+            let hotdog_top = HotDogv2::new(
+                lpos,
+                ldst,
+                player.radius,
+                player.height - 0.002,
+                0.002,
+                move_dir.to_mcapv3(),
+            );
+            let hotdog_bot = HotDogv2::new(
+                lpos,
+                ldst,
+                player.radius,
+                player.snap + 0.002,
+                0.002,
+                move_dir.to_mcapv3(),
+            );
+
             // on no-collision or no-move
             let mut exit_early = true;
 
@@ -181,8 +205,8 @@ fn main() {
                     }
                 }
             };
-            
-            if let Some(hdc) = first_hdc{
+
+            if let Some(hdc) = first_hdc {
                 exit_early = false;
 
                 // update current position
@@ -207,8 +231,10 @@ fn main() {
 
             // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
             // if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
-            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, player.snap, &floors, player.radius) {
-            // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
+            if let Some((floor, y)) =
+                find_floor_height_hotdog_v2(lout, player.snap, &floors, player.radius)
+            {
+                // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal
@@ -226,7 +252,6 @@ fn main() {
             }
         }
 
-
         // gravity pass
         //
         // gravity pass is it's own thing because
@@ -238,10 +263,16 @@ fn main() {
         let mut lout = lout;
 
         if player.airborne {
+            let hotdog = HotDogv2::new(
+                lpos,
+                ldst,
+                player.radius,
+                player.height - 0.002,
+                0.002,
+                move_dir.to_mcapv3(),
+            );
 
-            let hotdog = HotDogv2::new(lpos, ldst, player.radius, player.height - 0.002, 0.002, move_dir.to_mcapv3());
-            
-            if let Some(hdc) = hotdog.check_walls_c2(&walls){
+            if let Some(hdc) = hotdog.check_walls_c2(&walls) {
                 // update current position
                 lpos = Vec3::new(hdc.dest_xz.x, lpos.y, hdc.dest_xz.y);
 
@@ -258,8 +289,10 @@ fn main() {
 
             // if let Some((floor, y)) = find_floor_height_closest_v2(lout, snap, &floors, player.radius) {
             // if let Some((floor, y)) = find_floor_height_hotdog(lout, snap, &floors, player.radius) {
-            if let Some((floor, y)) = find_floor_height_hotdog_v2(lout, player.snap, &floors, player.radius) {
-            // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
+            if let Some((floor, y)) =
+                find_floor_height_hotdog_v2(lout, player.snap, &floors, player.radius)
+            {
+                // if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal
@@ -278,10 +311,8 @@ fn main() {
         // calculate cam pos
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
         let player_bot_collision = player.pos + Vector3::new(0., player.snap + 0.1, 0.);
-        let player_step_top =
-            player.pos + Vector3::new(0., player.snap, 0.);
-        let player_step_bot =
-            player.pos - Vector3::new(0., player.snap, 0.);
+        let player_step_top = player.pos + Vector3::new(0., player.snap, 0.);
+        let player_step_bot = player.pos - Vector3::new(0., player.snap, 0.);
         let camera = Camera3D::perspective(
             player_top + camera_dir * 5.,
             player_top,
@@ -385,13 +416,7 @@ fn main() {
             );
             d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
             d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
-            d.draw_text(
-                &format!("func: HotDogWalls"),
-                20,
-                100,
-                20,
-                Color::WHITE,
-            );
+            d.draw_text(&format!("func: HotDogWalls"), 20, 100, 20, Color::WHITE);
             d.draw_text(
                 &format!("airborn: {:?}", player.airborne),
                 20,

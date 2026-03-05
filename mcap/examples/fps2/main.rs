@@ -4,6 +4,7 @@ use mcap::{
 };
 use modelz;
 use raylib::prelude::*;
+use mcap::scrap as mcap;
 
 mod triangles;
 

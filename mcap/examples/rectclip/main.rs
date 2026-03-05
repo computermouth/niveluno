@@ -1,4 +1,5 @@
 use ::core::f32;
+use mcap::scrap as mcap;
 
 use line_clipping::cohen_sutherland::clip_line;
 use line_clipping::{LineSegment, Point, Window};

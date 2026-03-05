@@ -3,6 +3,7 @@ use std::f64::consts::PI;
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
 use mcap::{closest_point_on_segment_v3, flattened_cylinder_intersects_flattened_triangle};
 use raylib::prelude::*;
+use mcap::scrap as mcap;
 
 pub struct State {
     cam_start_pos: Vector3,
