@@ -1,16 +1,20 @@
-use glam::Vec2;
+use mcap::real as mcapr;
 
-use mcap::scrap as mcap;
-
-use mcap::{
-    SKIN_FACTOR, Surface, Triangle, Vec3, closest_point_triangle, find_ciel_height_hotdog_v3,
-    find_cieling_height_m64, find_floor_height_hotdog_v3, find_floor_height_m64,
-    find_floor_height_m64_2, get_face_normal,
+use mcapr::{
+    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3,
+    find_floor_height_hotdog_v3,
 };
 use modelz;
 use raylib::prelude::*;
 
 mod triangles;
+
+pub fn get_face_normal(v1_pos: Vec3, v2_pos: Vec3, v3_pos: Vec3) -> Vec3 {
+    let edge1 = v2_pos - v1_pos;
+    let edge2 = v3_pos - v1_pos;
+
+    edge1.cross(edge2).normalize()
+}
 
 trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
@@ -34,66 +38,6 @@ impl ToVector3 for Vec3 {
 
 pub fn at_origin(v: Vector3) -> Vector3 {
     v + Vector3::one() * 100.
-}
-
-pub fn push_out_walls_2(
-    pos: Vec3,
-    check_height: f32,
-    radius: f32,
-    walls: &[&Triangle],
-) -> (Vec3, bool) {
-    let radius = radius - SKIN_FACTOR * 2.;
-    let sph_y = pos.y + check_height;
-    let mut out_x = pos.x;
-    let mut out_z = pos.z;
-    let mut hit = false;
-
-    for tri in walls {
-        let n = tri.normal;
-        let xz_len = (n.x * n.x + n.z * n.z).sqrt();
-
-        let cur = Vec3::new(out_x, sph_y, out_z);
-
-        // skip if on the back side of the triangle
-        let signed = n.dot(cur) + tri.origin_offset;
-        if signed < 0.0 {
-            continue;
-        }
-
-        let nearest = closest_point_triangle(cur, &tri.verts);
-
-        let dist = nearest.distance(cur);
-
-        // // old radius check for both sides of wall
-        // if dist.abs() >= radius {
-        if dist >= radius {
-            continue;
-        }
-
-        // get appropriate deflection dir
-        let diff = cur - nearest;
-        let diff_xz = Vec2::new(diff.x, diff.z);
-        let diff_xz_len = diff_xz.length();
-
-        let (push_dir_x, push_dir_z) = if diff_xz_len > f32::EPSILON {
-            (diff_xz.x / diff_xz_len, diff_xz.y / diff_xz_len)
-        } else {
-            // diff is ~ 0
-            // center is directly above/below the nearest point
-            // fall back to face normal
-            //
-            // we should be able to ensure this doesn't happen
-            // by padding downward raycasts a little bit
-            (n.x / xz_len, n.z / xz_len)
-        };
-
-        let push = radius - dist;
-        out_x += push_dir_x * push;
-        out_z += push_dir_z * push;
-        hit = true;
-    }
-
-    (Vec3::new(out_x, pos.y, out_z), hit)
 }
 
 struct Player {
