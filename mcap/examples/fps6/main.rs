@@ -1,8 +1,7 @@
-use mcap::{real::{self as mcapr, find_floor_height_hotdog_v4}, scrap};
+use mcap::real as mcap;
 
-use mcapr::{
-    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3, find_floor_height_m64,
-    find_floor_height_hotdog_v3,
+use mcap::{
+    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3, find_floor_height_hotdog_v4
 };
 use modelz;
 use raylib::prelude::*;
@@ -178,8 +177,6 @@ fn main() {
 
         // radius is the range from player's center they start falling at
         // here, when center is half-radius off a ledge, starts falling
-        // match find_floor_height_m64(pos, snap, snap / 4., &floors) {
-        // match find_floor_height_hotdog_v3(pos, snap, snap / 4., &floors, player.radius / 2.) {
         match find_floor_height_hotdog_v4(pos, snap, snap / 4., &floors, player.radius / 2.) {
             Some((Surface::Floor(floor), y)) => {
                 // don't floor snap if we're not moving down
