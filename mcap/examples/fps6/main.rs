@@ -1,7 +1,7 @@
-use mcap::real as mcapr;
+use mcap::{real::{self as mcapr, find_floor_height_hotdog_v4}, scrap};
 
 use mcapr::{
-    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3,
+    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3, find_floor_height_m64,
     find_floor_height_hotdog_v3,
 };
 use modelz;
@@ -178,7 +178,9 @@ fn main() {
 
         // radius is the range from player's center they start falling at
         // here, when center is half-radius off a ledge, starts falling
-        match find_floor_height_hotdog_v3(pos, snap, snap / 4., &floors, player.radius / 2.) {
+        // match find_floor_height_m64(pos, snap, snap / 4., &floors) {
+        // match find_floor_height_hotdog_v3(pos, snap, snap / 4., &floors, player.radius / 2.) {
+        match find_floor_height_hotdog_v4(pos, snap, snap / 4., &floors, player.radius / 2.) {
             Some((Surface::Floor(floor), y)) => {
                 // don't floor snap if we're not moving down
                 // mitigates not reaching escape velocity of snap with jump
@@ -217,13 +219,7 @@ fn main() {
         }
 
         // cieling clamp
-        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(
-            pos,
-            player.chest_height,
-            player.radius,
-            &cielings,
-            player.radius / 2.,
-        ) {
+        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, &cielings, player.radius / 2. ) {
             pos.y = y - player.height;
             player.velocity.y = player.velocity.y.min(0.0);
             draw_ciel = Some(ciel);

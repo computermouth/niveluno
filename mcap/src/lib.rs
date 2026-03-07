@@ -2493,6 +2493,8 @@ pub mod real {
         pub verts: [Vec3; 3],
         pub normal: Vec3,
         pub origin_offset: f32,
+        pub min_y: f32,
+        pub max_y: f32,
     }
 
     const FLOOR_EPS: f32 = 0.01;
@@ -2523,6 +2525,8 @@ pub mod real {
                 verts,
                 normal,
                 origin_offset: -normal.dot(verts[0]),
+                min_y: verts[0].y.min(verts[1].y.min(verts[2].y)),
+                max_y: verts[0].y.max(verts[1].y.max(verts[2].y)),
             };
 
             let slide_deg = 60f32.to_radians().cos();
@@ -2849,14 +2853,64 @@ pub mod real {
     }
 
     // pos here is the feet/bottom
-    pub fn find_floor_height_hotdog_v3_o(
+    pub fn find_floor_height_m64(
+        pos: Vec3,
+        snap_up: f32,
+        snap_down: f32,
+        surfaces: &[&Surface],
+    ) -> Option<(Surface, f32)> {
+        let mut best_y = f32::NEG_INFINITY;
+        let mut best_surf = None;
+
+        // check if we're teetering on an edge with more than floor snap distance
+        for s in surfaces {
+            // all upward facing normals
+            let tri = match s {
+                Surface::Floor(t) | Surface::Slide(t) => t,
+                _ => continue,
+            };
+
+            // check if point is inside radius-expanded edges,
+            // 2x SKIN_FACTOR to ensure we're always dropping down outside a wall that connects to a floor
+            //
+            // but also fall back to using point in triangle with slides
+            if !flattened_point_inside_flattened_triangle(
+                pos,
+                tri.verts[0],
+                tri.verts[1],
+                tri.verts[2],
+            ) {
+                continue;
+            }
+
+            // get y at plane_pos.xz
+            let y = solve_plane_y(tri.normal, tri.origin_offset, pos.x, pos.z);
+
+            // within floor snap range both below and above pos (bottom)
+            // add a SKIN_FACTOR just for fun (my step-{up,down} is coincidentally a multiple of my minimum alignment in map)
+            let bottom = pos.y - snap_down - SKIN_FACTOR;
+            let top = pos.y + snap_up + SKIN_FACTOR;
+            // store according to which plane_pos is nearest to pos_v2
+            if (bottom..=top).contains(&y) && y > best_y {
+                best_y = y;
+                best_surf = Some(**s);
+            }
+        }
+
+        match best_surf {
+            Some(surf) => Some((surf, best_y)),
+            None => None,
+        }
+    }
+
+    // pos here is the feet/bottom
+    pub fn find_floor_height_hotdog_v4(
         pos: Vec3,
         snap_up: f32,
         snap_down: f32,
         surfaces: &[&Surface],
         radius: f32,
     ) -> Option<(Surface, f32)> {
-        let mut best_dist = f32::INFINITY;
         let mut best_y = f32::NEG_INFINITY;
         let mut best_surf = None;
 
@@ -2865,8 +2919,10 @@ pub mod real {
         // check if we're teetering on an edge with more than floor snap distance
         for s in surfaces {
             // all upward facing normals
+            let mut is_floor = false;
             let tri = match s {
-                Surface::Floor(t) | Surface::Slide(t) => t,
+                Surface::Floor(t) => { is_floor = true; t}, 
+                Surface::Slide(t) => t,
                 _ => continue,
             };
 
@@ -2885,7 +2941,8 @@ pub mod real {
                 tri.verts[2],
             ) {
                 posv2
-            } else {
+            } else if is_floor {
+                // only hotdog the floors
                 let cp1 = closest_point_on_segment_v2(posv2, p1v2, p2v2);
                 let cp2 = closest_point_on_segment_v2(posv2, p2v2, p3v2);
                 let cp3 = closest_point_on_segment_v2(posv2, p3v2, p1v2);
@@ -2894,30 +2951,25 @@ pub mod real {
                 let cp3d = cp3.distance(posv2);
                 let threshold = radius + radius * SKIN_FACTOR * 2.;
                 if cp1d <= threshold || cp2d <= threshold || cp3d <= threshold {
-                    if cp1d <= cp2d && cp1d <= cp3d {
-                        cp1
-                    } else if cp2d <= cp3d {
-                        cp2
-                    } else {
-                        cp3
-                    }
+                    posv2
                 } else {
                     // neither inside flattened triangle, nor within threshold
                     continue;
                 }
+            } else {
+                // slide wasn't raycastable, floor wasn't either, nor was it hotdogs
+                continue;
             };
 
             // get y at plane_pos.xz
-            let y = solve_plane_y(tri.normal, tri.origin_offset, plane_pos.x, plane_pos.y);
+            let y = solve_plane_y(tri.normal, tri.origin_offset, plane_pos.x, plane_pos.y).clamp(tri.min_y, tri.max_y);
 
             // within floor snap range both below and above pos (bottom)
             // add a SKIN_FACTOR just for fun (my step-{up,down} is coincidentally a multiple of my minimum alignment in map)
             let bottom = pos.y - snap_down - SKIN_FACTOR;
             let top = pos.y + snap_up + SKIN_FACTOR;
-            let dist = plane_pos.distance(posv2);
             // store according to which plane_pos is nearest to pos_v2
-            if (bottom..=top).contains(&y) && dist < best_dist {
-                best_dist = dist;
+            if (bottom..=top).contains(&y) && y > best_y {
                 best_y = y;
                 best_surf = Some(**s);
             }
