@@ -5,7 +5,6 @@ pub mod scrap {
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::collections::VecDeque;
-    use std::collections::btree_set::Iter;
 
     pub use glam::Vec2;
     pub use glam::Vec3;
@@ -2544,7 +2543,7 @@ pub mod real {
         pos: Vec3,
         check_height: f32,
         radius: f32,
-        walls: &[&Triangle],
+        surfaces: &Vec<Surface>,
     ) -> (Vec3, bool) {
         let radius = radius - SKIN_FACTOR * 2.;
         let sph_y = pos.y + check_height;
@@ -2552,7 +2551,13 @@ pub mod real {
         let mut out_z = pos.z;
         let mut hit = false;
 
-        for tri in walls {
+        for s in surfaces {
+            // all downward facing normals
+            let tri = match s {
+                Surface::Wall(t) => t,
+                _ => continue,
+            };
+
             let n = tri.normal;
             let xz_len = (n.x * n.x + n.z * n.z).sqrt();
 
@@ -2660,7 +2665,7 @@ pub mod real {
         pos: Vec3,
         offset: f32,      // offset from the bottom
         range_above: f32, // range above offset which procs
-        surfaces: &[&Surface],
+        surfaces: &Vec<Surface>,
         radius: f32,
     ) -> Option<(Surface, f32)> {
         let mut best_y = f32::INFINITY;
@@ -2721,7 +2726,7 @@ pub mod real {
             // store according to which plane_pos is nearest to pos_v2
             if (bottom..=top).contains(&y) && y < best_y {
                 best_y = y;
-                best_surf = Some(**s);
+                best_surf = Some(*s);
             }
         }
 
@@ -2779,7 +2784,7 @@ pub mod real {
         pos: Vec3,
         snap_up: f32,
         snap_down: f32,
-        surfaces: &[&Surface],
+        surfaces: &Vec<Surface>,
         radius: f32,
     ) -> Option<(Surface, f32)> {
         let mut best_y = f32::NEG_INFINITY;
@@ -2864,7 +2869,7 @@ pub mod real {
             // store according to which is highest
             if (bottom..=top).contains(&y) && y > best_y {
                 best_y = y;
-                best_surf = Some(**s);
+                best_surf = Some(*s);
             }
         }
 

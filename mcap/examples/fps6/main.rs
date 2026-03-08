@@ -54,48 +54,73 @@ struct Player {
 const GRAVITY: f32 = -36.0;
 const TERMINAL_VEL: f32 = -216.0;
 
+struct Levels {
+    names: Vec<String>,
+    models: Vec<Model>,
+    surfaces: Vec<Vec<Surface>>,
+    current: usize,
+}
+
+impl Levels {
+    fn new() -> Self {
+        Levels { names: vec![], models: vec![], surfaces: vec![], current: 0 }
+    }
+
+    fn push(mut self, load: (String, Model, Vec<Surface>)) -> Self {
+        self.names.push(load.0);
+        self.models.push(load.1);
+        self.surfaces.push(load.2);
+
+        self
+    }
+
+    fn surfaces(&self) -> &Vec<Surface> {
+        &self.surfaces[self.current]
+    }
+
+    fn model(&self) -> &Model {
+        &self.models[self.current]
+    }
+}
+
 fn main() {
     let (mut rl, thread) = raylib::init()
         .size(640, 480)
-        .title("fps6 - OoT style")
+        .title("fps6 - oot + m64 + quake")
         .build();
 
     let origin = at_origin(Vector3::zero());
 
-    let model = rl.load_model(&thread, "res/nmap.glb").unwrap();
-    let collision_triangles =
-        triangles::get_triangles(modelz::Model3D::load("res/nmap.glb").unwrap());
-    let surfaces: Vec<_> = collision_triangles
-        .iter()
-        .map(|t| {
-            Surface::new(
-                [
-                    (t[0] + origin).to_mcapv3(),
-                    (t[1] + origin).to_mcapv3(),
-                    (t[2] + origin).to_mcapv3(),
-                ],
-                get_face_normal(t[0].to_mcapv3(), t[1].to_mcapv3(), t[2].to_mcapv3()),
-            )
-        })
-        .collect();
+    let mut load = |f: &str| -> (String, Model, Vec<Surface>) {
+        (
+        f.to_string(),
+        rl.load_model(&thread, f).unwrap(),
+        triangles::get_triangles(modelz::Model3D::load(f).unwrap())
+            .iter()
+            .map(|t| {
+                Surface::new(
+                    [
+                        (t[0] + origin).to_mcapv3(),
+                        (t[1] + origin).to_mcapv3(),
+                        (t[2] + origin).to_mcapv3(),
+                    ],
+                    get_face_normal(t[0].to_mcapv3(), t[1].to_mcapv3(), t[2].to_mcapv3()),
+                )
+            })
+            .collect()
+        )
+    };
 
-    let wall_tris: Vec<&Triangle> = surfaces
-        .iter()
-        .filter_map(|s| match s {
-            Surface::Wall(t) => Some(t),
-            _ => None,
-        })
-        .collect();
+    let bob = load("res/bob.glb");
+    let nmap = load("res/nmap.glb");
 
-    let floors: Vec<&Surface> = surfaces
-        .iter()
-        .filter(|s| matches!(s, Surface::Floor(_) | Surface::Slide(_)))
-        .collect();
+    
+    let levels = Levels::new()
+        .push(bob)
+        .push(nmap);
 
-    let cielings: Vec<&Surface> = surfaces
-        .iter()
-        .filter(|s| matches!(s, Surface::Cieling(_)))
-        .collect();
+    let surfaces = levels.surfaces();
+    let model = levels.model();
 
     let mut player = Player {
         pos: origin - Vector3::new(0., 5., 0.),
@@ -168,7 +193,7 @@ fn main() {
         let mut pos = (player.pos + player.velocity * fd).to_mcapv3();
 
         // wall push
-        (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, &wall_tris);
+        (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, surfaces);
 
         // floor find, snap, gravity
         let snap = 1.;
@@ -177,7 +202,7 @@ fn main() {
 
         // radius is the range from player's center they start falling at
         // here, when center is half-radius off a ledge, starts falling
-        match find_floor_height_hotdog_v4(pos, snap, snap / 4., &floors, player.radius / 2.) {
+        match find_floor_height_hotdog_v4(pos, snap, snap / 4., surfaces, player.radius / 2.) {
             Some((Surface::Floor(floor), y)) => {
                 // don't floor snap if we're not moving down
                 // mitigates not reaching escape velocity of snap with jump
@@ -216,7 +241,7 @@ fn main() {
         }
 
         // cieling clamp
-        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, &cielings, player.radius / 2. ) {
+        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, surfaces, player.radius / 2. ) {
             pos.y = y - player.height;
             player.velocity.y = player.velocity.y.min(0.0);
             draw_ciel = Some(ciel);
@@ -239,6 +264,7 @@ fn main() {
             d.clear_background(Color::new(16, 16, 32, 255));
             d.draw_mode3D(camera, |mut d3d, _| {
                 d3d.draw_model(&model, origin, 1.0, Color::WHITE);
+                // d3d.draw_model(&goober, origin + Vector3::one() * 5., 1., Color::WHITE);
 
                 fn draw_surf(
                     d3d: &mut RaylibMode3D<'_, RaylibDrawHandle<'_>>,
@@ -257,12 +283,12 @@ fn main() {
                     d3d.draw_line_3D(center, center + tri.normal().to_rayv3(), Color::ORANGE);
                 }
 
-                for surf in &surfaces {
+                for surf in surfaces {
                     match surf {
-                        Surface::Wall(tri) => draw_surf(&mut d3d, tri, Color::GREEN.alpha(0.5)),
-                        Surface::Floor(tri) => draw_surf(&mut d3d, tri, Color::RED.alpha(0.5)),
-                        Surface::Slide(tri) => draw_surf(&mut d3d, tri, Color::BLUE.alpha(0.5)),
-                        Surface::Cieling(tri) => draw_surf(&mut d3d, tri, Color::YELLOW.alpha(0.5)),
+                        Surface::Wall(tri) => draw_surf(&mut d3d, &tri, Color::GREEN.alpha(0.5)),
+                        Surface::Floor(tri) => draw_surf(&mut d3d, &tri, Color::RED.alpha(0.5)),
+                        Surface::Slide(tri) => draw_surf(&mut d3d, &tri, Color::BLUE.alpha(0.5)),
+                        Surface::Cieling(tri) => draw_surf(&mut d3d, &tri, Color::YELLOW.alpha(0.5)),
                     }
                 }
 
@@ -307,7 +333,7 @@ fn main() {
                 );
             });
 
-            d.draw_text("fps6 - oot", 20, 20, 20, Color::WHITE);
+            d.draw_text("fps6 - oot + m64 + quake", 20, 20, 20, Color::WHITE);
             d.draw_text(
                 &format!(
                     "p: {:.1} {:.1} {:.1}",
