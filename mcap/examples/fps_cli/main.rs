@@ -1,11 +1,7 @@
-use std::iter;
-
 use mcap::scrap as mcap;
 
-use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push,
-    get_step_push_m64, get_step_push_most_opposing,
+    HotDog, Surface, Vec3, find_floor_height_m64, get_face_normal,
 };
 use modelz;
 use rand::Rng;
@@ -39,7 +35,6 @@ pub fn at_origin(v: Vector3) -> Vector3 {
 
 struct Player {
     pos: Vector3,
-    vel: Vector3,
     cam_pitch: f32,
     cam_yaw: f32,
     height: f32,
@@ -94,7 +89,6 @@ fn main() {
     let mut player = Player {
         // bottom of cylinder
         pos: origin - Vector3::new(0., 2.25, 0.),
-        vel: Vector3::zero(),
         cam_pitch: 0.,
         cam_yaw: 0.,
         height: 3.,
@@ -105,13 +99,9 @@ fn main() {
 
     // rl.disable_cursor();
 
-    let mut total = 0.;
-    let mut fc: f32 = 0.;
-
     let mut time_passed = 0.;
 
     let mut rng = rand::rng();
-    let some: f32 = rng.random();
 
     let mut ws = 1.;
     let mut ad = 0.;
@@ -123,7 +113,6 @@ fn main() {
         // let fps = rl.get_fps();
 
         // total += fps as f32;
-        fc += 1.0;
 
         // let mut w = rl.is_key_down(KeyboardKey::KEY_W);
         // let mut a = rl.is_key_down(KeyboardKey::KEY_A);
@@ -211,7 +200,7 @@ fn main() {
             lout = ldst.with_y(ldst.y - player.chest_height);
 
             let snap = player.height - player.chest_height;
-            if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
+            if let Some((_floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal
@@ -228,20 +217,6 @@ fn main() {
         }
 
         player.pos = lout.to_rayv3();
-
-        // calculate cam pos
-        let player_top = player.pos + Vector3::new(0., player.height, 0.);
-        let player_chest = player.pos + Vector3::new(0., player.chest_height, 0.);
-        let player_step_top =
-            player.pos + Vector3::new(0., player.height - player.chest_height, 0.);
-        let player_step_bot =
-            player.pos - Vector3::new(0., player.height - player.chest_height, 0.);
-        let camera = Camera3D::perspective(
-            player_top + camera_dir * 5.,
-            player_top,
-            Vector3::new(0.0, 1.0, 0.0),
-            90.0,
-        );
 
         // let mut d = rl.begin_drawing(&thread);
         // {

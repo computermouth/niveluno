@@ -1,6 +1,8 @@
 use modelz::{Indices, Model3D};
 use raylib::prelude::*;
+use glam::Vec3;
 
+#[allow(dead_code)]
 pub fn get_triangles(scene: Model3D) -> Vec<[Vector3; 3]> {
     let mut surfaces = vec![];
 
@@ -27,4 +29,25 @@ pub fn get_triangles(scene: Model3D) -> Vec<[Vector3; 3]> {
     }
 
     surfaces
+}
+
+pub trait ToVec3 {
+    fn to_mcapv3(&self) -> Vec3;
+}
+
+#[allow(dead_code)]
+pub trait ToVector3 {
+    fn to_rayv3(&self) -> Vector3;
+}
+
+impl ToVec3 for Vector3 {
+    fn to_mcapv3(&self) -> Vec3 {
+        Vec3::new(self.x, self.y, self.z)
+    }
+}
+
+impl ToVector3 for Vec3 {
+    fn to_rayv3(&self) -> Vector3 {
+        Vector3::new(self.x, self.y, self.z)
+    }
 }

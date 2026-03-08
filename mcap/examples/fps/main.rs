@@ -1,30 +1,11 @@
-use mcap::{HotDog, Surface, Triangle, Vec3, get_face_normal, get_step_push, get_step_push_m64};
-use modelz;
+use mcap::{HotDog, Surface, Triangle, Vec3};
 use raylib::prelude::*;
 
 use mcap::scrap as mcap;
 
-mod triangles;
-
-trait ToVec3 {
-    fn to_mcapv3(&self) -> Vec3;
-}
-
-trait ToVector3 {
-    fn to_rayv3(&self) -> Vector3;
-}
-
-impl ToVec3 for Vector3 {
-    fn to_mcapv3(&self) -> Vec3 {
-        Vec3::new(self.x, self.y, self.z)
-    }
-}
-
-impl ToVector3 for Vec3 {
-    fn to_rayv3(&self) -> Vector3 {
-        Vector3::new(self.x, self.y, self.z)
-    }
-}
+#[path = "../../common/mod.rs"]
+mod common;
+use common::{ToVec3, ToVector3};
 
 pub fn at_origin(v: Vector3) -> Vector3 {
     v + Vector3::one() * 100.
@@ -32,7 +13,6 @@ pub fn at_origin(v: Vector3) -> Vector3 {
 
 struct Player {
     pos: Vector3,
-    vel: Vector3,
     cam_pitch: f32,
     cam_yaw: f32,
     height: f32,
@@ -63,7 +43,6 @@ fn main() {
     let mut player = Player {
         // bottom of cylinder
         pos: origin - Vector3::new(0., 2.25, 0.),
-        vel: Vector3::zero(),
         cam_pitch: 0.,
         cam_yaw: 0.,
         height: 3.,
@@ -81,7 +60,6 @@ fn main() {
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
-        let time = rl.get_time();
         let fps = rl.get_fps();
 
         total += fps as f32;

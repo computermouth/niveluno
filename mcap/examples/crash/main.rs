@@ -4,7 +4,7 @@
 
 use mcap::scrap as mcap;
 
-use mcap::{HotDog, Surface, Vec2, Vec3, get_face_normal};
+use mcap::{HotDog, Surface, Vec3, get_face_normal};
 use raylib::prelude::*;
 mod triangles;
 
@@ -12,19 +12,9 @@ trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
 }
 
-trait ToVector3 {
-    fn to_rayv3(&self) -> Vector3;
-}
-
 impl ToVec3 for Vector3 {
     fn to_mcapv3(&self) -> Vec3 {
         Vec3::new(self.x, self.y, self.z)
-    }
-}
-
-impl ToVector3 for Vec3 {
-    fn to_rayv3(&self) -> Vector3 {
-        Vector3::new(self.x, self.y, self.z)
     }
 }
 

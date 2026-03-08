@@ -1,7 +1,4 @@
 use std::f32;
-use mcap::scrap as mcap;
-
-use mcap::Vec3;
 use raylib::prelude::*;
 
 mod ex_1;
@@ -20,25 +17,9 @@ mod ex_d;
 mod ex_e;
 mod ex_f;
 
-trait ToVec3 {
-    fn to_mcapv3(&self) -> Vec3;
-}
-
-trait ToVector3 {
-    fn to_rayv3(&self) -> Vector3;
-}
-
-impl ToVec3 for Vector3 {
-    fn to_mcapv3(&self) -> Vec3 {
-        Vec3::new(self.x, self.y, self.z)
-    }
-}
-
-impl ToVector3 for Vec3 {
-    fn to_rayv3(&self) -> Vector3 {
-        Vector3::new(self.x, self.y, self.z)
-    }
-}
+#[path = "../../common/mod.rs"]
+mod common;
+use common::{ToVec3, ToVector3};
 
 pub fn at_origin(v: Vector3) -> Vector3 {
     v + Vector3::one() * 100.
@@ -77,9 +58,7 @@ enum Shape {
 
 #[derive(Copy, Clone)]
 struct Args {
-    fd: f32,
     time: f64,
-    reset: bool,
 }
 
 trait Example {
@@ -108,12 +87,10 @@ fn main() {
     let mut cam_mov = true;
 
     while !rl.window_should_close() {
-        let fd = rl.get_frame_time();
         let time = rl.get_time();
 
         let cam_stop = rl.is_key_pressed(KeyboardKey::KEY_S);
         let cam_flip = rl.is_key_pressed(KeyboardKey::KEY_F);
-        let reset = rl.is_key_pressed(KeyboardKey::KEY_R);
         let prev = rl.is_key_pressed(KeyboardKey::KEY_P);
         let next = rl.is_key_pressed(KeyboardKey::KEY_N);
         let change = prev as i8 - next as i8;
@@ -170,7 +147,7 @@ fn main() {
             camera.target = example.camera_start_tgt();
         }
 
-        let args = Args { fd, time, reset };
+        let args = Args { time };
 
         let draws = example.update(args);
 

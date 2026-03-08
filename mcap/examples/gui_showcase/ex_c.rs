@@ -1,5 +1,5 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
-use mcap::{Surface, check_circle_tri_collision, get_face_normal, solve_plane_y};
+use mcap::{Surface, get_face_normal};
 use raylib::prelude::*;
 use mcap::scrap as mcap;
 
@@ -30,7 +30,7 @@ impl Example for State {
         self.cam_start_tgt
     }
 
-    fn update(&mut self, args: Args) -> Vec<(Shape, Color)> {
+    fn update(&mut self, _args: Args) -> Vec<(Shape, Color)> {
         let mut out = vec![];
 
         out.push((

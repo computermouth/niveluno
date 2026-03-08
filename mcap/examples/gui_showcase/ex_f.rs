@@ -1,6 +1,6 @@
-use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
+use crate::{Args, Example, Shape, ToVec3, at_origin};
 use glam::Vec3;
-use mcap::{HotDog, Surface, get_face_normal, get_step_push};
+use mcap::{HotDog, Surface, get_face_normal};
 use raylib::prelude::*;
 use mcap::scrap as mcap;
 
@@ -10,7 +10,6 @@ pub struct State {
     start_pos: Vector3,
     velocity: Vector3,
     update_pos: Vector3,
-    last_good_angle: f32,
 }
 
 impl State {
@@ -21,7 +20,6 @@ impl State {
             start_pos: at_origin(Vector3::new(0., 0., -1.006)),
             velocity: Vector3::new(0., 0., 0.0061),
             update_pos: at_origin(Vector3::zero()),
-            last_good_angle: 0.,
         }
     }
 }

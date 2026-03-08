@@ -1,11 +1,8 @@
-use std::{iter, ops::Add};
 use mcap::scrap as mcap;
 
-use glam::Vec2;
 use mcap::{
-    HotDog, HotDogv2, Surface, Triangle, Vec3, find_floor_height_hotdog,
-    find_floor_height_hotdog_v2, find_floor_height_m64, get_face_normal, get_step_push,
-    get_step_push_m64, get_step_push_most_opposing,
+    HotDogv2, Surface, Triangle, Vec3,
+    find_floor_height_hotdog_v2, get_face_normal,
 };
 use modelz;
 use raylib::prelude::*;
@@ -38,7 +35,6 @@ pub fn at_origin(v: Vector3) -> Vector3 {
 
 struct Player {
     pos: Vector3,
-    vel: Vector3,
     cam_pitch: f32,
     cam_yaw: f32,
     height: f32,
@@ -100,7 +96,6 @@ fn main() {
     let mut player = Player {
         // bottom of cylinder
         pos: origin - Vector3::new(0., 5., 0.),
-        vel: Vector3::zero(),
         cam_pitch: 0.,
         cam_yaw: 0.,
         height: 3.,
@@ -114,11 +109,8 @@ fn main() {
     let mut total = 0.;
     let mut fc: f32 = 0.;
 
-    let mut findex = 0;
-
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
-        let time = rl.get_time();
         let fps = rl.get_fps();
 
         total += fps as f32;
@@ -176,7 +168,7 @@ fn main() {
                 0.002,
                 move_dir.to_mcapv3(),
             );
-            let hotdog_bot = HotDogv2::new(
+            let _hotdog_bot = HotDogv2::new(
                 lpos,
                 ldst,
                 player.radius,

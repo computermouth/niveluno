@@ -1,7 +1,7 @@
 use crate::{Args, Example, Shape, ToVec3, ToVector3, at_origin};
 use glam::Vec3;
 use mcap::{
-    Surface, check_circle_tri_collision, find_floor_height_m64, get_face_normal, solve_plane_y,
+    Surface, find_floor_height_m64, get_face_normal,
 };
 use raylib::prelude::*;
 use mcap::scrap as mcap;

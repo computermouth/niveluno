@@ -3,29 +3,12 @@
 // thread 'main' panicked at src/li
 
 use mcap::scrap as mcap;
-use mcap::{HotDog, Surface, Vec2, Vec3, get_face_normal};
+use mcap::{HotDog, Surface, Vec3, get_face_normal};
 use raylib::prelude::*;
-mod triangles;
 
-trait ToVec3 {
-    fn to_mcapv3(&self) -> Vec3;
-}
-
-trait ToVector3 {
-    fn to_rayv3(&self) -> Vector3;
-}
-
-impl ToVec3 for Vector3 {
-    fn to_mcapv3(&self) -> Vec3 {
-        Vec3::new(self.x, self.y, self.z)
-    }
-}
-
-impl ToVector3 for Vec3 {
-    fn to_rayv3(&self) -> Vector3 {
-        Vector3::new(self.x, self.y, self.z)
-    }
-}
+#[path = "../../common/mod.rs"]
+mod common;
+use common::{ToVec3, get_triangles};
 
 pub fn at_origin(v: Vector3) -> Vector3 {
     v + Vector3::one() * 100.
@@ -35,7 +18,7 @@ fn main() {
     let origin = at_origin(Vector3::zero());
 
     let collison_triangles =
-        triangles::get_triangles(modelz::Model3D::load("res/nmap.glb").unwrap());
+        get_triangles(modelz::Model3D::load("res/nmap.glb").unwrap());
 
     let surfaces: Vec<_> = collison_triangles
         .iter()
@@ -106,7 +89,6 @@ fn main() {
 
     // Center on midpoint between src and wall center so both are visible
     let src2d = Vector2::new(src.x, src.z);
-    let dst2d = Vector2::new(dst.x, dst.z);
     let wall_center = (p0 + p1 + p2) / 3.;
     let center = (src2d + wall_center) / 2.;
     let screen_center = Vector2::new(SCREEN_W as f32 / 2., SCREEN_H as f32 / 2.);

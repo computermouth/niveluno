@@ -117,7 +117,7 @@ pub mod scrap {
                     collided = true;
                     collided_this_iteration = true;
 
-                    if let Some((old_push, old_wall, old_point)) = collision {
+                    if let Some((_old_push, old_wall, _old_point)) = collision {
                         let old_dot = step.dot(old_wall.normal);
                         let new_dot = step.dot(wall.normal);
 
@@ -131,7 +131,7 @@ pub mod scrap {
                 }
             }
 
-            if let Some((push, wall, point)) = collision {
+            if let Some((push, _wall, _point)) = collision {
                 target_pos += push;
             }
 
@@ -315,8 +315,8 @@ pub mod scrap {
         pos: Vec3,
         step: Vec3,
         radius: f32,
-        chest_height: f32,
-        floor_snap_dist: f32,
+        _chest_height: f32,
+        _floor_snap_dist: f32,
         surfaces: &[&Surface],
     ) -> StepResult {
         let target = pos + step;
@@ -478,10 +478,10 @@ pub mod scrap {
     // find collision of a rect with each triangle edge
     // and return nearest xz point inside rect
     pub fn rect_wall_for_hotdog(
-        src: Vec3,
-        dst: Vec3,
-        radius: f32,
-        tri: &[Vec3; 3],
+        _src: Vec3,
+        _dst: Vec3,
+        _radius: f32,
+        _tri: &[Vec3; 3],
     ) -> Option<Vec3> {
         todo!()
     }
@@ -1238,7 +1238,6 @@ pub mod scrap {
         // todo, remove??
         srcv3: Vec3,
         dst: Vec2,
-        skin_factor: f32,
         skin: f32,
         radius: f32,
         y_dir: Vec2,
@@ -1249,12 +1248,12 @@ pub mod scrap {
 
     // todo, remove these, or only do them in debug builds
     thread_local! {
-        static HDList: RefCell<VecDeque<HotDog>> = RefCell::new(VecDeque::new());
-        static fi_list: RefCell<HashMap<usize,u128>> = RefCell::new(HashMap::new());
+        static HDLIST: RefCell<VecDeque<HotDog>> = RefCell::new(VecDeque::new());
+        static FI_LIST: RefCell<HashMap<usize,u128>> = RefCell::new(HashMap::new());
     }
 
     pub fn print_fi() {
-        fi_list.with_borrow_mut(|hm| {
+        FI_LIST.with_borrow_mut(|hm| {
             let mut v: Vec<(&usize, &u128)> = hm.iter().collect();
             v.sort_by(|(ai, _), (bi, _)| ai.cmp(bi));
             eprintln!("hm: {:?}", v);
@@ -1279,14 +1278,13 @@ pub mod scrap {
                 dst,
                 radius,
                 skin,
-                skin_factor,
                 y_dir,
                 x_dir: Vec2::new(-y_dir.y, y_dir.x),
                 window: Window::new(-radius as f64, radius as f64, 0., length as f64),
                 original_dir: Vec2::new(original_dir.x, original_dir.z).normalize(),
             };
 
-            HDList.with_borrow_mut(|hotdogs| {
+            HDLIST.with_borrow_mut(|hotdogs| {
                 if hotdogs.len() == 5 {
                     hotdogs.pop_front();
                 }
@@ -1431,7 +1429,6 @@ pub mod scrap {
                 };
 
                 let tn2 = Vec2::new(tri.normal.x, tri.normal.z).normalize();
-                let dn = (self.dst - self.src).normalize();
 
                 // clip the 2 farthest points, and find nearest
                 if let Some((p1, p2)) = self.clip_line_segment(d1, d2) {
@@ -1532,7 +1529,7 @@ pub mod scrap {
                     b: d2,
                     r: self.radius + self.skin,
                 };
-                if let Some(coll) = c2RaytoCapsule(ray, cap) {
+                if let Some(coll) = c2_rayto_capsule(ray, cap) {
                     // // skip wall if we're not heading at it
                     // if ray.d.dot(coll.n) >= 0. {
                     //     continue;
@@ -1575,7 +1572,7 @@ pub mod scrap {
                             r: validate_r,
                         };
 
-                        if c2RaytoCapsule(validate_ray, cap).is_some() {
+                        if c2_rayto_capsule(validate_ray, cap).is_some() {
                             let wall_normal_xz = Vec2::new(tri.normal.x, tri.normal.z).normalize();
                             // mimic a collision at exactly the destination
                             coll = Some(C2Raycast {
@@ -1701,7 +1698,7 @@ pub mod scrap {
                         r: validate_r,
                     };
 
-                    if c2RaytoCapsule(ray, cap).is_some() {
+                    if c2_rayto_capsule(ray, cap).is_some() {
                         collided = true;
                         break;
                     }
@@ -1709,7 +1706,7 @@ pub mod scrap {
 
                 if !collided {
                     // todo, remove
-                    fi_list.with_borrow_mut(|hm| {
+                    FI_LIST.with_borrow_mut(|hm| {
                         let f = hm.get(&fi).unwrap_or(&0);
                         hm.insert(fi, f + 1);
                     });
@@ -1741,8 +1738,8 @@ pub mod scrap {
                     r: validate_r,
                 };
 
-                if c2RaytoCapsule(ray, cap).is_some() {
-                    HDList.with_borrow(|hotdogs| {
+                if c2_rayto_capsule(ray, cap).is_some() {
+                    HDLIST.with_borrow(|hotdogs| {
                         eprintln!("hotdogs: {:?}", hotdogs);
                     });
                     panic!("start is in wall");
@@ -1750,7 +1747,7 @@ pub mod scrap {
             }
 
             // todo, remove
-            fi_list.with_borrow_mut(|hm| {
+            FI_LIST.with_borrow_mut(|hm| {
                 let f = hm.get(&fi).unwrap_or(&0);
                 hm.insert(fi, f + 1);
             });
@@ -1844,7 +1841,7 @@ pub mod scrap {
                     b: d2,
                     r: self.radius + self.skin,
                 };
-                if let Some(coll) = c2RaytoCapsule(ray, cap) {
+                if let Some(coll) = c2_rayto_capsule(ray, cap) {
                     match &nearest {
                         None => nearest = Some(coll),
                         Some(n) => {
@@ -1882,7 +1879,7 @@ pub mod scrap {
                             r: validate_r,
                         };
 
-                        if c2RaytoCapsule(validate_ray, cap).is_some() {
+                        if c2_rayto_capsule(validate_ray, cap).is_some() {
                             let wall_normal_xz = Vec2::new(tri.normal.x, tri.normal.z).normalize();
                             // mimic a collision at exactly the destination
                             coll = Some(C2Raycast {
@@ -1953,9 +1950,7 @@ pub mod scrap {
                 .collect();
 
             let validate_r = self.radius + self.skin;
-            let mut fi = 0;
-            for (i, dest_xz) in locations.iter().enumerate() {
-                fi = i;
+            for (_i, dest_xz) in locations.iter().enumerate() {
 
                 let ray = C2Ray {
                     p: *dest_xz,
@@ -1979,7 +1974,7 @@ pub mod scrap {
                         r: validate_r,
                     };
 
-                    if c2RaytoCapsule(ray, cap).is_some() {
+                    if c2_rayto_capsule(ray, cap).is_some() {
                         collided = true;
                         break;
                     }
@@ -2014,7 +2009,7 @@ pub mod scrap {
                     r: validate_r,
                 };
 
-                if c2RaytoCapsule(ray, cap).is_some() {
+                if c2_rayto_capsule(ray, cap).is_some() {
                     panic!("start is in wall");
                 }
             }
@@ -2256,7 +2251,7 @@ pub mod scrap {
     }
 
     // c2v c2MulmvT(c2m a, c2v b) { c2v c; c.x = a.x.x * b.x + a.x.y * b.y; c.y = a.y.x * b.x + a.y.y * b.y; return c; }
-    fn c2MulmvT(a: C2M, b: Vec2) -> Vec2 {
+    fn c2_mulmv_t(a: C2M, b: Vec2) -> Vec2 {
         let mut c = Vec2::ZERO;
         c.x = a.x.x * b.x + a.x.y * b.y;
         c.y = a.y.x * b.x + a.y.y * b.y;
@@ -2271,11 +2266,11 @@ pub mod scrap {
     // 	int d3 = B.y > A.max.y;
     // 	return !(d0 | d1 | d2 | d3);
     // }
-    fn c2AABBtoPoint(A: C2AABB, B: Vec2) -> bool {
-        let d0 = B.x < A.min.x;
-        let d1 = B.y < A.min.y;
-        let d2 = B.x > A.max.x;
-        let d3 = B.y > A.max.y;
+    fn c2_aabbto_point(a: C2AABB, b: Vec2) -> bool {
+        let d0 = b.x < a.min.x;
+        let d1 = b.y < a.min.y;
+        let d2 = b.x > a.max.x;
+        let d3 = b.y > a.max.y;
         return !(d0 | d1 | d2 | d3);
     }
 
@@ -2295,10 +2290,10 @@ pub mod scrap {
     // 	float d2 = c2Dot(n, n);
     // 	return d2 < A.r * A.r;
     // }
-    fn c2CircleToPoint(A: C2Circle, B: Vec2) -> bool {
-        let n = A.p - B;
+    fn c2_circle_to_point(a: C2Circle, b: Vec2) -> bool {
+        let n = a.p - b;
         let d2 = n.dot(n);
-        return d2 < A.r * A.r;
+        return d2 < a.r * a.r;
     }
 
     // int c2RaytoCircle(c2Ray A, c2Circle B, c2Raycast* out)
@@ -2320,22 +2315,22 @@ pub mod scrap {
     // 	}
     // 	return 0;
     // }
-    fn c2RaytoCircle(A: C2Ray, B: C2Circle) -> Option<C2Raycast> {
-        let p = B.p;
-        let m = A.p - p;
-        let c = m.dot(m) - B.r * B.r;
-        let b = m.dot(A.d);
+    fn c2_rayto_circle(a: C2Ray, b: C2Circle) -> Option<C2Raycast> {
+        let p = b.p;
+        let m = a.p - p;
+        let c = m.dot(m) - b.r * b.r;
+        let b = m.dot(a.d);
         let disc = b * b - c;
         if disc < 0. {
             return None;
         }
 
         let t = -b - disc.sqrt();
-        if t >= 0. && t <= A.t {
+        if t >= 0. && t <= a.t {
             Some(C2Raycast {
                 t: t,
                 // TODO, check if we need to (n * -1.) if it's above 0.
-                n: (c2_impact(A, t) - p).normalize(),
+                n: (c2_impact(a, t) - p).normalize(),
             })
         } else {
             None
@@ -2343,28 +2338,28 @@ pub mod scrap {
     }
 
     // c2v c2Skew(c2v a) { c2v b; b.x = -a.y; b.y = a.x; return b; }
-    fn c2Skew(a: Vec2) -> Vec2 {
+    fn c2_skew(a: Vec2) -> Vec2 {
         Vec2::new(-a.y, a.x)
     }
 
-    fn c2RaytoCapsule(A: C2Ray, B: C2Capsule) -> Option<C2Raycast> {
-        let my = (B.b - B.a).normalize();
-        let M = C2M {
+    fn c2_rayto_capsule(a: C2Ray, b: C2Capsule) -> Option<C2Raycast> {
+        let my = (b.b - b.a).normalize();
+        let m = C2M {
             y: my,
             x: Vec2::new(-my.y, my.x),
         };
 
         // rotate capsule to origin, along Y axis
         // rotate the ray same way
-        let cap_n = B.b - B.a;
-        let yBb = c2MulmvT(M, cap_n);
-        let yAp = c2MulmvT(M, A.p - B.a);
-        let yAd = c2MulmvT(M, A.d);
-        let yAe = yAp + yAd * A.t;
+        let cap_n = b.b - b.a;
+        let y_bb = c2_mulmv_t(m, cap_n);
+        let y_ap = c2_mulmv_t(m, a.p - b.a);
+        let y_ad = c2_mulmv_t(m, a.d);
+        let y_ae = y_ap + y_ad * a.t;
 
         let capsule_bb = C2AABB {
-            min: Vec2::new(-B.r, 0.),
-            max: Vec2::new(B.r, yBb.y),
+            min: Vec2::new(-b.r, 0.),
+            max: Vec2::new(b.r, y_bb.y),
         };
 
         let out = C2Raycast {
@@ -2373,47 +2368,47 @@ pub mod scrap {
         };
 
         // check and see if ray starts within the capsule
-        if c2AABBtoPoint(capsule_bb, yAp) {
+        if c2_aabbto_point(capsule_bb, y_ap) {
             return Some(out);
         } else {
-            let capsule_a = C2Circle { p: B.a, r: B.r };
-            let capsule_b = C2Circle { p: B.b, r: B.r };
+            let capsule_a = C2Circle { p: b.a, r: b.r };
+            let capsule_b = C2Circle { p: b.b, r: b.r };
 
-            if c2CircleToPoint(capsule_a, A.p) {
+            if c2_circle_to_point(capsule_a, a.p) {
                 return Some(out);
-            } else if c2CircleToPoint(capsule_b, A.p) {
+            } else if c2_circle_to_point(capsule_b, a.p) {
                 return Some(out);
             }
         }
 
-        if yAe.x * yAp.x < 0. || yAe.x.abs().min(yAp.x.abs()) < B.r {
-            let Ca = C2Circle { p: B.a, r: B.r };
-            let Cb = C2Circle { p: B.b, r: B.r };
+        if y_ae.x * y_ap.x < 0. || y_ae.x.abs().min(y_ap.x.abs()) < b.r {
+            let ca = C2Circle { p: b.a, r: b.r };
+            let cb = C2Circle { p: b.b, r: b.r };
 
             // ray starts inside capsule prism -- must hit one of the semi-circles
-            if yAp.x.abs() < B.r {
-                if yAp.y < 0. {
-                    return c2RaytoCircle(A, Ca);
+            if y_ap.x.abs() < b.r {
+                if y_ap.y < 0. {
+                    return c2_rayto_circle(a, ca);
                 } else {
-                    return c2RaytoCircle(A, Cb);
+                    return c2_rayto_circle(a, cb);
                 }
             }
             // hit the capsule prism
             else {
-                let c = if yAp.x > 0. { B.r } else { -B.r };
-                let d = yAe.x - yAp.x;
-                let t = (c - yAp.x) / d;
-                let y = yAp.y + (yAe.y - yAp.y) * t;
+                let c = if y_ap.x > 0. { b.r } else { -b.r };
+                let d = y_ae.x - y_ap.x;
+                let t = (c - y_ap.x) / d;
+                let y = y_ap.y + (y_ae.y - y_ap.y) * t;
                 if y <= 0. {
-                    return c2RaytoCircle(A, Ca);
+                    return c2_rayto_circle(a, ca);
                 }
-                if y >= yBb.y {
-                    return c2RaytoCircle(A, Cb);
+                if y >= y_bb.y {
+                    return c2_rayto_circle(a, cb);
                 } else {
                     return Some(C2Raycast {
                         // TODO, check if we need to (n * -1.) if it's above 0.
-                        n: if c > 0. { M.x } else { c2Skew(M.y) },
-                        t: t * A.t,
+                        n: if c > 0. { m.x } else { c2_skew(m.y) },
+                        t: t * a.t,
                     });
                 }
             }

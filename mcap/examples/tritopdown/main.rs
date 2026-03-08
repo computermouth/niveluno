@@ -2,36 +2,11 @@ use ::core::f32;
 use mcap::scrap as mcap;
 
 use glam::Vec2;
-use line_clipping::cohen_sutherland::clip_line;
-use line_clipping::{LineSegment, Point, Window};
 use mcap::{
-    Surface, Triangle, Vec3, circle_wall_for_hotdog, closest_point_on_segment_v2,
-    closest_point_on_segment_v3, find_floor_height_hotdog, get_face_normal, get_step_push,
-    rect_wall_for_hotdog,
+    Surface, Vec3, closest_point_on_segment_v2,
+    find_floor_height_hotdog, get_face_normal,
 };
-use modelz;
-use raylib::ffi::RL_SRC_COLOR;
 use raylib::prelude::*;
-
-trait ToVec3 {
-    fn to_mcapv3(&self) -> Vec3;
-}
-
-trait ToVector3 {
-    fn to_rayv3(&self) -> Vector3;
-}
-
-impl ToVec3 for Vector3 {
-    fn to_mcapv3(&self) -> Vec3 {
-        Vec3::new(self.x, self.y, self.z)
-    }
-}
-
-impl ToVector3 for Vec3 {
-    fn to_rayv3(&self) -> Vector3 {
-        Vector3::new(self.x, self.y, self.z)
-    }
-}
 
 fn main() {
     const SCREEN_W: i32 = 1280;
@@ -73,8 +48,6 @@ fn main() {
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
-        let time = rl.get_time();
-        let fps = rl.get_fps();
 
         // line src movement
         {

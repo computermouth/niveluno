@@ -1,10 +1,7 @@
-use std::iter;
 use mcap::scrap as mcap;
 
-use glam::Vec2;
 use mcap::{
-    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, get_step_push,
-    get_step_push_m64, get_step_push_most_opposing, print_fi,
+    HotDog, Surface, Triangle, Vec3, find_floor_height_m64, get_face_normal, print_fi,
 };
 use modelz;
 use rand::Rng;
@@ -38,7 +35,6 @@ pub fn at_origin(v: Vector3) -> Vector3 {
 
 struct Player {
     pos: Vector3,
-    vel: Vector3,
     cam_pitch: f32,
     cam_yaw: f32,
     height: f32,
@@ -93,7 +89,6 @@ fn main() {
     let mut player = Player {
         // bottom of cylinder
         pos: origin - Vector3::new(0., 2.25, 0.),
-        vel: Vector3::zero(),
         cam_pitch: 0.,
         cam_yaw: 0.,
         height: 3.,
@@ -117,7 +112,6 @@ fn main() {
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
-        let time = rl.get_time();
         let fps = rl.get_fps();
 
         total += fps as f32;
@@ -204,7 +198,7 @@ fn main() {
             lout = ldst.with_y(ldst.y - player.chest_height);
 
             let snap = player.height - player.chest_height;
-            if let Some((floor, y)) = find_floor_height_m64(lout, snap, &floors) {
+            if let Some((_floor, y)) = find_floor_height_m64(lout, snap, &floors) {
                 lout.y = y - player.radius * 0.001;
                 // // todo, apply this to inter-frame velocity
                 // // zero out y, project step onto floor normal
