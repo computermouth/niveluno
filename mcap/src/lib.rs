@@ -2831,6 +2831,17 @@ pub mod real {
                     let p2v2 = Vec2::new(tri.verts[1].x, tri.verts[1].z);
                     let p3v2 = Vec2::new(tri.verts[2].x, tri.verts[2].z);
 
+                    // // OLD METHOD 0
+                    // let y = solve_plane_y(tri.normal, tri.origin_offset, posv2.x, posv2.y);
+                    // // OLD METHOD 1
+                    // let y = solve_plane_y(tri.normal, tri.origin_offset, posv2.x, posv2.y).clamp(tri.min_y, tri.max_y);
+                    // // OLD METHOD 2
+                    // let y = solve_plane_y(tri.normal, tri.origin_offset, highest.x, highest.y).clamp(tri.min_y, tri.max_y);
+                    // where highest is just posv2 + uphill * (radius / uphill_len); unchecked
+                    // a floor slanted up and away still suffered from this issue if you were
+                    // traveling up it's slope, and beyond an edge, but still inside min_y and max_y
+                    //
+                    // // FINAL METHOD
                     // get a point uphill by radius / uphill_len
                     // but make sure it's inside the triangle or clipped to
                     // a nearest point on 2d segment.
@@ -2839,27 +2850,31 @@ pub mod real {
                     // we don't want to snap up it, and we also don't want to scale up
                     // and invisible slope beyond it.
                     let uphill = Vec2::new(-tri.normal.x, -tri.normal.z);
-                    // let uphill_len = ;
+                    let uphill_len = uphill.length();
                     // let highest = if uphill_len > f32::EPSILON {
-                    let tmp_highest = posv2 + uphill * (radius / uphill.length());
+                    let highest = if uphill_len > f32::EPSILON {
+                        posv2 + uphill * (radius / uphill_len)
+                    } else {
+                        posv2
+                    };
                     if flattened_point_inside_flattened_triangle(
-                            Vec3::new(tmp_highest.x, 0., tmp_highest.y),
+                            Vec3::new(highest.x, 0., highest.y),
                             tri.verts[0],
                             tri.verts[1],
                             tri.verts[2],
                     ){
                         // raycast hits inside tri
-                        let y = solve_plane_y(tri.normal, tri.origin_offset, tmp_highest.x, tmp_highest.y);
+                        let y = solve_plane_y(tri.normal, tri.origin_offset, highest.x, highest.y);
                         break 'ray_c y;
                     } else {
                         // get closest point to target position
-                        let np1 = closest_point_on_segment_v2(tmp_highest, p1v2, p2v2);
-                        let np2 = closest_point_on_segment_v2(tmp_highest, p2v2, p3v2);
-                        let np3 = closest_point_on_segment_v2(tmp_highest, p3v2, p1v2);
+                        let np1 = closest_point_on_segment_v2(highest, p1v2, p2v2);
+                        let np2 = closest_point_on_segment_v2(highest, p2v2, p3v2);
+                        let np3 = closest_point_on_segment_v2(highest, p3v2, p1v2);
 
-                        let d1 = np1.distance(tmp_highest);
-                        let d2 = np2.distance(tmp_highest);
-                        let d3 = np3.distance(tmp_highest);
+                        let d1 = np1.distance(highest);
+                        let d2 = np2.distance(highest);
+                        let d3 = np3.distance(highest);
 
                         let highest = if d1 <= d2 && d1 <= d3 {
                             np1

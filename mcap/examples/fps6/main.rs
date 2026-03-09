@@ -86,7 +86,8 @@ impl Levels {
     }
 
     fn next(&mut self) {
-        self.current = (self.current + 1) % self.names.len()
+        self.current = (self.current + 1) % self.names.len();
+        eprintln!("tris: {}", self.surfaces[self.current].len());
     }
 }
 
