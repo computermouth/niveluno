@@ -2831,90 +2831,53 @@ pub mod real {
                     let p2v2 = Vec2::new(tri.verts[1].x, tri.verts[1].z);
                     let p3v2 = Vec2::new(tri.verts[2].x, tri.verts[2].z);
 
-                    // // OLD METHOD 0
-                    // let y = solve_plane_y(tri.normal, tri.origin_offset, posv2.x, posv2.y);
-                    // // OLD METHOD 1
-                    // let y = solve_plane_y(tri.normal, tri.origin_offset, posv2.x, posv2.y).clamp(tri.min_y, tri.max_y);
-                    // // OLD METHOD 2
-                    // let y = solve_plane_y(tri.normal, tri.origin_offset, highest.x, highest.y).clamp(tri.min_y, tri.max_y);
-                    // where highest is just posv2 + uphill * (radius / uphill_len); unchecked
-                    // a floor slanted up and away still suffered from this issue if you were
-                    // traveling up it's slope, and beyond an edge, but still inside min_y and max_y
-                    //
-                    // // FINAL METHOD
                     // get a point uphill by radius / uphill_len
                     // but make sure it's inside the triangle or clipped to
                     // a nearest point on 2d segment.
                     //
-                    // it's unfortunately a sizable performance hit, ~7%??
-                    //
-                    // this keeps toes outside the slide
-                    // we could kill this whole chunk and
-                    // go with the above, but then toes will
-                    // clip the inclines, AND we get horrible
-                    // bonk at the top
+                    // this is all to stop a horrible bonk at the top of a floor tri
+                    // we don't want to snap up it, and we also don't want to scale up
+                    // and invisible slope beyond it.
                     let uphill = Vec2::new(-tri.normal.x, -tri.normal.z);
-                    let uphill_len = uphill.length();
-                    let highest = if uphill_len > f32::EPSILON {
-                        let tmp_highest = posv2 + uphill * (radius / uphill_len);
-                        if flattened_point_inside_flattened_triangle(
-                                Vec3::new(tmp_highest.x, 0., tmp_highest.y),
-                                tri.verts[0],
-                                tri.verts[1],
-                                tri.verts[2],
-                        ){
-                            let y = solve_plane_y(tri.normal, tri.origin_offset, tmp_highest.x, tmp_highest.y);
-                            break 'ray_c y;
-                        } else {
-                            let np1 = closest_point_on_segment_v2(tmp_highest, p1v2, p2v2);
-                            let np2 = closest_point_on_segment_v2(tmp_highest, p2v2, p3v2);
-                            let np3 = closest_point_on_segment_v2(tmp_highest, p3v2, p1v2);
-
-                            let d1 = np1.distance(tmp_highest);
-                            let d2 = np2.distance(tmp_highest);
-                            let d3 = np3.distance(tmp_highest);
-
-                            if d1 <= d2 && d1 <= d3 {
-                                np1
-                            } else if d2 <= d3 {
-                                np2
-                            } else {
-                                np3
-                            }
-                        }
-                    } else {
-                        posv2
-                    };
-                    let y = solve_plane_y(tri.normal, tri.origin_offset, highest.x, highest.y);
-
-                    // raycast down
-                    // todo, start these v2's for flattened point test,
-                    // and replace all these copies with &Vec2
+                    // let uphill_len = ;
+                    // let highest = if uphill_len > f32::EPSILON {
+                    let tmp_highest = posv2 + uphill * (radius / uphill.length());
                     if flattened_point_inside_flattened_triangle(
-                        pos,
-                        tri.verts[0],
-                        tri.verts[1],
-                        tri.verts[2],
-                    ) {
+                            Vec3::new(tmp_highest.x, 0., tmp_highest.y),
+                            tri.verts[0],
+                            tri.verts[1],
+                            tri.verts[2],
+                    ){
+                        // raycast hits inside tri
+                        let y = solve_plane_y(tri.normal, tri.origin_offset, tmp_highest.x, tmp_highest.y);
                         break 'ray_c y;
-                    }
+                    } else {
+                        // get closest point to target position
+                        let np1 = closest_point_on_segment_v2(tmp_highest, p1v2, p2v2);
+                        let np2 = closest_point_on_segment_v2(tmp_highest, p2v2, p3v2);
+                        let np3 = closest_point_on_segment_v2(tmp_highest, p3v2, p1v2);
 
-                    // and then check hotdogs
-                    let cp1 = closest_point_on_segment_v2(posv2, p1v2, p2v2);
-                    let cp2 = closest_point_on_segment_v2(posv2, p2v2, p3v2);
-                    let cp3 = closest_point_on_segment_v2(posv2, p3v2, p1v2);
-                    let cp1d = cp1.distance(posv2);
-                    let cp2d = cp2.distance(posv2);
-                    let cp3d = cp3.distance(posv2);
-                    let threshold = radius + radius * SKIN_FACTOR * 2.;
-                    if cp1d > threshold && cp2d > threshold && cp3d > threshold {
-                        // neither inside flattened triangle, nor within threshold
-                        continue 'sloop;
-                    }
+                        let d1 = np1.distance(tmp_highest);
+                        let d2 = np2.distance(tmp_highest);
+                        let d3 = np3.distance(tmp_highest);
 
-                    // we have to clamp this one, because we don't want an invisible upward/downward
-                    // extension of a sloped floor
-                    y
+                        let highest = if d1 <= d2 && d1 <= d3 {
+                            np1
+                        } else if d2 <= d3 {
+                            np2
+                        } else {
+                            np3
+                        };
+
+                        // see if it's inside radius + 2SKIN
+                        let threshold = radius + radius * SKIN_FACTOR * 2.;
+                        if highest.distance(posv2) > threshold {
+                            // neither inside flattened triangle, nor within threshold
+                            continue 'sloop;
+                        }
+
+                        solve_plane_y(tri.normal, tri.origin_offset, highest.x, highest.y)
+                    }
                 }, 
                 _ => continue,
             };
