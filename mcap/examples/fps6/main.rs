@@ -39,6 +39,7 @@ pub fn at_origin(v: Vector3) -> Vector3 {
     v + Vector3::one() * 100.
 }
 
+#[derive(Clone, Copy)]
 struct Player {
     pos: Vector3, // foot position
     velocity: Vector3,
@@ -48,6 +49,8 @@ struct Player {
     chest_height: f32,
     radius: f32,
     on_ground: bool,
+    snap_up: f32,
+    snap_down: f32,
 }
 
 // 4x regular gravity, 4x regular terminal velocity
@@ -81,6 +84,10 @@ impl Levels {
     fn model(&self) -> &Model {
         &self.models[self.current]
     }
+
+    fn next(&mut self) {
+        self.current = (self.current + 1) % self.names.len()
+    }
 }
 
 fn main() {
@@ -113,25 +120,30 @@ fn main() {
 
     let bob = load("res/bob.glb");
     let nmap = load("res/nmap.glb");
-
+    let auto2 = load("res/auto2.glb");
     
-    let levels = Levels::new()
+    let mut levels = Levels::new()
         .push(bob)
-        .push(nmap);
+        .push(nmap)
+        .push(auto2);
 
-    let surfaces = levels.surfaces();
-    let model = levels.model();
+    let mut surfaces = levels.surfaces();
+    let mut model = levels.model();
 
-    let mut player = Player {
-        pos: origin - Vector3::new(0., 5., 0.),
+    let n_player = Player {
+        pos: origin,
         velocity: Vector3::new(0., 0., 0.),
         cam_pitch: 0.,
         cam_yaw: 0.,
-        height: 3.,
-        chest_height: 2.,
-        radius: 1.,
+        height: 2.,
+        chest_height: 2. *  (2. / 3.),
+        radius: 2. / 3.,
         on_ground: false,
+        snap_up: 1.,
+        snap_down: 0.5,
     };
+
+    let mut player = n_player;
 
     rl.disable_cursor();
 
@@ -143,6 +155,14 @@ fn main() {
         let fps = rl.get_fps();
         total += fps as f32;
         fc += 1.0;
+
+        let n = rl.is_key_released(KeyboardKey::KEY_N);
+        if n {
+            levels.next();
+            surfaces = levels.surfaces();
+            model = levels.model();
+            player = n_player;
+        }
 
         let mouse_in = rl.get_mouse_delta();
         rl.set_mouse_position(Vector2::new(320., 240.));
@@ -169,14 +189,20 @@ fn main() {
         let ws = w as i8 as f32 - s as i8 as f32;
         let ad = a as i8 as f32 - d as i8 as f32;
         let space = rl.is_key_down(KeyboardKey::KEY_SPACE);
+        let sprint = rl.is_key_down(KeyboardKey::KEY_LEFT_SHIFT);
 
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
         let right_dir = -forward_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalized();
-
         let move_dir = (forward_dir * ws + right_dir * ad).normalized();
+
+        let speed = 100.;
+        let sprint_factor = match sprint {
+            true => 1.5,
+            false => 1.0,
+        };
         let move_speed = match player.on_ground {
-            true => 100.0,
-            false => 80.0,
+            true => 1. * sprint_factor * speed,
+            false => 0.8 * sprint_factor * speed,
         };
         let friction = match player.on_ground {
             true => 10.,
@@ -196,13 +222,17 @@ fn main() {
         (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, surfaces);
 
         // floor find, snap, gravity
-        let snap = 1.;
         let mut draw_floor = None;
         let mut draw_ciel = None;
 
+        // snap down only when on ground
+        let snap_down = match player.on_ground {
+            true => player.snap_down,
+            false => 0.
+        };
         // radius is the range from player's center they start falling at
         // here, when center is half-radius off a ledge, starts falling
-        match find_floor_height_hotdog_v4(pos, snap, snap / 4., surfaces, player.radius / 2.) {
+        match find_floor_height_hotdog_v4(pos, player.snap_up, snap_down, surfaces, player.radius / 2.) {
             Some((Surface::Floor(floor), y)) => {
                 // don't floor snap if we're not moving down
                 // mitigates not reaching escape velocity of snap with jump
@@ -285,10 +315,10 @@ fn main() {
 
                 for surf in surfaces {
                     match surf {
-                        Surface::Wall(tri) => draw_surf(&mut d3d, &tri, Color::GREEN.alpha(0.5)),
-                        Surface::Floor(tri) => draw_surf(&mut d3d, &tri, Color::RED.alpha(0.5)),
-                        Surface::Slide(tri) => draw_surf(&mut d3d, &tri, Color::BLUE.alpha(0.5)),
-                        Surface::Cieling(tri) => draw_surf(&mut d3d, &tri, Color::YELLOW.alpha(0.5)),
+                        Surface::Wall(tri) => draw_surf(&mut d3d, &tri, Color::GREEN.alpha(0.25)),
+                        Surface::Floor(tri) => draw_surf(&mut d3d, &tri, Color::RED.alpha(0.25)),
+                        Surface::Slide(tri) => draw_surf(&mut d3d, &tri, Color::BLUE.alpha(0.25)),
+                        Surface::Cieling(tri) => draw_surf(&mut d3d, &tri, Color::YELLOW.alpha(0.25)),
                     }
                 }
 
@@ -306,7 +336,7 @@ fn main() {
                     player.radius / 2.,
                     player.height,
                     16,
-                    Color::YELLOW,
+                    Color::GRAY,
                 );
 
                 // wall-test sphere at chest height
@@ -314,10 +344,10 @@ fn main() {
 
                 // step cylinder
                 d3d.draw_cylinder_wires(
-                    player.pos - Vector3::new(0., snap / 4., 0.),
-                    player.radius,
-                    player.radius,
-                    snap / 4. + snap,
+                    player.pos - Vector3::new(0., snap_down, 0.),
+                    player.radius / 2.,
+                    player.radius / 2.,
+                    player.snap_up + snap_down,
                     15,
                     Color::RED,
                 );
@@ -325,9 +355,9 @@ fn main() {
                 // cieling cylinder
                 d3d.draw_cylinder_wires(
                     player.pos + Vector3::new(0., player.chest_height, 0.),
+                    player.radius / 2.,
+                    player.radius / 2.,
                     player.radius,
-                    player.radius,
-                    player.height - player.chest_height,
                     14,
                     Color::YELLOWGREEN,
                 );
