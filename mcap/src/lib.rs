@@ -2851,7 +2851,7 @@ pub mod real {
                     // and invisible slope beyond it.
                     let uphill = Vec2::new(-tri.normal.x, -tri.normal.z);
                     let uphill_len = uphill.length();
-                    // let highest = if uphill_len > f32::EPSILON {
+                    // why is this necessary again?? -- radius / 0 == NaN
                     let highest = if uphill_len > f32::EPSILON {
                         posv2 + uphill * (radius / uphill_len)
                     } else {

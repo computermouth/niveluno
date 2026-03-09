@@ -89,6 +89,14 @@ impl Levels {
         self.current = (self.current + 1) % self.names.len();
         eprintln!("tris: {}", self.surfaces[self.current].len());
     }
+
+    fn current(&self) -> usize {
+        self.current
+    }
+
+    fn count(&self) -> usize {
+        self.names.len() - 1
+    }
 }
 
 fn main() {
@@ -151,6 +159,8 @@ fn main() {
     let mut total = 0.;
     let mut fc: f32 = 0.;
 
+    let mut draw_surfs = true;
+
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
         let fps = rl.get_fps();
@@ -164,6 +174,15 @@ fn main() {
             model = levels.model();
             player = n_player;
         }
+        let r = rl.is_key_released(KeyboardKey::KEY_R);
+        if r {
+            player = n_player;
+        }
+        let t = rl.is_key_released(KeyboardKey::KEY_T);
+        if t {
+            draw_surfs = !draw_surfs;
+        }
+
 
         let mouse_in = rl.get_mouse_delta();
         rl.set_mouse_position(Vector2::new(320., 240.));
@@ -316,18 +335,18 @@ fn main() {
 
                 for surf in surfaces {
                     match surf {
-                        Surface::Wall(tri) => draw_surf(&mut d3d, &tri, Color::GREEN.alpha(0.25)),
-                        Surface::Floor(tri) => draw_surf(&mut d3d, &tri, Color::RED.alpha(0.25)),
-                        Surface::Slide(tri) => draw_surf(&mut d3d, &tri, Color::BLUE.alpha(0.25)),
-                        Surface::Cieling(tri) => draw_surf(&mut d3d, &tri, Color::YELLOW.alpha(0.25)),
+                        Surface::Wall(tri)    => if draw_surfs { draw_surf(&mut d3d, &tri, Color::GREEN.alpha(0.25))  },
+                        Surface::Floor(tri)   => if draw_surfs { draw_surf(&mut d3d, &tri, Color::RED.alpha(0.25))    },
+                        Surface::Slide(tri)   => if draw_surfs { draw_surf(&mut d3d, &tri, Color::BLUE.alpha(0.25))   },
+                        Surface::Cieling(tri) => if draw_surfs { draw_surf(&mut d3d, &tri, Color::YELLOW.alpha(0.25)) },
                     }
                 }
 
                 if let Some(ft) = draw_floor {
-                    draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5));
+                    if draw_surfs { draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5)) };
                 }
                 if let Some(ft) = draw_ciel {
-                    draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5));
+                    if draw_surfs { draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5)) };
                 }
 
                 // player cylinder
@@ -391,6 +410,34 @@ fn main() {
                 ),
                 20,
                 120,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!(
+                    "(N)ext -- level: {}/{}",
+                    levels.current() + 1, levels.count() + 1
+                ),
+                20,
+                140,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!(
+                    "(R)eset"
+                ),
+                20,
+                160,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!(
+                    "(T)ri debug: {:?}", draw_surfs
+                ),
+                20,
+                180,
                 20,
                 Color::WHITE,
             );
