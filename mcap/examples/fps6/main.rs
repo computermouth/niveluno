@@ -61,12 +61,13 @@ struct Levels {
     names: Vec<String>,
     models: Vec<Model>,
     surfaces: Vec<Vec<Surface>>,
+    grids: u32, // todo, replace
     current: usize,
 }
 
 impl Levels {
     fn new() -> Self {
-        Levels { names: vec![], models: vec![], surfaces: vec![], current: 0 }
+        Levels { names: vec![], models: vec![], surfaces: vec![], grids: 0, current: 0 }
     }
 
     fn push(mut self, load: (String, Model, Vec<Surface>)) -> Self {
@@ -96,6 +97,10 @@ impl Levels {
 
     fn count(&self) -> usize {
         self.names.len() - 1
+    }
+
+    fn name(&self) -> &String {
+        &self.names[self.current]
     }
 }
 
@@ -130,11 +135,13 @@ fn main() {
     let bob = load("res/bob.glb");
     let nmap = load("res/nmap.glb");
     let auto2 = load("res/auto2.glb");
+    let e1m1 = load("res/e1m1.glb");
     
     let mut levels = Levels::new()
         .push(bob)
         .push(nmap)
-        .push(auto2);
+        .push(auto2)
+        .push(e1m1);
 
     let mut surfaces = levels.surfaces();
     let mut model = levels.model();
@@ -415,8 +422,8 @@ fn main() {
             );
             d.draw_text(
                 &format!(
-                    "(N)ext -- level: {}/{}",
-                    levels.current() + 1, levels.count() + 1
+                    "(N)ext -- level: {}/{} -- {}",
+                    levels.current() + 1, levels.count() + 1, levels.name()
                 ),
                 20,
                 140,
