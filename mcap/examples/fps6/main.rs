@@ -175,6 +175,7 @@ fn main() {
 
     let mut draw_surfs = true;
     let mut collision_mode = CollisionMode::All;
+    let mut show_grid = false;
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -216,6 +217,10 @@ fn main() {
                 CollisionMode::Single => CollisionMode::Cube,
                 CollisionMode::Cube => CollisionMode::All,
             }
+        }
+        let g = rl.is_key_released(KeyboardKey::KEY_G);
+        if g {
+            show_grid = !show_grid;
         }
 
         let mouse_in = rl.get_mouse_delta();
@@ -395,6 +400,28 @@ fn main() {
                 if let Some(ft) = draw_ciel {
                     if draw_surfs { draw_surf(&mut d3d, &ft, Color::ORANGE.alpha(0.5)) };
                 }
+                if show_grid {
+                    let igrid = (grid_pos.0 as i32, grid_pos.1 as i32, grid_pos.2 as i32);
+
+                    for dx in -2i32..=2 {
+                        let x = (igrid.0 + dx) as f32;
+                        for dy in -2i32..=2 {
+                            let y = (igrid.1 + dy) as f32;
+                            for dz in -2i32..=2 {
+                                let z = (igrid.2 + dz) as f32;
+
+                                let start_pos = Vector3::new(x * 10., y * 10., z * 10.);
+
+                                let ep1 = start_pos + Vector3::new(0., 0., 10.);
+                                let ep2 = start_pos + Vector3::new(0., 10., 0.);
+                                let ep3 = start_pos + Vector3::new(10., 0., 0.);
+                                d3d.draw_line_3D(start_pos, ep1, Color::YELLOW);
+                                d3d.draw_line_3D(start_pos, ep2, Color::YELLOW);
+                                d3d.draw_line_3D(start_pos, ep3, Color::YELLOW);
+                            }
+                        }
+                    }
+                }
 
                 // player cylinder
                 d3d.draw_cylinder_wires(
@@ -494,6 +521,15 @@ fn main() {
                 ),
                 20,
                 200,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!(
+                    "(G)rid cell: {:?}", grid_pos
+                ),
+                20,
+                220,
                 20,
                 Color::WHITE,
             );

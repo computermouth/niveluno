@@ -25,7 +25,7 @@ TRIS | 962  | 7234 | 2258 | 3564 |
      |             10            |
      |===========================|
 ALL  | 4280 | 3599 | 4679 | 3116 |
-CUBE | 4690 | 4832 | 4869 | 3650 | <- do this
+CUBE | 4690 | 4832 | 4869 | 3650 |
 ONE  | 4800 | 5435 | 5835 | 3800 |
      |===========================|
      |           10+1            |
@@ -34,7 +34,7 @@ ONE  | 4805 | 5257 | 5350 | 3650 |
      |===========================|
      |            5+1            |
      |===========================|
-ONE  | 4813 | 5460 | 5784 | 3760 |
+ONE  | 4813 | 5460 | 5784 | 3760 | <- do this
      |===========================|
      |              5            |
      |===========================|
@@ -65,12 +65,15 @@ impl SurfaceGrid {
             let min_z = verts[0].z.min(verts[1].z).min(verts[2].z);
             let max_z = verts[0].z.max(verts[1].z).max(verts[2].z);
 
-            let grid_min_x = (min_x / GRID_SIZE).floor() as i32;
-            let grid_max_x = (max_x / GRID_SIZE).floor() as i32;
-            let grid_min_y = (min_y / GRID_SIZE).floor() as i32;
-            let grid_max_y = (max_y / GRID_SIZE).floor() as i32;
-            let grid_min_z = (min_z / GRID_SIZE).floor() as i32;
-            let grid_max_z = (max_z / GRID_SIZE).floor() as i32;
+            // +/- 1
+            // registers every triangle in all neighboring grids,
+            // getting cube functionality in 1 lookup - no alloc
+            let grid_min_x = (min_x / GRID_SIZE).floor() as i32 - 1;
+            let grid_max_x = (max_x / GRID_SIZE).floor() as i32 + 1;
+            let grid_min_y = (min_y / GRID_SIZE).floor() as i32 - 1 ;
+            let grid_max_y = (max_y / GRID_SIZE).floor() as i32 + 1;
+            let grid_min_z = (min_z / GRID_SIZE).floor() as i32 - 1;
+            let grid_max_z = (max_z / GRID_SIZE).floor() as i32 + 1;
 
             let ptr: *const Surface = ptr::from_ref(surf);
             for x in grid_min_x..=grid_max_x {
