@@ -63,7 +63,16 @@ const TERMINAL_VEL: f32 = -216.0;
 enum CollisionMode {
     All,
     Single,
-    Cube,
+    // Cube,
+}
+
+#[derive(Debug)]
+enum FpsMode {
+    Uncapped,
+    Cap15,
+    Cap30,
+    Cap60,
+    Cap240,
 }
 
 struct Levels {
@@ -174,8 +183,9 @@ fn main() {
     let mut fps_accum_frames: u32 = 0;
 
     let mut draw_surfs = true;
-    let mut collision_mode = CollisionMode::All;
+    let mut collision_mode = CollisionMode::Single;
     let mut show_grid = false;
+    let mut fps_mode = FpsMode::Uncapped;
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -214,8 +224,18 @@ fn main() {
         if c {
             collision_mode = match collision_mode {
                 CollisionMode::All => CollisionMode::Single,
-                CollisionMode::Single => CollisionMode::Cube,
-                CollisionMode::Cube => CollisionMode::All,
+                CollisionMode::Single => CollisionMode::All,
+                // CollisionMode::Cube => CollisionMode::All,
+            }
+        }
+        let f = rl.is_key_released(KeyboardKey::KEY_F);
+        if f {
+            fps_mode = match fps_mode {
+                FpsMode::Uncapped => { rl.set_target_fps(15); FpsMode::Cap15},
+                FpsMode::Cap15 => { rl.set_target_fps(30); FpsMode::Cap30},
+                FpsMode::Cap30 => { rl.set_target_fps(60); FpsMode::Cap60},
+                FpsMode::Cap60 => { rl.set_target_fps(240); FpsMode::Cap240},
+                FpsMode::Cap240 => { rl.set_target_fps(99999); FpsMode::Uncapped},
             }
         }
         let g = rl.is_key_released(KeyboardKey::KEY_G);
@@ -275,81 +295,100 @@ fn main() {
             player.velocity.y = 15.;
         }
 
-        let mut pos = (player.pos + player.velocity * fd).to_mcapv3();
+        let max_move_dist = player.radius / 2.;
+        let desired_move = player.velocity * fd;
+        let desired_move_len = desired_move.length();
 
-        let grid_pos = {
-            let fgpos = pos / grid::GRID_SIZE;
-            (fgpos.x.floor() as u32, fgpos.y.floor() as u32, fgpos.z.floor() as u32 )
+        let (move_count, move_dist) = if desired_move_len < max_move_dist {
+            (1, desired_move)
+        } else {
+            let move_count = (desired_move.length() / max_move_dist) as u32 + 1;
+            let move_dist = desired_move / move_count as f32;
+            (move_count, move_dist)
         };
 
-        let collision_surfaces = match collision_mode {
-            CollisionMode::All => levels.grid().all_surfaces().unwrap_or_default(),
-            CollisionMode::Single => levels.grid().surfaces_in_cell(grid_pos).unwrap_or_default(),
-            CollisionMode::Cube => &levels.grid().surfaces_in_cell_and_adjacent(grid_pos),
-        };
-
-        // wall push
-        (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, collision_surfaces);
-
-        // floor find, snap, gravity
+        let mut grid_pos = (0, 0, 0);
+        let mut collision_surfaces: &[&Surface] = &vec![];
         let mut draw_floor = None;
         let mut draw_ciel = None;
+        let mut snap_down = 0.;
 
-        // snap down only when on ground
-        let snap_down = match player.on_ground {
-            true => player.snap_down,
-            false => 0.
-        };
-        // radius is the range from player's center they start falling at
-        // here, when center is half-radius off a ledge, starts falling
-        match find_floor_height_hotdog_v4(pos, player.snap_up, snap_down, collision_surfaces, player.radius / 2.) {
-            Some((Surface::Floor(floor), y)) => {
-                // don't floor snap if we're not moving down
-                // mitigates not reaching escape velocity of snap with jump
-                if player.velocity.y <= 0. {
+        for _ in 0..move_count {
+
+            let fd = fd / (move_count as f32);
+
+            let mut pos = (player.pos + move_dist).to_mcapv3();
+
+            grid_pos = {
+                let fgpos = pos / grid::GRID_SIZE;
+                (fgpos.x.floor() as u32, fgpos.y.floor() as u32, fgpos.z.floor() as u32 )
+            };
+
+            collision_surfaces = match collision_mode {
+                CollisionMode::All => levels.grid().all_surfaces().unwrap_or_default(),
+                CollisionMode::Single => levels.grid().surfaces_in_cell(grid_pos).unwrap_or_default(),
+                // CollisionMode::Cube => &levels.grid().surfaces_in_cell_and_adjacent(grid_pos),
+                _ => unreachable!(),
+            };
+
+            // wall push
+            (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, collision_surfaces);
+
+            // snap down only when on ground
+            snap_down = match player.on_ground {
+                true => player.snap_down,
+                false => 0.
+            };
+            // radius is the range from player's center they start falling at
+            // here, when center is half-radius off a ledge, starts falling
+            match find_floor_height_hotdog_v4(pos, player.snap_up, snap_down, collision_surfaces, player.radius / 2.) {
+                Some((Surface::Floor(floor), y)) => {
+                    // don't floor snap if we're not moving down
+                    // mitigates not reaching escape velocity of snap with jump
+                    if player.velocity.y <= 0. {
+                        pos.y = y;
+                        player.velocity.y = player.velocity.y.max(0.0);
+                        player.on_ground = true;
+                        draw_floor = Some(floor);
+                    } else {
+                        // falling
+                        player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
+                        player.on_ground = false;
+                    }
+                }
+                Some((Surface::Slide(slide), y)) => {
                     pos.y = y;
-                    player.velocity.y = player.velocity.y.max(0.0);
-                    player.on_ground = true;
-                    draw_floor = Some(floor);
-                } else {
+                    let n = slide.normal().to_rayv3();
+                    let g = Vector3::new(0.0, GRAVITY, 0.0);
+                    let g_slide = g - n * g.dot(n);
+
+                    // remove velocity into the slope
+                    let vel_into_slope = n * player.velocity.dot(n);
+                    player.velocity = player.velocity - vel_into_slope;
+
+                    // just feels better with 2x grav
+                    player.velocity = player.velocity + g_slide * fd;
+
+                    player.on_ground = false;
+                    draw_floor = Some(slide);
+                }
+                _ => {
                     // falling
                     player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
                     player.on_ground = false;
                 }
             }
-            Some((Surface::Slide(slide), y)) => {
-                pos.y = y;
-                let n = slide.normal().to_rayv3();
-                let g = Vector3::new(0.0, GRAVITY, 0.0);
-                let g_slide = g - n * g.dot(n);
 
-                // remove velocity into the slope
-                let vel_into_slope = n * player.velocity.dot(n);
-                player.velocity = player.velocity - vel_into_slope;
-
-                // just feels better with 2x grav
-                player.velocity = player.velocity + g_slide * fd * 2.;
-
-                player.on_ground = false;
-                draw_floor = Some(slide);
+            // cieling clamp
+            if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, collision_surfaces, player.radius / 2. ) {
+                pos.y = y - player.height;
+                player.velocity.y = player.velocity.y.min(0.0);
+                draw_ciel = Some(ciel);
             }
-            _ => {
-                // falling
-                player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
-                player.on_ground = false;
-            }
+
+            player.pos = pos.to_rayv3();
+
         }
-
-        // cieling clamp
-        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, collision_surfaces, player.radius / 2. ) {
-            pos.y = y - player.height;
-            player.velocity.y = player.velocity.y.min(0.0);
-            draw_ciel = Some(ciel);
-        }
-
-        eprintln!("dist: {}", player.pos.distance_to(pos.to_rayv3()));
-
-        player.pos = pos.to_rayv3();
 
         let player_top = player.pos + Vector3::new(0., player.height, 0.);
         let player_chest = player.pos + Vector3::new(0., player.chest_height, 0.);
@@ -468,7 +507,7 @@ fn main() {
                 20,
                 Color::WHITE,
             );
-            d.draw_text(&format!("fps: {:.0}", fps), 20, 60, 20, Color::WHITE);
+            d.draw_text(&format!("(F)ps: {:?} {:.0}", fps_mode, fps), 20, 60, 20, Color::WHITE);
             d.draw_text(&format!("avg: {:.0}", avg_fps), 20, 80, 20, Color::WHITE);
             d.draw_text(
                 &format!("on_ground: {:?}", player.on_ground),
@@ -530,6 +569,24 @@ fn main() {
                 ),
                 20,
                 220,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!(
+                    "move count: {}", move_count
+                ),
+                20,
+                240,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!(
+                    "move dist: {:0.4} {:0.4} {:0.4}", move_dist.x, move_dist.y, move_dist.z
+                ),
+                20,
+                260,
                 20,
                 Color::WHITE,
             );
