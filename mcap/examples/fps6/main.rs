@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use rand::Rng;
 use mcap::real as mcap;
 
 use mcap::{
@@ -186,6 +187,13 @@ fn main() {
     let mut collision_mode = CollisionMode::Single;
     let mut show_grid = false;
     let mut fps_mode = FpsMode::Uncapped;
+    let mut auto_move = false;
+    let mut auto_time_passed = 0.0f32;
+    let mut auto_ws = 1.0f32;
+    let mut auto_ad = 0.0f32;
+    let mut auto_mouse = Vector2::zero();
+    let mut auto_jump = false;
+    let mut rng = rand::rng();
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
@@ -213,7 +221,7 @@ fn main() {
             player = n_player;
         }
         let r = rl.is_key_released(KeyboardKey::KEY_R);
-        if r {
+        if r || player.pos.y < 0. {
             player = n_player;
         }
         let t = rl.is_key_released(KeyboardKey::KEY_T);
@@ -242,11 +250,40 @@ fn main() {
         if g {
             show_grid = !show_grid;
         }
+        if rl.is_key_released(KeyboardKey::KEY_TAB) {
+            auto_move = !auto_move;
+        }
 
-        let mouse_in = rl.get_mouse_delta();
-        rl.set_mouse_position(Vector2::new(320., 240.));
-        player.cam_pitch = (player.cam_pitch + mouse_in.y * 0.0015).clamp(-0.9, 0.9);
-        player.cam_yaw += mouse_in.x * 0.0015;
+        let (ws, ad, space, sprint);
+        if auto_move {
+            auto_time_passed += fd;
+            if auto_time_passed > 3. {
+                auto_ws = rng.random_range(0f32..1f32);
+                auto_ad = rng.random_range(0f32..1f32);
+                auto_mouse = Vector2::new(rng.random_range(-1f32..1f32), 0.) * 0.30;
+                auto_jump = rng.random_range(0f32..1f32) > 0.5;
+                auto_time_passed = 0.;
+            }
+            player.cam_pitch = (player.cam_pitch + auto_mouse.y * 0.0015).clamp(-0.9, 0.9);
+            player.cam_yaw += auto_mouse.x * 0.0015;
+            ws = auto_ws;
+            ad = auto_ad;
+            space = auto_jump;
+            sprint = false;
+        } else {
+            let mouse_in = rl.get_mouse_delta();
+            rl.set_mouse_position(Vector2::new(320., 240.));
+            player.cam_pitch = (player.cam_pitch + mouse_in.y * 0.0015).clamp(-0.9, 0.9);
+            player.cam_yaw += mouse_in.x * 0.0015;
+            let w = rl.is_key_down(KeyboardKey::KEY_W);
+            let a = rl.is_key_down(KeyboardKey::KEY_A);
+            let s = rl.is_key_down(KeyboardKey::KEY_S);
+            let d = rl.is_key_down(KeyboardKey::KEY_D);
+            ws = w as i8 as f32 - s as i8 as f32;
+            ad = a as i8 as f32 - d as i8 as f32;
+            space = rl.is_key_down(KeyboardKey::KEY_SPACE);
+            sprint = rl.is_key_down(KeyboardKey::KEY_LEFT_SHIFT);
+        }
 
         let camera_dir = Vector3::new(
             player.cam_yaw.cos() * player.cam_pitch.cos(),
@@ -260,15 +297,6 @@ fn main() {
         {
             rl.toggle_fullscreen();
         }
-
-        let w = rl.is_key_down(KeyboardKey::KEY_W);
-        let a = rl.is_key_down(KeyboardKey::KEY_A);
-        let s = rl.is_key_down(KeyboardKey::KEY_S);
-        let d = rl.is_key_down(KeyboardKey::KEY_D);
-        let ws = w as i8 as f32 - s as i8 as f32;
-        let ad = a as i8 as f32 - d as i8 as f32;
-        let space = rl.is_key_down(KeyboardKey::KEY_SPACE);
-        let sprint = rl.is_key_down(KeyboardKey::KEY_LEFT_SHIFT);
 
         let forward_dir = Vector3::new(-camera_dir.x, 0.0, -camera_dir.z).normalized();
         let right_dir = -forward_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalized();
