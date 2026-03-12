@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use mcap::real as mcap;
 
 use mcap::{
@@ -7,6 +8,7 @@ use modelz;
 use raylib::prelude::*;
 
 mod triangles;
+mod grid;
 
 pub fn get_face_normal(v1_pos: Vec3, v2_pos: Vec3, v3_pos: Vec3) -> Vec3 {
     let edge1 = v2_pos - v1_pos;
@@ -57,29 +59,31 @@ struct Player {
 const GRAVITY: f32 = -36.0;
 const TERMINAL_VEL: f32 = -216.0;
 
+#[derive(Debug)]
+enum CollisionMode {
+    All,
+    Single,
+    Cube,
+}
+
 struct Levels {
     names: Vec<String>,
     models: Vec<Model>,
-    surfaces: Vec<Vec<Surface>>,
-    grids: u32, // todo, replace
+    grids: Vec<grid::SurfaceGrid>,
     current: usize,
 }
 
 impl Levels {
-    fn new() -> Self {
-        Levels { names: vec![], models: vec![], surfaces: vec![], grids: 0, current: 0 }
+    fn new_with(load: (String, Model, Vec<Surface>)) -> Self {
+        Levels { names: vec![load.0], models: vec![load.1], grids: vec![grid::SurfaceGrid::new(load.2)], current: 0 }
     }
 
     fn push(mut self, load: (String, Model, Vec<Surface>)) -> Self {
         self.names.push(load.0);
         self.models.push(load.1);
-        self.surfaces.push(load.2);
+        self.grids.push(grid::SurfaceGrid::new(load.2));
 
         self
-    }
-
-    fn surfaces(&self) -> &Vec<Surface> {
-        &self.surfaces[self.current]
     }
 
     fn model(&self) -> &Model {
@@ -88,7 +92,7 @@ impl Levels {
 
     fn next(&mut self) {
         self.current = (self.current + 1) % self.names.len();
-        eprintln!("tris: {}", self.surfaces[self.current].len());
+        eprintln!("tris: {}", self.grid().all_surfaces().unwrap_or_default().len());
     }
 
     fn current(&self) -> usize {
@@ -101,6 +105,10 @@ impl Levels {
 
     fn name(&self) -> &String {
         &self.names[self.current]
+    }
+
+    fn grid(&self) -> &grid::SurfaceGrid {
+        &self.grids[self.current]
     }
 }
 
@@ -137,13 +145,11 @@ fn main() {
     let auto2 = load("res/auto2.glb");
     let e1m1 = load("res/e1m1.glb");
     
-    let mut levels = Levels::new()
-        .push(bob)
+    let mut levels = Levels::new_with(bob)
         .push(nmap)
         .push(auto2)
         .push(e1m1);
 
-    let mut surfaces = levels.surfaces();
     let mut model = levels.model();
 
     let n_player = Player {
@@ -163,21 +169,35 @@ fn main() {
 
     rl.disable_cursor();
 
-    let mut total = 0.;
-    let mut fc: f32 = 0.;
+    let mut fps_samples: VecDeque<u32> = VecDeque::new();
+    let mut fps_accum_time: f32 = 0.0;
+    let mut fps_accum_frames: u32 = 0;
 
     let mut draw_surfs = true;
+    let mut collision_mode = CollisionMode::All;
 
     while !rl.window_should_close() {
         let fd = rl.get_frame_time();
         let fps = rl.get_fps();
-        total += fps as f32;
-        fc += 1.0;
+        fps_accum_time += fd;
+        fps_accum_frames += 1;
+        if fps_accum_time >= 1.0 {
+            if fps_samples.len() >= 60 {
+                fps_samples.pop_front();
+            }
+            fps_samples.push_back(fps_accum_frames);
+            fps_accum_time = 0.0;
+            fps_accum_frames = 0;
+        }
+        let avg_fps = if fps_samples.is_empty() {
+            0.0
+        } else {
+            fps_samples.iter().sum::<u32>() as f32 / fps_samples.len() as f32
+        };
 
         let n = rl.is_key_released(KeyboardKey::KEY_N);
         if n {
             levels.next();
-            surfaces = levels.surfaces();
             model = levels.model();
             player = n_player;
         }
@@ -189,7 +209,14 @@ fn main() {
         if t {
             draw_surfs = !draw_surfs;
         }
-
+        let c = rl.is_key_released(KeyboardKey::KEY_C);
+        if c {
+            collision_mode = match collision_mode {
+                CollisionMode::All => CollisionMode::Single,
+                CollisionMode::Single => CollisionMode::Cube,
+                CollisionMode::Cube => CollisionMode::All,
+            }
+        }
 
         let mouse_in = rl.get_mouse_delta();
         rl.set_mouse_position(Vector2::new(320., 240.));
@@ -245,8 +272,19 @@ fn main() {
 
         let mut pos = (player.pos + player.velocity * fd).to_mcapv3();
 
+        let grid_pos = {
+            let fgpos = pos / grid::GRID_SIZE;
+            (fgpos.x.floor() as u32, fgpos.y.floor() as u32, fgpos.z.floor() as u32 )
+        };
+
+        let collision_surfaces = match collision_mode {
+            CollisionMode::All => levels.grid().all_surfaces().unwrap_or_default(),
+            CollisionMode::Single => levels.grid().surfaces_in_cell(grid_pos).unwrap_or_default(),
+            CollisionMode::Cube => &levels.grid().surfaces_in_cell_and_adjacent(grid_pos),
+        };
+
         // wall push
-        (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, surfaces);
+        (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, collision_surfaces);
 
         // floor find, snap, gravity
         let mut draw_floor = None;
@@ -259,7 +297,7 @@ fn main() {
         };
         // radius is the range from player's center they start falling at
         // here, when center is half-radius off a ledge, starts falling
-        match find_floor_height_hotdog_v4(pos, player.snap_up, snap_down, surfaces, player.radius / 2.) {
+        match find_floor_height_hotdog_v4(pos, player.snap_up, snap_down, collision_surfaces, player.radius / 2.) {
             Some((Surface::Floor(floor), y)) => {
                 // don't floor snap if we're not moving down
                 // mitigates not reaching escape velocity of snap with jump
@@ -298,11 +336,13 @@ fn main() {
         }
 
         // cieling clamp
-        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, surfaces, player.radius / 2. ) {
+        if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, collision_surfaces, player.radius / 2. ) {
             pos.y = y - player.height;
             player.velocity.y = player.velocity.y.min(0.0);
             draw_ciel = Some(ciel);
         }
+
+        eprintln!("dist: {}", player.pos.distance_to(pos.to_rayv3()));
 
         player.pos = pos.to_rayv3();
 
@@ -340,7 +380,7 @@ fn main() {
                     d3d.draw_line_3D(center, center + tri.normal().to_rayv3(), Color::ORANGE);
                 }
 
-                for surf in surfaces {
+                for surf in collision_surfaces {
                     match surf {
                         Surface::Wall(tri)    => if draw_surfs { draw_surf(&mut d3d, &tri, Color::GREEN.alpha(0.25))  },
                         Surface::Floor(tri)   => if draw_surfs { draw_surf(&mut d3d, &tri, Color::RED.alpha(0.25))    },
@@ -401,8 +441,8 @@ fn main() {
                 20,
                 Color::WHITE,
             );
-            d.draw_text(&format!("fps: {}", fps), 20, 60, 20, Color::WHITE);
-            d.draw_text(&format!("avg: {:.0}", total / fc), 20, 80, 20, Color::WHITE);
+            d.draw_text(&format!("fps: {:.0}", fps), 20, 60, 20, Color::WHITE);
+            d.draw_text(&format!("avg: {:.0}", avg_fps), 20, 80, 20, Color::WHITE);
             d.draw_text(
                 &format!("on_ground: {:?}", player.on_ground),
                 20,
@@ -445,6 +485,15 @@ fn main() {
                 ),
                 20,
                 180,
+                20,
+                Color::WHITE,
+            );
+            d.draw_text(
+                &format!(
+                    "(C)ollision mode: {:?}", collision_mode
+                ),
+                20,
+                200,
                 20,
                 Color::WHITE,
             );

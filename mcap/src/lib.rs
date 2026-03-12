@@ -2553,7 +2553,7 @@ pub mod real {
         pos: Vec3,
         check_height: f32,
         radius: f32,
-        surfaces: &Vec<Surface>,
+        surfaces: &[&Surface],
     ) -> (Vec3, bool) {
         let radius = radius - SKIN_FACTOR * 2.;
         let sph_y = pos.y + check_height;
@@ -2677,7 +2677,7 @@ pub mod real {
         pos: Vec3,
         offset: f32,      // offset from the bottom
         range_above: f32, // range above offset which procs
-        surfaces: &Vec<Surface>,
+        surfaces: &[&Surface],
         radius: f32,
     ) -> Option<(Surface, f32)> {
         let mut best_y = f32::INFINITY;
@@ -2743,7 +2743,7 @@ pub mod real {
         }
 
         match best_surf {
-            Some(surf) => Some((surf, best_y)),
+            Some(surf) => Some((*surf, best_y)),
             None => None,
         }
     }
@@ -2796,7 +2796,7 @@ pub mod real {
         pos: Vec3,
         snap_up: f32,
         snap_down: f32,
-        surfaces: &Vec<Surface>,
+        surfaces: &[&Surface],
         radius: f32,
     ) -> Option<(Surface, f32)> {
         let mut best_y = f32::NEG_INFINITY;
@@ -2906,7 +2906,7 @@ pub mod real {
         }
 
         match best_surf {
-            Some(surf) => Some((surf, best_y)),
+            Some(surf) => Some((*surf, best_y)),
             None => None,
         }
     }

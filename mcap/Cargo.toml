@@ -7,6 +7,7 @@ edition = "2024"
 glam = "0.30.9"
 line-clipping = "0.3.5"
 raylib = "5.5.1"
+rustc-hash = "2"
 
 [dev-dependencies]
 modelz = "0.1.5"
