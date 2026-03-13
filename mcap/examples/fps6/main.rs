@@ -8,6 +8,8 @@ use mcap::{
 use modelz;
 use raylib::prelude::*;
 
+use crate::grid::GRID_SIZE;
+
 mod triangles;
 mod grid;
 
@@ -477,11 +479,11 @@ fn main() {
                             for dz in -2i32..=2 {
                                 let z = (igrid.2 + dz) as f32;
 
-                                let start_pos = Vector3::new(x * 10., y * 10., z * 10.);
+                                let start_pos = Vector3::new(x * GRID_SIZE, y * GRID_SIZE, z * GRID_SIZE);
 
-                                let ep1 = start_pos + Vector3::new(0., 0., 10.);
-                                let ep2 = start_pos + Vector3::new(0., 10., 0.);
-                                let ep3 = start_pos + Vector3::new(10., 0., 0.);
+                                let ep1 = start_pos + Vector3::new(0., 0., GRID_SIZE);
+                                let ep2 = start_pos + Vector3::new(0., GRID_SIZE, 0.);
+                                let ep3 = start_pos + Vector3::new(GRID_SIZE, 0., 0.);
                                 d3d.draw_line_3D(start_pos, ep1, Color::YELLOW);
                                 d3d.draw_line_3D(start_pos, ep2, Color::YELLOW);
                                 d3d.draw_line_3D(start_pos, ep3, Color::YELLOW);

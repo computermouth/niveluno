@@ -2,7 +2,7 @@ use std::ptr;
 use rustc_hash::FxHashMap;
 use mcap::real::{Surface, Vec3};
 
-pub const GRID_SIZE: f32 = 10.;
+pub const GRID_SIZE: f32 = 5.;
 
 fn surface_verts(s: &Surface) -> &[Vec3; 3] {
     match s {
