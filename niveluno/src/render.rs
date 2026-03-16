@@ -56,6 +56,7 @@ struct RenderGod {
     // rename, vert_array_buffer_data
     pub r_buffer: Box<[f32; MAX_VERTS * 8]>,
     pub r_num_verts: usize,
+    pub verts_changed: bool,
     // 2 vec3 per light [(x,y,z), [r,g,b], ...]
     // rename, light_array_buffer_data
     pub r_light_buffer: Box<[f32; MAX_LIGHT_V3S * 3]>,
@@ -231,6 +232,16 @@ fn vertex_attribute(
 
     unsafe {
         location = gl::GetAttribLocation(shader_program, attrib_name.as_ptr() as *const i8);
+    }
+
+    // this kinda sucks but,
+    // if a parameter gets optimized away by the compiler,
+    // just leave it. maybe only do this on debug build?
+    if location == -1 {
+        return Ok(-1);
+    }
+
+    unsafe {
         gl::EnableVertexAttribArray(location as u32);
         gl::VertexAttribPointer(
             location as GLuint,
@@ -251,14 +262,7 @@ fn vertex_attribute(
         panic!();
     }
 
-    match location {
-        -1 => {
-            let e = NUError::VertexAttribError;
-            eprintln!("{}", e);
-            Err(e)
-        }
-        _ => Ok(location),
-    }
+    Ok(location)
 }
 
 pub fn init() -> Result<(), NUError> {
@@ -277,6 +281,7 @@ pub fn init() -> Result<(), NUError> {
             .try_into()
             .unwrap(),
         r_num_verts: 0,
+        verts_changed: true,
         // 2 vec3 per light [(x,y,z), [r,g,b], ...]
         r_light_buffer: vec![0.; MAX_LIGHT_V3S * 3]
             .into_boxed_slice()
@@ -558,7 +563,11 @@ pub fn end_frame() -> Result<(), NUError> {
 
     // todo -- works, buuuuut, only do it on r_num_verts change
     // otherwise, wasteful copy to gpu
-    submit_buffer()?;
+    let verts_changed = &mut RenderGod::get()?.verts_changed;
+    if *verts_changed {
+        submit_buffer()?;
+        *verts_changed = false;
+    }
 
     unsafe {
         gl::UseProgram(rg.shader_program);
@@ -592,6 +601,10 @@ pub fn end_frame() -> Result<(), NUError> {
 
     let mut vo: GLint = 0;
     let mut last_texture: u32 = u32::MAX - 1;
+
+    // sort draw calls by texture to reduce texture
+    // bind time
+    rg.draw_calls.sort_by(|a, b| a.texture.cmp(&b.texture));
 
     for c in &rg.draw_calls {
         if last_texture != c.texture {
@@ -645,22 +658,26 @@ pub fn end_frame() -> Result<(), NUError> {
         if vo != (c.f2 - c.f1) {
             vo = c.f2 - c.f1;
             unsafe {
-                gl::VertexAttribPointer(
-                    rg.va_p2 as u32,
-                    3,
-                    gl::FLOAT,
-                    gl::FALSE,
-                    8 * 4,
-                    (vo * 8 * 4) as *const GLvoid,
-                );
-                gl::VertexAttribPointer(
-                    rg.va_n2 as u32,
-                    3,
-                    gl::FLOAT,
-                    gl::FALSE,
-                    8 * 4,
-                    ((vo * 8 + 5) * 4) as *const GLvoid,
-                );
+                if rg.va_p2 != -1 {
+                    gl::VertexAttribPointer(
+                        rg.va_p2 as u32,
+                        3,
+                        gl::FLOAT,
+                        gl::FALSE,
+                        8 * 4,
+                        (vo * 8 * 4) as *const GLvoid,
+                    );
+                }
+                if rg.va_n2 != -1 {
+                    gl::VertexAttribPointer(
+                        rg.va_n2 as u32,
+                        3,
+                        gl::FLOAT,
+                        gl::FALSE,
+                        8 * 4,
+                        ((vo * 8 + 5) * 4) as *const GLvoid,
+                    );
+                }
             }
         }
 
@@ -713,7 +730,7 @@ pub fn submit_buffer() -> Result<(), NUError> {
             gl::ARRAY_BUFFER,
             (nv * 8 * std::mem::size_of::<f32>()) as isize,
             rb.as_ptr() as *const GLvoid,
-            gl::STATIC_DRAW,
+            gl::DYNAMIC_DRAW,
         );
     }
     Ok(())
@@ -736,6 +753,7 @@ pub fn push_vert(pos: Vector3, normal: Vector3, u: f32, v: f32) -> Result<usize,
     r_buffer[vindex + 7] = normal.z;
 
     RenderGod::get()?.r_num_verts += 1;
+    RenderGod::get()?.verts_changed = true;
 
     Ok(num_verts)
 }
