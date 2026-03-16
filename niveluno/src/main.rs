@@ -39,8 +39,8 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
         .map_err(|e| nuerror::NUError::SDLError(e))?;
 
     let gl_attr = video_subsystem.gl_attr();
-    gl_attr.set_context_profile(GLProfile::GLES);
-    gl_attr.set_context_version(3, 0);
+    gl_attr.set_context_profile(GLProfile::Core);
+    gl_attr.set_context_version(3, 3);
 
     let window = video_subsystem
         .window("niveluno", render::D_WINDOW_W, render::D_WINDOW_H)

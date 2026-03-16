@@ -1,6 +1,4 @@
-#version 300 es
-
-precision highp float;
+#version 330 core
 
 // Vertex positions, normals and UV coords for the fragment shader
 out vec3 vp, vn;
