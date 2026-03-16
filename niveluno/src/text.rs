@@ -93,6 +93,7 @@ struct TextGod<'a> {
     pub overlay_texcoord: GLint,
     pub overlay_tex_u: GLint,
     pub overlay_vbo: GLuint,
+    pub overlay_vao: GLuint,
     pub overlay_texture: GLuint,
     pub font_data_dict: HashMap<usize, Vec<u8>>,
     pub font_data_ids: usize,
@@ -138,6 +139,7 @@ pub fn init() -> Result<(), NUError> {
             overlay_texcoord: 0,
             overlay_tex_u: 0,
             overlay_vbo: 0,
+            overlay_vao: 0,
             overlay_texture: 0,
             font_data_dict: HashMap::new(),
             font_data_ids: 0,
@@ -205,6 +207,10 @@ pub fn init() -> Result<(), NUError> {
             CString::new("tex")?.as_ptr() as *const i8,
         );
 
+        // vao for attribute statue
+        gl::GenVertexArrays(1, &mut tg.overlay_vao);
+        gl::BindVertexArray(tg.overlay_vao);
+
         // Create a VBO and upload the vertex data
         gl::GenBuffers(1, &mut tg.overlay_vbo);
         gl::BindBuffer(gl::ARRAY_BUFFER, tg.overlay_vbo);
@@ -214,6 +220,28 @@ pub fn init() -> Result<(), NUError> {
             sz,
             OVLY_VERT.as_ptr() as *const GLvoid,
             gl::STATIC_DRAW,
+        );
+
+        // submit to vao
+        let stride_sz = (4 * std::mem::size_of::<GLfloat>()) as i32;
+        let pointr_sz = 2 * std::mem::size_of::<GLfloat>();
+        gl::EnableVertexAttribArray(tg.overlay_position as u32);
+        gl::EnableVertexAttribArray(tg.overlay_texcoord as u32);
+        gl::VertexAttribPointer(
+            tg.overlay_position as u32,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            stride_sz,
+            0 as *const GLvoid,
+        );
+        gl::VertexAttribPointer(
+            tg.overlay_texcoord as u32,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            stride_sz,
+            pointr_sz as *const GLvoid,
         );
 
         // Create GL texture from sdl surface
@@ -307,9 +335,7 @@ pub fn end_frame() -> Result<(), NUError> {
     let overlay_texture = TextGod::get()?.overlay_texture;
     let overlay_surface = TextGod::get()?.overlay_surface.as_mut().unwrap();
     let overlay_program = TextGod::get()?.overlay_program;
-    let overlay_vbo = TextGod::get()?.overlay_vbo;
-    let overlay_position = TextGod::get()?.overlay_position;
-    let overlay_texcoord = TextGod::get()?.overlay_texcoord;
+    let overlay_vao = TextGod::get()?.overlay_vao;
 
     // set up overlay texture
     unsafe {
@@ -329,44 +355,12 @@ pub fn end_frame() -> Result<(), NUError> {
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
     }
-    // program and buffer
+    // program and VAO
     unsafe {
         gl::Disable(gl::CULL_FACE);
         gl::Disable(gl::DEPTH_TEST);
         gl::UseProgram(overlay_program);
-        gl::BindBuffer(gl::ARRAY_BUFFER, overlay_vbo);
-    }
-    // vertices
-    unsafe {
-        let stride_sz = (4 * std::mem::size_of::<GLfloat>()) as i32;
-        let pointr_sz = 2 * std::mem::size_of::<GLfloat>();
-        gl::EnableVertexAttribArray(overlay_position as u32);
-
-        loop {
-            let s = gl::GetError();
-            if s == gl::NO_ERROR {
-                break;
-            }
-            eprintln!("glerror: {} {:x}", overlay_position, s);
-            panic!();
-        }
-        gl::EnableVertexAttribArray(overlay_texcoord as u32);
-        gl::VertexAttribPointer(
-            overlay_position as u32,
-            2,
-            gl::FLOAT,
-            gl::FALSE,
-            stride_sz,
-            0 as *const GLvoid,
-        );
-        gl::VertexAttribPointer(
-            overlay_texcoord as u32,
-            2,
-            gl::FLOAT,
-            gl::FALSE,
-            stride_sz,
-            pointr_sz as *const GLvoid,
-        );
+        gl::BindVertexArray(overlay_vao);
     }
 
     unsafe {

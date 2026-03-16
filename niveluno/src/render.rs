@@ -65,6 +65,7 @@ struct RenderGod {
     // shader stuff
     pub shader_program: GLuint,
     pub vertex_buffer: GLuint,
+    pub vao: GLuint,
 
     // camera bits
     pub camera_position: Vector3,
@@ -292,6 +293,7 @@ pub fn init() -> Result<(), NUError> {
         // shader stuff
         shader_program: 0,
         vertex_buffer: 0,
+        vao: 0,
 
         // camera bits
         camera_position: Vector3 {
@@ -366,6 +368,12 @@ pub fn init() -> Result<(), NUError> {
             gl::GetUniformLocation(rg.shader_program, CString::new("model_mat_v4")?.as_ptr());
         rg.u_blend = gl::GetUniformLocation(rg.shader_program, CString::new("blend")?.as_ptr());
         rg.u_glow = gl::GetUniformLocation(rg.shader_program, CString::new("glow")?.as_ptr());
+    }
+
+    // vertex array object - captures attribute state so we don't re-set it each frame
+    unsafe {
+        gl::GenVertexArrays(1, addr_of_mut!(rg.vao));
+        gl::BindVertexArray(rg.vao);
     }
 
     // vertex buffer
@@ -459,18 +467,6 @@ pub fn init() -> Result<(), NUError> {
             rg.offscreen_depth_tex,
             0,
         );
-    }
-
-    // restore the vertex buffer and attributes
-    unsafe {
-        // i don't remember why this happens either, maybe unnecessary?
-        // is this because of the other shader and switching?
-        gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
-        vertex_attribute(rg.shader_program, CString::new("p")?, 3, 8, 0)?;
-        vertex_attribute(rg.shader_program, CString::new("t")?, 2, 8, 3)?;
-        vertex_attribute(rg.shader_program, CString::new("n")?, 3, 8, 5)?;
-        rg.va_p2 = vertex_attribute(rg.shader_program, CString::new("p2")?, 3, 8, 0)?;
-        rg.va_n2 = vertex_attribute(rg.shader_program, CString::new("n2")?, 3, 8, 5)?;
     }
 
     rg.placeholder_tex_id = create_texture(PngBin {
@@ -571,16 +567,11 @@ pub fn end_frame() -> Result<(), NUError> {
 
     unsafe {
         gl::UseProgram(rg.shader_program);
+        gl::BindVertexArray(rg.vao);
         gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
         gl::BindFramebuffer(gl::FRAMEBUFFER, rg.offscreen_fbo);
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
     }
-
-    vertex_attribute(rg.shader_program, CString::new("p")?, 3, 8, 0)?;
-    vertex_attribute(rg.shader_program, CString::new("t")?, 2, 8, 3)?;
-    vertex_attribute(rg.shader_program, CString::new("n")?, 3, 8, 5)?;
-    rg.va_p2 = vertex_attribute(rg.shader_program, CString::new("p2")?, 3, 8, 0)?;
-    rg.va_n2 = vertex_attribute(rg.shader_program, CString::new("n2")?, 3, 8, 5)?;
 
     unsafe {
         gl::Uniform4f(
