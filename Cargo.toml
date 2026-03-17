@@ -1,14 +1,14 @@
 [workspace]
 resolver = "2"
 
-members = ["niveluno", "nmcc", "mparse", "munzip", "raymath"]
+members = ["niveluno", "nmcc", "mparse", "munzip", "raymath", "mcap"]
 
 [profile.dev]
 # opt-level = 3
 debug = true
 debug-assertions = true
 overflow-checks = true
-# lto = true
+lto = true
 panic = 'unwind'
 incremental = true
 codegen-units = 256
