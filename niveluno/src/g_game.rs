@@ -1,13 +1,18 @@
-use crate::g_instance::Instance;
+use crate::g_instance::{Instance, get_decor_instances};
 use crate::map::{self, LoadedEnttReference};
+use crate::math::{ToVec3, mesh_tranform, vec3_face_normal};
 use crate::nuerror::NUError;
 use crate::text;
 use crate::{asset, g_instance, time};
+
+use mcap::Surface;
+use raymath::vector3_negate;
 
 struct GameGod {
     pub current_level: Option<map::Map>,
     pub next_level: Option<map::Map>,
     pub entts_inst: Vec<Instance>,
+    pub collision_surfaces: Vec<Surface>,
     pub top_state: TopState,
     pub text_font_lg: Option<text::SizedFontHandle>,
     pub text_font_sm: Option<text::SizedFontHandle>,
@@ -42,6 +47,7 @@ pub fn init() -> Result<(), NUError> {
             current_level: None,
             next_level: None,
             entts_inst: vec![],
+            collision_surfaces: vec![],
             top_state: TopState::Menu,
             text_font_lg: None,
             text_font_sm: None,
@@ -142,6 +148,27 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
         if entt_inst.is_some() {
             spawn_entity(entt_inst.unwrap())?;
         }
+    }
+
+    let decs = get_decor_instances().unwrap();
+    gg.collision_surfaces = vec![];
+    for dec in decs {
+        let mesh = dec.get_mesh();
+        let mat = dec.get_matrix();
+        let mesh = mesh_tranform(mesh, mat);
+
+        let mut surfs: Vec<_> = mesh.into_iter().map(|tri| {
+                Surface::new(
+                    [
+                        tri[0].to_mcapv3(),
+                        tri[1].to_mcapv3(),
+                        tri[2].to_mcapv3(),
+                    ],
+                    vector3_negate(vec3_face_normal(tri[0], tri[1], tri[2])).to_mcapv3(),
+                )
+            }).collect();
+        
+        gg.collision_surfaces.append(&mut surfs);
     }
 
     // ensure that delta time isn't huge because of load time

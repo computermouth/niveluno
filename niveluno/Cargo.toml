@@ -6,6 +6,7 @@ edition = "2021"
 
 [dependencies]
 gl = "0.14.0"
+mcap = { version = "0.1.0", path = "../mcap" }
 minipng = "=0.1.1"
 mparse = { version = "0.1.0", path = "../mparse" }
 munzip = { version = "0.1.1", path = "../munzip" }

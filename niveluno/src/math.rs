@@ -1,4 +1,26 @@
 pub use raymath::*;
+use mcap::Vec3;
+
+
+pub trait ToVec3 {
+    fn to_mcapv3(&self) -> Vec3;
+}
+
+pub trait ToVector3 {
+    fn to_rayv3(&self) -> Vector3;
+}
+
+impl ToVec3 for Vector3 {
+    fn to_mcapv3(&self) -> Vec3 {
+        Vec3::new(self.x, self.y, self.z)
+    }
+}
+
+impl ToVector3 for Vec3 {
+    fn to_rayv3(&self) -> Vector3 {
+        Vector3::new(self.x, self.y, self.z)
+    }
+}
 
 pub fn scale(v: f32, in_min: f32, in_max: f32, out_min: f32, out_max: f32) -> f32 {
     out_min + ((out_max) - out_min) * (((v) - in_min) / ((in_max) - in_min))

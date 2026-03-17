@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 use rand::Rng;
-use mcap::real as mcap;
 
 use mcap::{
     Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3, find_floor_height_hotdog_v4
@@ -13,18 +12,12 @@ use crate::grid::GRID_SIZE;
 mod triangles;
 mod grid;
 
-pub fn get_face_normal(v1_pos: Vec3, v2_pos: Vec3, v3_pos: Vec3) -> Vec3 {
-    let edge1 = v2_pos - v1_pos;
-    let edge2 = v3_pos - v1_pos;
 
-    edge1.cross(edge2).normalize()
-}
-
-trait ToVec3 {
+pub trait ToVec3 {
     fn to_mcapv3(&self) -> Vec3;
 }
 
-trait ToVector3 {
+pub trait ToVector3 {
     fn to_rayv3(&self) -> Vector3;
 }
 
@@ -38,6 +31,13 @@ impl ToVector3 for Vec3 {
     fn to_rayv3(&self) -> Vector3 {
         Vector3::new(self.x, self.y, self.z)
     }
+}
+
+pub fn get_face_normal(v1_pos: Vec3, v2_pos: Vec3, v3_pos: Vec3) -> Vec3 {
+    let edge1 = v2_pos - v1_pos;
+    let edge2 = v3_pos - v1_pos;
+
+    edge1.cross(edge2).normalize()
 }
 
 pub fn at_origin(v: Vector3) -> Vector3 {

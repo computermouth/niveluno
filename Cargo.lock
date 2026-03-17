@@ -829,6 +829,7 @@ name = "niveluno"
 version = "0.1.0"
 dependencies = [
  "gl",
+ "mcap",
  "minipng",
  "mparse",
  "munzip",

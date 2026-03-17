@@ -33,11 +33,11 @@ pub fn init() -> Result<(), NUError> {
 
     let dflag = args.iter().position(|n| n == &"-d".to_string());
     let default_filename = match dflag {
-        None => "todo",
+        None => todo!(),
         Some(i) => {
             if args.len() <= i + 1 {
                 eprintln!("W: '-d' flag was set, but no file was provided");
-                "todo"
+                todo!()
             } else {
                 &args[i + 1]
             }

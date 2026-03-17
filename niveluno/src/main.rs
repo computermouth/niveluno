@@ -54,8 +54,8 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
         .map_err(|e| nuerror::NUError::SDLError(e))?;
     gl::load_with(|name| video_subsystem.gl_get_proc_address(name) as *const _);
 
-    debug_assert_eq!(gl_attr.context_profile(), GLProfile::GLES);
-    debug_assert_eq!(gl_attr.context_version(), (3, 0));
+    debug_assert_eq!(gl_attr.context_profile(), GLProfile::Core);
+    debug_assert_eq!(gl_attr.context_version(), (3, 3));
 
     // mixer
     sdl_context

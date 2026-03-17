@@ -1,6 +1,6 @@
 use std::ptr;
 use rustc_hash::FxHashMap;
-use mcap::real::{Surface, Vec3};
+use mcap::{Surface, Vec3};
 
 pub const GRID_SIZE: f32 = 5.;
 
