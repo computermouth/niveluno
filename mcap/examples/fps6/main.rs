@@ -152,15 +152,11 @@ fn main() {
         )
     };
 
-    let bob = load("res/bob.glb");
     let nmap = load("res/nmap.glb");
     let auto2 = load("res/auto2.glb");
-    let e1m1 = load("res/e1m1.glb");
     
-    let mut levels = Levels::new_with(bob)
-        .push(nmap)
-        .push(auto2)
-        .push(e1m1);
+    let mut levels = Levels::new_with(nmap)
+        .push(auto2);
 
     let mut model = levels.model();
 
