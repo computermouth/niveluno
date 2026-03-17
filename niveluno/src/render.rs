@@ -590,7 +590,9 @@ pub fn end_frame() -> Result<(), NUError> {
         gl::Uniform1i(rg.u_light_count, (rg.r_num_lights * 2) as i32);
     }
 
-    let mut vo: GLint = 0;
+    // have to initialize to non-zero
+    // for vo != (c.f2 - c.f1) check later
+    let mut vo: GLint = GLint::MIN;
     let mut last_texture: u32 = u32::MAX - 1;
 
     // sort draw calls by texture to reduce texture
