@@ -49,6 +49,28 @@ pub fn get_run_time() -> Result<f64, NUError> {
     Ok((gg.current_time_ms - gg.start_time_ms) as f64 / 1000.)
 }
 
+pub fn get_fresh_run_time_s() -> Result<f64, NUError> {
+    let gg = TimeGod::get()?;
+
+    let current_time_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+        .as_millis();
+
+    Ok((current_time_ms - gg.start_time_ms) as f64)
+}
+
+pub fn get_fresh_run_time_ms() -> Result<f64, NUError> {
+    let gg = TimeGod::get()?;
+
+    let current_time_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| NUError::SystemTimeError(e.to_string()))?
+        .as_millis();
+
+    Ok((current_time_ms - gg.start_time_ms) as f64)
+}
+
 pub fn get_delta_time() -> Result<f64, NUError> {
     let gg = TimeGod::get()?;
 

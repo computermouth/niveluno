@@ -152,6 +152,8 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
 
     let decs = get_decor_instances().unwrap();
 
+    let rt = time::get_fresh_run_time_ms().unwrap();
+
     let mut all_surfs = vec![];
     for dec in decs {
         let mesh = dec.get_mesh();
@@ -170,8 +172,9 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
                 all_surfs.push(s);
             });
     }
-
     gg.surface_grid = Some(SurfaceGrid::new(all_surfs));
+
+    eprintln!("surface_grid_time: {}ms", time::get_fresh_run_time_ms().unwrap() - rt);
 
     // ensure that delta time isn't huge because of load time
     // (it'll cause things like player movement to have one insane
