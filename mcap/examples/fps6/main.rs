@@ -319,7 +319,7 @@ fn main() {
             player.velocity.y = 15.;
         }
 
-        let max_move_dist = player.radius / 2.;
+        let max_move_dist = player.radius / 10.;
         let desired_move = player.velocity * fd;
         let desired_move_len = desired_move.length();
 
@@ -351,8 +351,6 @@ fn main() {
             collision_surfaces = match collision_mode {
                 CollisionMode::All => levels.grid().all_surfaces().unwrap_or_default(),
                 CollisionMode::Single => levels.grid().surfaces_in_cell(grid_pos).unwrap_or_default(),
-                // CollisionMode::Cube => &levels.grid().surfaces_in_cell_and_adjacent(grid_pos),
-                _ => unreachable!(),
             };
 
             // wall push

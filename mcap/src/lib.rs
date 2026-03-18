@@ -57,6 +57,7 @@ impl Surface {
             y if y.abs() < FLOOR_EPS => Surface::Wall(t),
             y if y > slide_deg => Surface::Floor(t),
             y if y > FLOOR_EPS => Surface::Slide(t),
+            y if y > -slide_deg => Surface::Wall(t),
             _ => Surface::Cieling(t),
         }
     }
