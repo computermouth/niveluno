@@ -2,15 +2,13 @@ use std::collections::VecDeque;
 use rand::Rng;
 
 use mcap::{
-    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3, find_floor_height_hotdog_v4
+    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3, find_floor_height_hotdog_v4,
+    GRID_SIZE, SurfaceGrid, 
 };
 use modelz;
 use raylib::prelude::*;
 
-use crate::grid::GRID_SIZE;
-
 mod triangles;
-mod grid;
 
 
 pub trait ToVec3 {
@@ -81,19 +79,19 @@ enum FpsMode {
 struct Levels {
     names: Vec<String>,
     models: Vec<Model>,
-    grids: Vec<grid::SurfaceGrid>,
+    grids: Vec<SurfaceGrid>,
     current: usize,
 }
 
 impl Levels {
     fn new_with(load: (String, Model, Vec<Surface>)) -> Self {
-        Levels { names: vec![load.0], models: vec![load.1], grids: vec![grid::SurfaceGrid::new(load.2)], current: 0 }
+        Levels { names: vec![load.0], models: vec![load.1], grids: vec![SurfaceGrid::new(load.2)], current: 0 }
     }
 
     fn push(mut self, load: (String, Model, Vec<Surface>)) -> Self {
         self.names.push(load.0);
         self.models.push(load.1);
-        self.grids.push(grid::SurfaceGrid::new(load.2));
+        self.grids.push(SurfaceGrid::new(load.2));
 
         self
     }
@@ -119,7 +117,7 @@ impl Levels {
         &self.names[self.current]
     }
 
-    fn grid(&self) -> &grid::SurfaceGrid {
+    fn grid(&self) -> &SurfaceGrid {
         &self.grids[self.current]
     }
 }
@@ -346,7 +344,7 @@ fn main() {
             let mut pos = (player.pos + move_dist).to_mcapv3();
 
             grid_pos = {
-                let fgpos = pos / grid::GRID_SIZE;
+                let fgpos = pos / GRID_SIZE;
                 (fgpos.x.floor() as u32, fgpos.y.floor() as u32, fgpos.z.floor() as u32 )
             };
 
