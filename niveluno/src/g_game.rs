@@ -92,6 +92,13 @@ pub fn get_symb_font() -> Result<text::SizedFontHandle, NUError> {
     Ok(gg.symb_font.unwrap())
 }
 
+pub fn get_surface_grid<'a>() -> Result<&'a SurfaceGrid, NUError> {
+    let gg = GameGod::get()?;
+    let surf_grid = gg.surface_grid.as_ref().unwrap();
+
+    Ok(&surf_grid)
+}
+
 pub fn get_state() -> Result<TopState, NUError> {
     let gg = GameGod::get()?;
     Ok(gg.top_state)

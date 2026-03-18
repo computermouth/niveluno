@@ -16,6 +16,7 @@ pub enum Key {
     Next,
     Action,
     Jump,
+    Sprint,
 }
 
 struct InputGod {
@@ -79,13 +80,14 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
                 ..
             } => {
                 match key {
-                    Keycode::Up    | Keycode::W => { ig.keys[Key::Up    as usize] = true; },
-                    Keycode::Left  | Keycode::A => { ig.keys[Key::Left  as usize] = true; },
-                    Keycode::Down  | Keycode::S => { ig.keys[Key::Down  as usize] = true; },
-                    Keycode::Right | Keycode::D => { ig.keys[Key::Right as usize] = true; },
-                                     Keycode::Q => { ig.keys[Key::Prev  as usize] = true; },
-                                     Keycode::E => { ig.keys[Key::Next  as usize] = true; },
-                    Keycode::Space              => { ig.keys[Key::Jump  as usize] = true; },
+                    Keycode::Up    | Keycode::W => { ig.keys[Key::Up     as usize] = true; },
+                    Keycode::Left  | Keycode::A => { ig.keys[Key::Left   as usize] = true; },
+                    Keycode::Down  | Keycode::S => { ig.keys[Key::Down   as usize] = true; },
+                    Keycode::Right | Keycode::D => { ig.keys[Key::Right  as usize] = true; },
+                                     Keycode::Q => { ig.keys[Key::Prev   as usize] = true; },
+                                     Keycode::E => { ig.keys[Key::Next   as usize] = true; },
+                    Keycode::Space              => { ig.keys[Key::Jump   as usize] = true; },
+                    Keycode::LShift             => { ig.keys[Key::Sprint as usize] = true; }
                     _ => {}
                 }
             },
@@ -95,13 +97,14 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
             } => {
                 match key {
                     Keycode::Escape             => { mouse.set_relative_mouse_mode(false); },
-                    Keycode::Up    | Keycode::W => { ig.keys[Key::Up    as usize] = false; },
-                    Keycode::Left  | Keycode::A => { ig.keys[Key::Left  as usize] = false; },
-                    Keycode::Down  | Keycode::S => { ig.keys[Key::Down  as usize] = false; },
-                    Keycode::Right | Keycode::D => { ig.keys[Key::Right as usize] = false; },
-                                     Keycode::Q => { ig.keys[Key::Prev  as usize] = false; },
-                                     Keycode::E => { ig.keys[Key::Next  as usize] = false; },
-                    Keycode::Space              => { ig.keys[Key::Jump  as usize] = false; },
+                    Keycode::Up    | Keycode::W => { ig.keys[Key::Up     as usize] = false; },
+                    Keycode::Left  | Keycode::A => { ig.keys[Key::Left   as usize] = false; },
+                    Keycode::Down  | Keycode::S => { ig.keys[Key::Down   as usize] = false; },
+                    Keycode::Right | Keycode::D => { ig.keys[Key::Right  as usize] = false; },
+                                     Keycode::Q => { ig.keys[Key::Prev   as usize] = false; },
+                                     Keycode::E => { ig.keys[Key::Next   as usize] = false; },
+                    Keycode::Space              => { ig.keys[Key::Jump   as usize] = false; },
+                    Keycode::LShift             => { ig.keys[Key::Sprint as usize] = false; }
                     Keycode::Return             => {                        
                         if current_states.contains(&(Scancode::RAlt, true)) || 
                             current_states.contains(&(Scancode::LAlt, true)) {

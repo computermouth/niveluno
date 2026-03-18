@@ -57,24 +57,11 @@ impl Surface {
             y if y.abs() < FLOOR_EPS => Surface::Wall(t),
             y if y > slide_deg => Surface::Floor(t),
             y if y > FLOOR_EPS => Surface::Slide(t),
+            // -slide_deg might be too agressive,
+            // might need like a -30f32.to_radians().cos()
             y if y > -slide_deg => Surface::Wall(t),
             _ => Surface::Cieling(t),
         }
-    }
-}
-
-pub fn closest_point_on_segment_v3(p: Vec3, a: Vec3, b: Vec3) -> Vec3 {
-    let ab = b - a;
-    let ap = p - a;
-
-    let proj = ap.dot(ab);
-    let ab_len_sq = ab.length_squared();
-    let d = proj / ab_len_sq;
-
-    match d {
-        NEG_INFINITY..=0f32 => a,
-        1f32..=INFINITY => b,
-        d => a + ab * d,
     }
 }
 
@@ -487,6 +474,11 @@ ONE  | 4722 | 5440 | 5830 | 3787 |
 pub struct SurfaceGrid {
     _surfaces: Box<[Surface]>,
     all_ptrs: Vec<*const Surface>,
+    // this could be a flattened vec![vec![vec![]]]
+    // strided into, and presented pre-calculated from the
+    // map data (there would be an index to pointer conversion)
+    // however, benchmarking showed minimal-to-no performance
+    // difference on reads
     grid: FxHashMap<(u32, u32, u32), Vec<*const Surface>>,
 }
 

@@ -1,5 +1,6 @@
 use core::{f32, panic};
 
+use mcap::Surface;
 use raymath::{
     matrix_rotate_y, matrix_translate, vector2_add, vector2_distance, vector2_dot_product,
     vector2_length, vector2_normalize, vector2_scale, vector2_subtract, vector3_add,
@@ -34,7 +35,10 @@ pub struct Player {
     bid: Option<u32>,
     friction: f32,
     height: f32,
-    width: f32,
+    radius: f32,
+    chest_height: f32,
+    snap_up: f32,
+    snap_down: f32,
     opt_ass: Option<OptAssets>,
 }
 
@@ -43,7 +47,10 @@ pub struct OptAssets {
     encounter_bar_frame: Box<text::OverlaySurface>,
 }
 
-const GRAVITY: f32 = 1.0;
+// 4x regular gravity, 4x regular terminal velocity
+const GRAVITY: f32 = -36.0;
+const TERMINAL_VEL: f32 = -216.0;
+
 const FRICTION: f32 = 10.0;
 // ~45.01 degrees -- if you change this, you'll
 // have to change a few of the height / 2. below
@@ -78,8 +85,6 @@ impl Player {
         let ts = text::TimedSurface::new(spawn, 1000);
 
         text::push_timed_surface(ts).unwrap();
-
-        let height = 2.001; // the .001 is for climbing 1m ledges
 
         Self {
             base: entt.clone(),
@@ -133,8 +138,11 @@ impl Player {
                 })
                 .unwrap(),
             },
-            height,
-            width: 3.,
+            height: 2.,
+            radius: 2. / 3.,
+            chest_height: 2. *  (2. / 3.),
+            snap_up: 1.,
+            snap_down: 0.5,
             opt_ass: match g_game::get_state().unwrap() {
                 TopState::Menu => None,
                 TopState::Play => {
@@ -196,7 +204,7 @@ impl Player {
 
         let keys = input::get_keys().unwrap();
 
-        if keys[input::Key::Jump as usize] == true && g_game::get_state().unwrap() == TopState::Menu
+        if g_game::get_state().unwrap() == TopState::Menu && keys[input::Key::Jump as usize] == true
         {
             let nmap = asset::get_file("map/nmap.mp").unwrap().unwrap();
             let payload = mparse::unmarshal(&nmap).unwrap();
@@ -216,47 +224,13 @@ impl Player {
         render::set_camera_pitch(self.pitch).unwrap();
         render::set_camera_yaw(self.yaw).unwrap();
 
-        let y_mat = matrix_rotate_y(self.yaw);
-
-        let key_r = keys[input::Key::Right as usize] as i8;
-        let key_l = keys[input::Key::Left as usize] as i8;
-        let key_u = keys[input::Key::Up as usize] as i8;
-        let key_d = keys[input::Key::Down as usize] as i8;
-
-        self.acceleration = vector3_transform(
-            Vector3 {
-                x: (key_r - key_l) as f32,
-                y: 0.,
-                z: (key_u - key_d) as f32,
-            },
-            y_mat,
-        );
-
-        let key_jump = keys[input::Key::Jump as usize] as i8;
-        if key_jump == 1 && self.on_ground {
-            self.velocity.y = 15.;
-            self.on_ground = false;
-        }
-
-        let speed_factor = match self.on_ground {
-            true => 1.0,
-            false => 0.9,
-        };
-        self.acceleration = vector3_scale(self.acceleration, self.speed * speed_factor);
-
-        self.friction = match self.on_ground {
-            true => 10.,
-            false => 2.5,
-        };
-
         self.update_physics();
 
         let mut bid = None;
         let bis = g_instance::get_barrier_instances().unwrap();
         for ba in bis {
-            let barrier = match ba {
-                g_instance::Instance::EBarrier(b) => b,
-                _ => panic!(), // this sucks ass
+            let g_instance::Instance::EBarrier(barrier) = ba else {
+                continue;
             };
 
             if barrier.position_is_inside(vector3_add(
@@ -289,8 +263,8 @@ impl Player {
             for i in 0..10 {
                 let mat_y = matrix_rotate_y((2. * f32::consts::PI) * i as f32 / 10.);
                 let horizontal = vector3_add(
-                    vector3_add(self.position, Vector3::new(0., self.width / 2., 0.)),
-                    vector3_transform(Vector3::new(self.width / 2., 0., 0.), mat_y),
+                    vector3_add(self.position, Vector3::new(0., self.radius / 2., 0.)),
+                    vector3_transform(Vector3::new(self.radius / 2., 0., 0.), mat_y),
                 );
 
                 let h_mat = matrix_translate(horizontal.x, horizontal.y, horizontal.z);
@@ -419,178 +393,144 @@ impl Player {
     }
 
     pub fn update_physics(&mut self) {
-        // Apply Gravity
-        self.acceleration.y = -36. * GRAVITY;
 
-        let delta_time = time::get_delta_time().unwrap() as f32;
+        let y_mat = matrix_rotate_y(self.yaw);
 
-        // Integrate acceleration & friction into velocity
-        let df = 1.0f32.min(FRICTION * delta_time);
-        let af = vector3_scale(self.acceleration, delta_time);
-        let vf = vector3_multiply(
-            self.velocity,
+        let keys = input::get_keys().unwrap();
+
+        let key_r = keys[input::Key::Right as usize] as i8;
+        let key_l = keys[input::Key::Left as usize] as i8;
+        let key_u = keys[input::Key::Up as usize] as i8;
+        let key_d = keys[input::Key::Down as usize] as i8;
+
+        let sprint = keys[input::Key::Sprint as usize];
+        let jump = keys[input::Key::Jump as usize];
+
+        let fd = time::get_delta_time().unwrap() as f32;
+
+        self.acceleration = vector3_transform(
             Vector3 {
-                x: df,
+                x: (key_r - key_l) as f32,
                 y: 0.,
-                z: df,
+                z: (key_u - key_d) as f32,
             },
-        );
-        self.velocity = vector3_add(self.velocity, vector3_subtract(af, vf));
-        // todo -- perf
-        // we can probably return early here, if v3len(velocity) == 0.0 (or within epsilon)
-        self.on_ground = false;
-
-        let steps = 8;
-
-        let move_dist = vector3_scale(self.velocity, delta_time);
-        let mut step = vector3_scale(move_dist, 1. / steps as f32);
-
-        for _ in 0..steps {
-            let pos = vector3_add(self.position, step);
-            self.position = collide_and_slide_3d(
-                pos,
-                &mut step,
-                &mut self.last_floor,
-                &mut self.velocity,
-                &mut self.on_ground,
-                self.width,
-                0,
-            );
-        }
-    }
-}
-
-fn collide_and_slide_3d(
-    pos: Vector3,
-    step: &mut Vector3,
-    last_floor: &mut Vector3,
-    velocity: &mut Vector3,
-    on_ground: &mut bool,
-    width: f32,
-    iter: usize,
-) -> Vector3 {
-    if iter >= 5 {
-        return pos;
-    }
-
-    let player_radius = width / 2.;
-    let player_center = vector3_add(pos, Vector3::new(0., width / 2., 0.));
-
-    // WALLS
-    // todo -- perf dissolve map faces to reduce triangle count
-    // todo -- height here should be divided by max slope out of 90 degrees. 45/90 == 1/2.
-    if let Some((nearest, norm)) = process_intersector_3d(player_center, width) {
-        let collision_normal = vector3_normalize(vector3_subtract(player_center, nearest));
-        let closest_distance = vector3_distance(player_center, nearest);
-
-        // Move the circle to just touch the wall
-        let penetration_depth = player_radius - closest_distance + VCLOSE * 2.;
-        let new_pos = vector3_add(pos, vector3_scale(collision_normal, penetration_depth));
-
-        // Determine if this is a floor or a wall
-        if norm.y > MAX_SLOPE {
-            // FLOOR LOGIC
-            *on_ground = true;
-            *last_floor = nearest;
-            velocity.y = 0.;
-            step.y = 0.;
-        }
-
-        // Calculate new velocity to slide along the wall
-        let mut new_velocity = vector3_subtract(
-            *velocity,
-            vector3_scale(
-                collision_normal,
-                vector3_dot_product(*velocity, collision_normal),
-            ),
+            y_mat,
         );
 
-        if vector3_length(new_velocity) < VCLOSE {
-            new_velocity = Vector3::zero();
+        let move_dir = self.acceleration;
+
+        let speed = 100.;
+        let sprint_factor = match sprint {
+            true => 1.5,
+            false => 1.0,
+        };
+        let move_speed = match self.on_ground {
+            true => 1. * sprint_factor * speed,
+            false => 0.8 * sprint_factor * speed,
+        };
+        let friction = match self.on_ground {
+            true => 10.,
+            false => 9.,
+        };
+        let friction_factor = 1.0 - (friction * fd).min(1.0);
+        self.velocity = vector3_multiply(self.velocity, Vector3::new(friction_factor, 1., friction_factor));
+        self.velocity = vector3_add(self.velocity, vector3_scale(vector3_scale(move_dir, move_speed), fd));
+
+        if jump && self.on_ground {
+            self.velocity.y = 15.;
         }
 
-        // Adjust `local_step` to account for the distance already traveled
-        let remaining_distance = vector3_length(*step) - closest_distance;
-        let mut new_step = vector3_scale(vector3_normalize(new_velocity), remaining_distance);
+        let max_move_dist = self.radius / 10.;
+        let desired_move = vector3_scale(self.velocity, fd);
+        let desired_move_len = vector3_length(desired_move);
 
-        if vector3_length(new_step) < VCLOSE {
-            new_step = Vector3::zero();
-        }
+        let (move_count, move_dist) = if desired_move_len < max_move_dist {
+            (1, desired_move)
+        } else {
+            let move_count = (vector3_length(desired_move) / max_move_dist) as u32 + 1;
+            let move_dist = vector3_scale(desired_move, 1. / move_count as f32);
+            (move_count, move_dist)
+        };
 
-        // Recursive call with updated values
-        return collide_and_slide_3d(
-            new_pos,
-            &mut new_step,
-            last_floor,
-            velocity,
-            on_ground,
-            width,
-            iter + 1,
-        );
-    }
-    pos
-}
+        let mut grid_pos = (0, 0, 0);
+        let mut collision_surfaces: &[&Surface] = &vec![];
+        let mut draw_floor = None;
+        let mut draw_ciel = None;
+        let mut snap_down = 0.;
 
-fn process_intersector_3d(center_pos: Vector3, width: f32) -> Option<(Vector3, Vector3)> {
-    let mut wall_collisions = vec![];
-    let decs = get_decor_instances().unwrap();
+        for _ in 0..move_count {
 
-    for dec in decs {
-        let mesh = dec.get_mesh();
-        let mat = dec.get_matrix();
-        let mesh = mesh_tranform(mesh, mat);
+            let fd = fd / (move_count as f32);
 
-        for (tri, normal) in mesh.into_iter().map(|tri| {
-            (
-                tri,
-                vector3_negate(vec3_face_normal(tri[0], tri[1], tri[2])),
-            )
-        }) {
-            if (vector3_distance(center_pos, tri[0]) > MAX_COLLISION_DIST)
-                && (vector3_distance(center_pos, tri[1]) > MAX_COLLISION_DIST)
-                && (vector3_distance(center_pos, tri[2]) > MAX_COLLISION_DIST)
-            {
-                continue;
+            let pos = vector3_add(self.position, move_dist);
+            let mut pos = mcap::Vec3::new(pos.x, pos.y, pos.z);
+
+            grid_pos = {
+                let fgpos = pos / mcap::GRID_SIZE;
+                (fgpos.x.floor() as u32, fgpos.y.floor() as u32, fgpos.z.floor() as u32 )
+            };
+
+            let collision_surfaces = g_game::get_surface_grid().unwrap().surfaces_in_cell(grid_pos).unwrap_or_default();
+
+            // wall push
+            (pos, _) = mcap::push_out_walls_2(pos, self.chest_height, self.radius, collision_surfaces);
+
+            // snap down only when on ground
+            snap_down = match self.on_ground {
+                true => self.snap_down,
+                false => 0.
+            };
+            // radius is the range from player's center they start falling at
+            // here, when center is half-radius off a ledge, starts falling
+            match mcap::find_floor_height_hotdog_v4(pos, self.snap_up, snap_down, collision_surfaces, self.radius / 2.) {
+                Some((Surface::Floor(floor), y)) => {
+                    // don't floor snap if we're not moving down
+                    // mitigates not reaching escape velocity of snap with jump
+                    if self.velocity.y <= 0. {
+                        pos.y = y;
+                        self.velocity.y = self.velocity.y.max(0.0);
+                        self.on_ground = true;
+                        draw_floor = Some(floor);
+                    } else {
+                        // falling
+                        self.velocity.y = (self.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
+                        self.on_ground = false;
+                    }
+                }
+                Some((Surface::Slide(slide), y)) => {
+                    pos.y = y;
+                    let n = slide.normal().to_rayv3();
+                    let g = Vector3::new(0.0, GRAVITY, 0.0);
+                    let g_slide = g - n * g.dot(n);
+
+                    // remove velocity into the slope
+                    let vel_into_slope = n * self.velocity.dot(n);
+                    self.velocity = self.velocity - vel_into_slope;
+
+                    // just feels better with 2x grav
+                    self.velocity = self.velocity + g_slide * fd;
+
+                    self.on_ground = false;
+                    draw_floor = Some(slide);
+                }
+                _ => {
+                    // falling
+                    self.velocity.y = (self.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
+                    self.on_ground = false;
+                }
             }
 
-            let closest = closest_point_to_triangle(tri, center_pos);
-
-            if cfg!(debug_assertions) {
-                let re = g_instance::ref_ent_from_str("icosphere").unwrap();
-                let mat = matrix_translate(closest.x, closest.y, closest.z);
-
-                let dc = render::DrawCall {
-                    matrix: mat,
-                    texture: re.texture_handle as u32,
-                    f1: re.frame_handles[0] as i32,
-                    f2: re.frame_handles[0] as i32,
-                    mix: 0.0,
-                    num_verts: re.num_verts,
-                    glow: Some(Vector3::new(0.7, 0.7, 0.7)),
-                };
-                render::draw(dc).unwrap();
+            // cieling clamp
+            if let Some((Surface::Cieling(ciel), y)) = mcap::find_ciel_height_hotdog_v3(pos, self.chest_height, self.radius, collision_surfaces, self.radius / 2. ) {
+                pos.y = y - self.height;
+                self.velocity.y = self.velocity.y.min(0.0);
+                draw_ciel = Some(ciel);
             }
-            // collides inside sphere
-            if vector3_distance(center_pos, closest) <= width / 2. + VCLOSE {
-                wall_collisions.push((closest, vector3_negate(normal)));
-            }
+
+            self.pos = pos.to_rayv3();
+
         }
-    }
 
-    if wall_collisions.is_empty() {
-        return None;
-    }
 
-    // find closest intersection point to the center of the player's hitbox
-    let mut intersector = None;
-    let mut closest_distance = f32::INFINITY;
-    for (coll, norm) in wall_collisions {
-        let dist = vector3_distance(center_pos, coll);
-        if dist < closest_distance {
-            intersector = Some((coll, norm));
-            closest_distance = dist;
-        }
     }
-
-    intersector
 }
