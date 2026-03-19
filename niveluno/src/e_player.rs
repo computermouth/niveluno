@@ -51,17 +51,6 @@ pub struct OptAssets {
 const GRAVITY: f32 = -36.0;
 const TERMINAL_VEL: f32 = -216.0;
 
-const FRICTION: f32 = 10.0;
-// ~45.01 degrees -- if you change this, you'll
-// have to change a few of the height / 2. below
-pub const MAX_SLOPE: f32 = 0.707;
-// todo, add an nmcc check to output the minimum largest value here
-// before we start falling through triangles. it'd be half the largest
-// distance between two points of a decor triangle I think
-pub const MAX_COLLISION_DIST: f32 = 8.;
-
-const VCLOSE: f32 = 0.00001;
-
 impl Player {
     pub fn new(entt: &Entity) -> Self {
         // timed surface on spawn
@@ -138,9 +127,9 @@ impl Player {
                 })
                 .unwrap(),
             },
-            height: 2.,
-            radius: 2. / 3.,
-            chest_height: 2. *  (2. / 3.),
+            height: 2.5,
+            radius: 1.5,
+            chest_height: 1.75,
             snap_up: 1.,
             snap_down: 0.5,
             opt_ass: match g_game::get_state().unwrap() {
@@ -417,7 +406,7 @@ impl Player {
             y_mat,
         );
 
-        let move_dir = self.acceleration;
+        let move_dir = vector3_normalize(self.acceleration);
 
         let speed = 100.;
         let sprint_factor = match sprint {
@@ -452,12 +441,6 @@ impl Player {
             (move_count, move_dist)
         };
 
-        let mut grid_pos = (0, 0, 0);
-        let mut collision_surfaces: &[&Surface] = &vec![];
-        let mut draw_floor = None;
-        let mut draw_ciel = None;
-        let mut snap_down = 0.;
-
         for _ in 0..move_count {
 
             let fd = fd / (move_count as f32);
@@ -465,7 +448,7 @@ impl Player {
             let pos = vector3_add(self.position, move_dist);
             let mut pos = mcap::Vec3::new(pos.x, pos.y, pos.z);
 
-            grid_pos = {
+            let grid_pos = {
                 let fgpos = pos / mcap::GRID_SIZE;
                 (fgpos.x.floor() as u32, fgpos.y.floor() as u32, fgpos.z.floor() as u32 )
             };
@@ -476,7 +459,7 @@ impl Player {
             (pos, _) = mcap::push_out_walls_2(pos, self.chest_height, self.radius, collision_surfaces);
 
             // snap down only when on ground
-            snap_down = match self.on_ground {
+            let snap_down = match self.on_ground {
                 true => self.snap_down,
                 false => 0.
             };
@@ -490,7 +473,6 @@ impl Player {
                         pos.y = y;
                         self.velocity.y = self.velocity.y.max(0.0);
                         self.on_ground = true;
-                        draw_floor = Some(floor);
                     } else {
                         // falling
                         self.velocity.y = (self.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
@@ -499,19 +481,22 @@ impl Player {
                 }
                 Some((Surface::Slide(slide), y)) => {
                     pos.y = y;
-                    let n = slide.normal().to_rayv3();
-                    let g = Vector3::new(0.0, GRAVITY, 0.0);
+                    let n = slide.normal();
+                    let g = mcap::Vec3::new(0.0, GRAVITY, 0.0);
                     let g_slide = g - n * g.dot(n);
 
+                    let mut velocity = mcap::Vec3::new(self.velocity.x, self.velocity.y, self.velocity.z);
+
                     // remove velocity into the slope
-                    let vel_into_slope = n * self.velocity.dot(n);
-                    self.velocity = self.velocity - vel_into_slope;
+                    let vel_into_slope = n * velocity.dot(n);
+                    velocity -= vel_into_slope;
 
                     // just feels better with 2x grav
-                    self.velocity = self.velocity + g_slide * fd;
+                    velocity += g_slide * fd;
+
+                    self.velocity = Vector3::new(velocity.x, velocity.y, velocity.z);
 
                     self.on_ground = false;
-                    draw_floor = Some(slide);
                 }
                 _ => {
                     // falling
@@ -524,10 +509,9 @@ impl Player {
             if let Some((Surface::Cieling(ciel), y)) = mcap::find_ciel_height_hotdog_v3(pos, self.chest_height, self.radius, collision_surfaces, self.radius / 2. ) {
                 pos.y = y - self.height;
                 self.velocity.y = self.velocity.y.min(0.0);
-                draw_ciel = Some(ciel);
             }
 
-            self.pos = pos.to_rayv3();
+            self.position = Vector3::new(pos.x, pos.y, pos.z);
 
         }
 

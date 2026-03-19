@@ -174,7 +174,7 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
                         tri[1].to_mcapv3(),
                         tri[2].to_mcapv3(),
                     ],
-                    vector3_negate(vec3_face_normal(tri[0], tri[1], tri[2])).to_mcapv3(),
+                    vec3_face_normal(tri[0], tri[1], tri[2]).to_mcapv3(),
                 );
                 all_surfs.push(s);
             });

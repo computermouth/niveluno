@@ -25,7 +25,7 @@ struct InputGod {
     pub mouse_speed: f32,
     pub mouse_invert: bool,
     pub quit: bool,
-    pub keys: [bool; 8],
+    pub keys: [bool; 9],
     pub fullscreen: bool,
 }
 
@@ -52,7 +52,7 @@ pub fn init() -> Result<(), NUError> {
         mouse_speed: 10., // 0-50 // todo, verify
         mouse_invert: false,
         quit: false,
-        keys: [false; 8],
+        keys: [false; 9],
         fullscreen: false,
     };
 
@@ -180,6 +180,6 @@ pub fn get_mouse() -> Result<(f32, f32), NUError> {
     Ok((ig.mouse_x, ig.mouse_y))
 }
 
-pub fn get_keys() -> Result<[bool; 8], NUError> {
+pub fn get_keys() -> Result<[bool; 9], NUError> {
     Ok(InputGod::get()?.keys)
 }
