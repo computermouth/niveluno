@@ -2,8 +2,7 @@ use std::collections::VecDeque;
 use rand::Rng;
 
 use mcap::{
-    Surface, Triangle, Vec3, push_out_walls_2, find_ciel_height_hotdog_v3, find_floor_height_hotdog_v4,
-    GRID_SIZE, SurfaceGrid, 
+    GRID_SIZE, Surface, SurfaceGrid, Triangle, Vec3, find_ciel_height_hotdog_v3, find_floor_height_hotdog_v4, push_out_walls_2 
 };
 use modelz;
 use raylib::prelude::*;
@@ -158,16 +157,21 @@ fn main() {
 
     let mut model = levels.model();
 
+    let snap_up = 1.;
+    let radius = 2. / 3.;
+    let chest_height = snap_up * 0.7 + radius;
+    let height = chest_height + radius;
+
     let n_player = Player {
         pos: origin,
         velocity: Vector3::new(0., 0., 0.),
         cam_pitch: 0.,
         cam_yaw: 0.,
-        height: 2.5,
-        chest_height: 1.75,
-        radius: 1.,
+        height: height,
+        chest_height: chest_height,
+        radius: radius,
         on_ground: false,
-        snap_up: 1.,
+        snap_up: snap_up,
         snap_down: 0.5,
     };
 
@@ -402,7 +406,7 @@ fn main() {
             }
 
             // cieling clamp
-            if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.radius, collision_surfaces, player.radius / 2. ) {
+            if let Some((Surface::Cieling(ciel), y)) = find_ciel_height_hotdog_v3(pos, player.chest_height, player.height - player.chest_height, collision_surfaces, player.radius / 2. ) {
                 pos.y = y - player.height;
                 player.velocity.y = player.velocity.y.min(0.0);
                 draw_ciel = Some(ciel);
@@ -512,7 +516,7 @@ fn main() {
                     player.pos + Vector3::new(0., player.chest_height, 0.),
                     player.radius / 2.,
                     player.radius / 2.,
-                    player.radius,
+                    player.height - player.chest_height,
                     14,
                     Color::YELLOWGREEN,
                 );
