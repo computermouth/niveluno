@@ -261,6 +261,8 @@ impl Player {
                 );
 
                 let h_mat = matrix_translate(horizontal.x, horizontal.y, horizontal.z);
+                
+                render::push_debug_line(self.position, horizontal, 1., 0., 0.).unwrap();
 
                 let dc = render::DrawCall {
                     matrix: h_mat,

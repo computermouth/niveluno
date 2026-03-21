@@ -20,6 +20,8 @@ pub const D_WINDOW_H: u32 = 360;
 
 const V_SHADER_STR: &str = include_str!("game_vert.glsl");
 const F_SHADER_STR: &str = include_str!("game_frag.glsl");
+const DEBUG_V_SHADER_STR: &str = include_str!("debug_vert.glsl");
+const DEBUG_F_SHADER_STR: &str = include_str!("debug_frag.glsl");
 
 // magic numbers
 // MAX_LIGHT_V3S game_frag.glsl
@@ -40,6 +42,13 @@ pub struct DrawCall {
     pub mix: f32,
     pub glow: Option<Vector3>,
     pub num_verts: usize,
+}
+
+struct DebugDrawCmd {
+    primitive: GLenum,
+    start: GLint,
+    count: GLsizei,
+    color: [f32; 3],
 }
 
 struct MetaTex {
@@ -99,6 +108,16 @@ struct RenderGod {
     pub current_window_height: i32,
 
     pub placeholder_tex_id: usize,
+
+    // debug drawing
+    pub debug_shader_program: GLuint,
+    pub debug_vbo: GLuint,
+    pub debug_vao: GLuint,
+    pub debug_u_camera_pos: GLint,
+    pub debug_u_mouse: GLint,
+    pub debug_u_color: GLint,
+    pub debug_verts: Vec<f32>,
+    pub debug_cmds: Vec<DebugDrawCmd>,
 }
 
 impl RenderGod {
@@ -331,6 +350,15 @@ pub fn init() -> Result<(), NUError> {
         current_window_height: D_WINDOW_H as i32,
 
         placeholder_tex_id: 0,
+
+        debug_shader_program: 0,
+        debug_vbo: 0,
+        debug_vao: 0,
+        debug_u_camera_pos: 0,
+        debug_u_mouse: 0,
+        debug_u_color: 0,
+        debug_verts: vec![],
+        debug_cmds: vec![],
     };
 
     unsafe {
@@ -473,6 +501,34 @@ pub fn init() -> Result<(), NUError> {
         data: PLACEHOLDER_PNG.to_vec(),
     })?;
 
+    // debug shader
+    rg.debug_shader_program = create_program(
+        compile_shader(gl::VERTEX_SHADER, DEBUG_V_SHADER_STR)?,
+        compile_shader(gl::FRAGMENT_SHADER, DEBUG_F_SHADER_STR)?,
+    )?;
+    unsafe {
+        rg.debug_u_camera_pos =
+            gl::GetUniformLocation(rg.debug_shader_program, CString::new("camera_pos")?.as_ptr());
+        rg.debug_u_mouse =
+            gl::GetUniformLocation(rg.debug_shader_program, CString::new("mouse")?.as_ptr());
+        rg.debug_u_color =
+            gl::GetUniformLocation(rg.debug_shader_program, CString::new("color")?.as_ptr());
+    }
+
+    // debug VAO/VBO
+    unsafe {
+        gl::GenVertexArrays(1, addr_of_mut!(rg.debug_vao));
+        gl::BindVertexArray(rg.debug_vao);
+        gl::GenBuffers(1, addr_of_mut!(rg.debug_vbo));
+        gl::BindBuffer(gl::ARRAY_BUFFER, rg.debug_vbo);
+        let loc = gl::GetAttribLocation(rg.debug_shader_program, CString::new("p")?.as_ptr());
+        gl::EnableVertexAttribArray(loc as u32);
+        gl::VertexAttribPointer(loc as u32, 3, gl::FLOAT, gl::FALSE, 3 * 4, 0 as *const GLvoid);
+        // restore main VAO
+        gl::BindVertexArray(rg.vao);
+        gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
+    }
+
     Ok(())
 }
 
@@ -597,7 +653,25 @@ pub fn end_frame() -> Result<(), NUError> {
 
     // sort draw calls by texture to reduce texture
     // bind time
-    rg.draw_calls.sort_by(|a, b| a.texture.cmp(&b.texture));
+    // ===============================================
+    // rg.draw_calls.sort_by(|a, b| a.texture.cmp(&b.texture));
+
+    // todo, try some optimizations here?
+    // sort by distance to cam?
+    // discard by distance to cam?
+    // ===============================================
+    // let cam = rg.camera_position;
+    // let max_dist_sq = 50. * 50.;
+    // let draw_calls: Vec<&DrawCall> = rg.draw_calls.iter()
+    //     .map(|c| {
+    //         (c, (c.matrix.m12 - cam.x).powi(2) + (c.matrix.m13 - cam.y).powi(2) + (c.matrix.m14 - cam.z).powi(2))
+    //     })
+    //     .filter(|(_, dist_sq)| *dist_sq <= max_dist_sq)
+    //     .map(|(c, _)| c)
+    //     .collect();
+
+    // todo, add a flag to draw calls, that the texture
+    // has transparency, then put those last?
 
     for c in &rg.draw_calls {
         if last_texture != c.texture {
@@ -680,6 +754,44 @@ pub fn end_frame() -> Result<(), NUError> {
             // this should save ram, vram, and hopefully also gpu vertex data copy time
             gl::DrawArrays(gl::TRIANGLES, c.f1, c.num_verts as i32);
         }
+    }
+
+    // debug draws
+    if !rg.debug_cmds.is_empty() {
+        unsafe {
+            gl::UseProgram(rg.debug_shader_program);
+            gl::BindVertexArray(rg.debug_vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, rg.debug_vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,
+                (rg.debug_verts.len() * std::mem::size_of::<f32>()) as isize,
+                rg.debug_verts.as_ptr() as *const GLvoid,
+                gl::DYNAMIC_DRAW,
+            );
+            gl::Uniform4f(
+                rg.debug_u_camera_pos,
+                rg.camera_position.x,
+                rg.camera_position.y,
+                rg.camera_position.z,
+                16.0 / 9.0,
+            );
+            gl::Uniform2f(rg.debug_u_mouse, rg.camera_yaw, rg.camera_pitch);
+            gl::Disable(gl::CULL_FACE);
+        }
+        for cmd in &rg.debug_cmds {
+            unsafe {
+                gl::Uniform3f(rg.debug_u_color, cmd.color[0], cmd.color[1], cmd.color[2]);
+                gl::DrawArrays(cmd.primitive, cmd.start, cmd.count);
+            }
+        }
+        unsafe {
+            gl::Enable(gl::CULL_FACE);
+            gl::UseProgram(rg.shader_program);
+            gl::BindVertexArray(rg.vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, rg.vertex_buffer);
+        }
+        rg.debug_verts.clear();
+        rg.debug_cmds.clear();
     }
 
     // todo works here, but eeeeggghhhh
@@ -915,4 +1027,37 @@ pub fn set_camera_yaw(f: f32) -> Result<(), NUError> {
 pub fn get_camera_yaw() -> Result<f32, NUError> {
     let rg = RenderGod::get()?;
     Ok(rg.camera_yaw)
+}
+
+pub fn push_debug_line(v1: Vector3, v2: Vector3, r: f32, g: f32, b: f32) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    let start = (rg.debug_verts.len() / 3) as GLint;
+    rg.debug_verts.extend_from_slice(&[v1.x, v1.y, v1.z, v2.x, v2.y, v2.z]);
+    rg.debug_cmds.push(DebugDrawCmd {
+        primitive: gl::LINES,
+        start,
+        count: 2,
+        color: [r, g, b],
+    });
+    Ok(())
+}
+
+pub fn push_debug_triangle(
+    v1: Vector3,
+    v2: Vector3,
+    v3: Vector3,
+    r: f32,
+    g: f32,
+    b: f32,
+) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    let start = (rg.debug_verts.len() / 3) as GLint;
+    rg.debug_verts.extend_from_slice(&[v1.x, v1.y, v1.z, v2.x, v2.y, v2.z, v3.x, v3.y, v3.z]);
+    rg.debug_cmds.push(DebugDrawCmd {
+        primitive: gl::TRIANGLES,
+        start,
+        count: 3,
+        color: [r, g, b],
+    });
+    Ok(())
 }
