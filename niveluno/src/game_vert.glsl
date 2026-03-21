@@ -146,7 +146,9 @@ void main(void) {
         1, 0, 0, 0,
         0, camera_pos.w, 0, 0,
         0, 0, 1, 1,
-        0, 0, -2, 0
+        // -1 here stops us from clipping through the wall
+        // when the player has a radius of 1
+        0, 0, -1, 0
     ) * // projection
     rx(-mouse.y) * ry(-mouse.x) *
     vec4(vp - camera_pos_xyz, 1.0);
