@@ -127,9 +127,13 @@ impl Player {
                 })
                 .unwrap(),
             },
-            height: 2.5,
-            radius: 1.5,
-            chest_height: 1.75,
+            // let snap_up = 1.;
+            // let radius = 2. / 3.;
+            // let chest_height = snap_up * 0.7 + radius;
+            // let height = chest_height + radius;
+            height: 0.7 + 2.,
+            radius: 1., 
+            chest_height: 0.7 + 1.,
             snap_up: 1.,
             snap_down: 0.5,
             opt_ass: match g_game::get_state().unwrap() {
@@ -233,7 +237,7 @@ impl Player {
 
         render::set_camera_pos(vector3_add(
             self.position,
-            Vector3::new(0., self.height, 0.),
+            Vector3::new(0., self.chest_height, 0.),
         ))
         .unwrap();
 
@@ -506,7 +510,7 @@ impl Player {
             }
 
             // cieling clamp
-            if let Some((Surface::Cieling(ciel), y)) = mcap::find_ciel_height_hotdog_v3(pos, self.chest_height, self.radius, collision_surfaces, self.radius / 2. ) {
+            if let Some((Surface::Cieling(ciel), y)) = mcap::find_ciel_height_hotdog_v3(pos, self.chest_height, self.height - self.chest_height, collision_surfaces, self.radius / 2. ) {
                 pos.y = y - self.height;
                 self.velocity.y = self.velocity.y.min(0.0);
             }
