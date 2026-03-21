@@ -12,3 +12,6 @@ lto = true
 panic = 'unwind'
 incremental = true
 codegen-units = 256
+
+[profile.release]
+debug = true
