@@ -1,5 +1,5 @@
 use raymath::{
-    matrix_identity, quaternion_to_matrix, vector3_add, vector3_transform, Matrix, Vector3,
+    Matrix, Vector3, matrix_identity, quaternion_to_matrix, vector3_add, vector3_distance, vector3_transform
 };
 
 use crate::{g_instance, math};
@@ -27,28 +27,32 @@ struct Bounds {
     t4: Vector3,
 }
 
-const BANNER_COLORS_V3: [[f32; 3]; 9] = [
+const BANNER_COLORS_V3: [[f32; 3]; 11] = [
+    [0.0, 0.0, 0.5],
     [0.0, 0.0, 1.0],
     [0.0, 0.5, 1.0],
     [0.0, 1.0, 1.0],
+    [0.0, 1.0, 0.5],
     [0.0, 1.0, 0.0],
+    [0.5, 1.0, 0.0],
     [1.0, 1.0, 0.0],
     [1.0, 0.5, 0.0],
     [1.0, 0.0, 0.0],
     [0.5, 0.0, 0.0],
-    [1.0, 1.0, 1.0],
 ];
 
-const BANNER_COLORS_RGB: [[u8; 3]; 9] = [
+const BANNER_COLORS_RGB: [[u8; 3]; 11] = [
+    [0x00, 0x00, 0x80],
     [0x00, 0x00, 0xFF],
     [0x00, 0x80, 0xFF],
     [0x00, 0xFF, 0xFF],
+    [0x00, 0xFF, 0x80],
     [0x00, 0xFF, 0x00],
+    [0x80, 0xFF, 0x00],
     [0xFF, 0xFF, 0x00],
     [0xFF, 0x80, 0x00],
     [0xFF, 0x00, 0x00],
     [0x80, 0x00, 0x00],
-    [0xFF, 0xFF, 0xFF],
 ];
 
 impl Barrier {
@@ -74,6 +78,7 @@ impl Barrier {
             vector3_transform(Vector3::new( entt.scale[0] / 2., 0., -entt.scale[2] / 2.), mat_r),
             vector3_transform(Vector3::new( entt.scale[0] / 2., 0.,  entt.scale[2] / 2.), mat_r),
             // tops
+            // todo, add player.height * 2. or something too big to jump above
             vector3_add(vector3_transform( Vector3::new(-entt.scale[0] / 2., 0., -entt.scale[2] / 2.), mat_r), Vector3::new(0., 2., 0.)),
             vector3_add(vector3_transform( Vector3::new(-entt.scale[0] / 2., 0.,  entt.scale[2] / 2.), mat_r), Vector3::new(0., 2., 0.)),
             vector3_add(vector3_transform( Vector3::new( entt.scale[0] / 2., 0., -entt.scale[2] / 2.), mat_r), Vector3::new(0., 2., 0.)),
@@ -125,12 +130,16 @@ impl Barrier {
         match pos_2d {
             None => {}
             Some(pos) => {
-                if !g_instance::pos_is_visible(
-                    render::get_camera_pos().unwrap(),
-                    self.base.location.into(),
-                ) {
+                // simple distance check
+                if vector3_distance(render::get_camera_pos().unwrap(), self.base.location.into()) > 64. {
                     return;
                 }
+                // if !g_instance::pos_is_visible(
+                //     render::get_camera_pos().unwrap(),
+                //     self.base.location.into(),
+                // ) {
+                //     return;
+                // }
 
                 let color = BANNER_COLORS_RGB[self.id.unwrap() as usize];
 

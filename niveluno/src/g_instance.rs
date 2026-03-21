@@ -184,6 +184,8 @@ impl Instance {
     }
 }
 
+// marking as deprecated because it's slower than hell
+#[deprecated]
 pub fn pos_is_visible(cam_pos: Vector3, point: Vector3) -> bool {
     let decs = get_decor_instances().unwrap();
     let dir = vector3_normalize(vector3_subtract(point, cam_pos));
