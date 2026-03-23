@@ -158,7 +158,7 @@ fn main() {
     let mut model = levels.model();
 
     let snap_up = 1.;
-    let radius = 2. / 3.;
+    let radius = 1.;
     let chest_height = snap_up * 0.7 + radius;
     let height = chest_height + radius;
 
@@ -321,6 +321,7 @@ fn main() {
 
         if space && player.on_ground {
             player.velocity.y = 15.;
+            player.on_ground = false;
         }
 
         let max_move_dist = player.radius / 10.;
@@ -363,24 +364,16 @@ fn main() {
             // snap down only when on ground
             snap_down = match player.on_ground {
                 true => player.snap_down,
-                false => 0.
+                false => 0.,
             };
             // radius is the range from player's center they start falling at
             // here, when center is half-radius off a ledge, starts falling
             match find_floor_height_hotdog_v4(pos, player.snap_up, snap_down, collision_surfaces, player.radius / 2.) {
                 Some((Surface::Floor(floor), y)) => {
-                    // don't floor snap if we're not moving down
-                    // mitigates not reaching escape velocity of snap with jump
-                    if player.velocity.y <= 0. {
-                        pos.y = y;
-                        player.velocity.y = player.velocity.y.max(0.0);
-                        player.on_ground = true;
-                        draw_floor = Some(floor);
-                    } else {
-                        // falling
-                        player.velocity.y = (player.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
-                        player.on_ground = false;
-                    }
+                    pos.y = y;
+                    player.velocity.y = player.velocity.y.max(0.0);
+                    player.on_ground = true;
+                    draw_floor = Some(floor);
                 }
                 Some((Surface::Slide(slide), y)) => {
                     pos.y = y;

@@ -75,6 +75,11 @@ impl Player {
 
         text::push_timed_surface(ts).unwrap();
 
+        let snap_up = 1.;
+        let radius = 1.;
+        let chest_height = snap_up * 0.7 + radius;
+        let height = chest_height + radius;
+
         Self {
             base: entt.clone(),
             pitch: 0.,
@@ -127,14 +132,10 @@ impl Player {
                 })
                 .unwrap(),
             },
-            // let snap_up = 1.;
-            // let radius = 2. / 3.;
-            // let chest_height = snap_up * 0.7 + radius;
-            // let height = chest_height + radius;
-            height: 0.7 + 2.,
-            radius: 1., 
-            chest_height: 0.7 + 1.,
-            snap_up: 1.,
+            height: height,
+            radius: radius, 
+            chest_height: chest_height,
+            snap_up: snap_up,
             snap_down: 0.5,
             opt_ass: match g_game::get_state().unwrap() {
                 TopState::Menu => None,
@@ -444,6 +445,7 @@ impl Player {
 
         if jump && self.on_ground {
             self.velocity.y = 15.;
+            self.on_ground = false;
         }
 
         let max_move_dist = self.radius / 10.;
@@ -484,25 +486,17 @@ impl Player {
             // here, when center is half-radius off a ledge, starts falling
             match mcap::find_floor_height_hotdog_v4(pos, self.snap_up, snap_down, collision_surfaces, self.radius / 2.) {
                 Some((Surface::Floor(floor), y)) => {
-                    // don't floor snap if we're not moving down
-                    // mitigates not reaching escape velocity of snap with jump
-                    if self.velocity.y <= 0. {
-                        pos.y = y;
-                        self.velocity.y = self.velocity.y.max(0.0);
-                        self.on_ground = true;
+                    pos.y = y;
+                    self.velocity.y = self.velocity.y.max(0.0);
+                    self.on_ground = true;
 
-                        let v1 = floor.verts[0] + floor.normal * 0.1;
-                        let v2 = floor.verts[1] + floor.normal * 0.1;
-                        let v3 = floor.verts[2] + floor.normal * 0.1;
-                        let v1 = Vector3::new(v1.x, v1.y, v1.z);
-                        let v2 = Vector3::new(v2.x, v2.y, v2.z);
-                        let v3 = Vector3::new(v3.x, v3.y, v3.z);
-                        render::push_debug_triangle(v1, v2, v3, 1., 0., 0.).unwrap();
-                    } else {
-                        // falling
-                        self.velocity.y = (self.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
-                        self.on_ground = false;
-                    }
+                    let v1 = floor.verts[0] + floor.normal * 0.1;
+                    let v2 = floor.verts[1] + floor.normal * 0.1;
+                    let v3 = floor.verts[2] + floor.normal * 0.1;
+                    let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                    let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                    let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                    render::push_debug_triangle(v1, v2, v3, 1., 0., 0.).unwrap();
                 }
                 Some((Surface::Slide(slide), y)) => {
                     pos.y = y;
