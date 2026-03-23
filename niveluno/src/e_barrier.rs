@@ -1,8 +1,10 @@
+use core::f32;
+
 use raymath::{
     Matrix, Vector3, matrix_identity, quaternion_to_matrix, vector3_add, vector3_distance, vector3_transform
 };
 
-use crate::{g_instance, math};
+use crate::{g_instance, math, time};
 
 use crate::map::Entity;
 
@@ -227,6 +229,16 @@ impl Barrier {
                 };
                 render::draw(dc).unwrap();
             }
+
+            let floating_center = vector3_add(self.base.location.into(), Vector3::new(0., 1., 0.));
+
+            // draw a point at base + 1 height
+            render::push_debug_point(floating_center, 1., 1., 1.).unwrap();
+
+            let time = time::get_run_time().unwrap();
+
+            let axis = Vector3::new((time / 3.).sin() as f32, (time / 7.).cos() as f32, time.tan() as f32);
+            render::push_debug_circle(floating_center, 0.5, axis, f32::consts::PI, [1., 1., 1.]).unwrap();
         }
     }
 

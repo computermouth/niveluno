@@ -4,6 +4,7 @@ struct TimeGod {
     pub start_time_ms: u128,
     pub current_time_ms: u128,
     pub delta_time_ms: u128,
+    pub fps: f32,
 }
 
 impl TimeGod {
@@ -36,6 +37,7 @@ pub fn init() -> Result<(), NUError> {
         start_time_ms,
         current_time_ms,
         delta_time_ms,
+        fps: 0.,
     };
 
     unsafe { TIME_GOD = Some(tg) }
@@ -88,4 +90,15 @@ pub fn update_time() -> Result<(), NUError> {
     gg.delta_time_ms = current_time_ms - gg.current_time_ms;
     gg.current_time_ms = current_time_ms;
     Ok(())
+}
+
+pub fn set_fps(fps: f32) -> Result<(), NUError> {
+    let gg = TimeGod::get()?;
+    gg.fps = fps;
+    Ok(())
+}
+
+pub fn get_fps() -> Result<f32, NUError> {
+    let gg = TimeGod::get()?;
+    Ok(gg.fps)
 }

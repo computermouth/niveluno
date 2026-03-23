@@ -246,35 +246,17 @@ impl Player {
 
     pub fn draw_model(&mut self) {
         // draw cylinder
-        let re = g_instance::ref_ent_from_str("icosphere");
         if cfg!(debug_assertions)
             && g_game::get_state().unwrap() != g_game::TopState::Menu
-            && re.is_some()
         {
-            let re = re.unwrap();
-
-            for i in 0..10 {
-                let mat_y = matrix_rotate_y((2. * f32::consts::PI) * i as f32 / 10.);
-                let horizontal = vector3_add(
-                    vector3_add(self.position, Vector3::new(0., self.radius / 2., 0.)),
-                    vector3_transform(Vector3::new(self.radius / 2., 0., 0.), mat_y),
-                );
-
-                let h_mat = matrix_translate(horizontal.x, horizontal.y, horizontal.z);
-                
-                render::push_debug_line(self.position, horizontal, 1., 0., 0.).unwrap();
-
-                let dc = render::DrawCall {
-                    matrix: h_mat,
-                    texture: re.texture_handle as u32,
-                    f1: re.frame_handles[0] as i32,
-                    f2: re.frame_handles[0] as i32,
-                    mix: 0.0,
-                    num_verts: re.num_verts,
-                    glow: Some(Vector3::new(0., 0.7, 0.)),
-                };
-                render::draw(dc).unwrap();
-            }
+            render::push_debug_cylinder_wires(
+                self.position, 
+                vector3_add(self.position, Vector3::new(0., self.height, 0.)), 
+                self.radius, 
+                self.radius, 
+                11, 
+                [1., 1., 0.]
+            ).unwrap();
         }
 
         self.draw_hud();
@@ -282,10 +264,11 @@ impl Player {
 
     pub fn draw_hud(&mut self) {
         // draw debug hud
-        if cfg!(debug_assertions) && g_game::get_state().unwrap() != g_game::TopState::Menu {
+        // if cfg!(debug_assertions) && g_game::get_state().unwrap() != g_game::TopState::Menu {
+        if g_game::get_state().unwrap() != g_game::TopState::Menu {
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
                 text: format!(
-                    "velocity: {{{:>5.1},{:>5.1},{:>5.1}  }}",
+                    "velocity: {{{:>5.1},{:>5.1},{:>5.1}}}",
                     self.velocity.x, self.velocity.y, self.velocity.z
                 ),
                 mode: text::Mode::Solid {
@@ -319,7 +302,7 @@ impl Player {
             text::push_surface(&v_text).unwrap();
 
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
-                text: format!("position: {:?}", self.position),
+                text: format!("position: {{{:>5.1},{:>5.1},{:>5.1}}}", self.position.x, self.position.y, self.position.z),
                 mode: text::Mode::Solid {
                     color: text::FontColor {
                         r: 167,
@@ -334,8 +317,20 @@ impl Player {
             v_text.dst_rect.set_y(16 * 4);
             text::push_surface(&v_text).unwrap();
 
+            // get grid pos
+            let grid_pos = {
+                let fgpos = vector3_scale(self.position, 1. / mcap::GRID_SIZE);
+                (fgpos.x.floor() as u32, fgpos.y.floor() as u32, fgpos.z.floor() as u32 )
+            };
+            let collision_surfaces = g_game::get_surface_grid().unwrap().surfaces_in_cell(grid_pos).unwrap_or_default();
+
             let mut v_text = text::create_text_overlay_surface(text::TextInput {
-                text: format!("last_floor: {:?}", self.last_floor),
+                text: format!("grid[{:>2},{:>2},{:>2}]: {} ",
+                    (self.position.x / mcap::GRID_SIZE) as u32,
+                    (self.position.y / mcap::GRID_SIZE) as u32,
+                    (self.position.z / mcap::GRID_SIZE) as u32,
+                    collision_surfaces.len(),
+                ),
                 mode: text::Mode::Solid {
                     color: text::FontColor {
                         r: 255,
@@ -364,6 +359,22 @@ impl Player {
             })
             .unwrap();
             v_text.dst_rect.set_y(16 * 6);
+            text::push_surface(&v_text).unwrap();
+
+            let mut v_text = text::create_text_overlay_surface(text::TextInput {
+                text: format!("fps: {}", time::get_fps().unwrap() ),
+                mode: text::Mode::Solid {
+                    color: text::FontColor {
+                        r: 255,
+                        g: 255,
+                        b: 167,
+                        a: 255,
+                    },
+                },
+                font: g_game::get_text_font_sm().unwrap(),
+            })
+            .unwrap();
+            v_text.dst_rect.set_y(16 * 7);
             text::push_surface(&v_text).unwrap();
         }
 
@@ -479,6 +490,14 @@ impl Player {
                         pos.y = y;
                         self.velocity.y = self.velocity.y.max(0.0);
                         self.on_ground = true;
+
+                        let v1 = floor.verts[0] + floor.normal * 0.1;
+                        let v2 = floor.verts[1] + floor.normal * 0.1;
+                        let v3 = floor.verts[2] + floor.normal * 0.1;
+                        let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                        let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                        let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                        render::push_debug_triangle(v1, v2, v3, 1., 0., 0.).unwrap();
                     } else {
                         // falling
                         self.velocity.y = (self.velocity.y + GRAVITY * fd).max(TERMINAL_VEL);
@@ -503,6 +522,14 @@ impl Player {
                     self.velocity = Vector3::new(velocity.x, velocity.y, velocity.z);
 
                     self.on_ground = false;
+
+                    let v1 = slide.verts[0] + slide.normal * 0.1;
+                    let v2 = slide.verts[1] + slide.normal * 0.1;
+                    let v3 = slide.verts[2] + slide.normal * 0.1;
+                    let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                    let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                    let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                    render::push_debug_triangle(v1, v2, v3, 0., 0., 1.).unwrap();
                 }
                 _ => {
                     // falling
@@ -515,6 +542,14 @@ impl Player {
             if let Some((Surface::Cieling(ciel), y)) = mcap::find_ciel_height_hotdog_v3(pos, self.chest_height, self.height - self.chest_height, collision_surfaces, self.radius / 2. ) {
                 pos.y = y - self.height;
                 self.velocity.y = self.velocity.y.min(0.0);
+
+                let v1 = ciel.verts[0] + ciel.normal * 0.1;
+                let v2 = ciel.verts[1] + ciel.normal * 0.1;
+                let v3 = ciel.verts[2] + ciel.normal * 0.1;
+                let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                render::push_debug_triangle(v1, v2, v3, 1., 1., 0.).unwrap();
             }
 
             self.position = Vector3::new(pos.x, pos.y, pos.z);

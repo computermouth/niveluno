@@ -6,7 +6,7 @@ use minipng;
 
 use gl;
 use gl::types::*;
-use raymath::{vector3_distance, Matrix};
+use raymath::{Matrix, vector3_distance, vector3_length};
 
 use crate::math::{self, Vector3};
 use crate::nuerror::NUError;
@@ -1029,6 +1029,20 @@ pub fn get_camera_yaw() -> Result<f32, NUError> {
     Ok(rg.camera_yaw)
 }
 
+pub fn push_debug_point(pos: Vector3, r: f32, g: f32, b: f32) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    let start = (rg.debug_verts.len() / 3) as GLint;
+    // actually a small line
+    rg.debug_verts.extend_from_slice(&[pos.x, pos.y, pos.z, pos.x + 0.01, pos.y + 0.01, pos.z + 0.01]);
+    rg.debug_cmds.push(DebugDrawCmd {
+        primitive: gl::LINES,
+        start,
+        count: 2,
+        color: [r, g, b],
+    });
+    Ok(())
+}
+
 pub fn push_debug_line(v1: Vector3, v2: Vector3, r: f32, g: f32, b: f32) -> Result<(), NUError> {
     let rg = RenderGod::get()?;
     let start = (rg.debug_verts.len() / 3) as GLint;
@@ -1039,6 +1053,32 @@ pub fn push_debug_line(v1: Vector3, v2: Vector3, r: f32, g: f32, b: f32) -> Resu
         count: 2,
         color: [r, g, b],
     });
+    Ok(())
+}
+
+pub fn push_debug_circle(center: Vector3, radius: f32, rotation_axis: Vector3, rotation_angle: f32, color: [f32; 3]) -> Result<(), NUError>
+{
+    let rot = raymath::matrix_rotate(rotation_axis, rotation_angle);
+    let segments = 36;
+    let step = 360.0 / segments as f32;
+
+    for i in 0..segments {
+        let a0 = (i as f32 * step).to_radians();
+        let a1 = ((i + 1) as f32 * step).to_radians();
+
+        let p0 = math::vector3_transform(
+            Vector3::new(a0.sin() * radius, a0.cos() * radius, 0.0), rot,
+        );
+        let p1 = math::vector3_transform(
+            Vector3::new(a1.sin() * radius, a1.cos() * radius, 0.0), rot,
+        );
+
+        let v0 = math::vector3_add(center, p0);
+        let v1 = math::vector3_add(center, p1);
+
+        push_debug_line(v0, v1, color[0], color[1], color[2])?;
+    }
+
     Ok(())
 }
 
@@ -1059,5 +1099,190 @@ pub fn push_debug_triangle(
         count: 3,
         color: [r, g, b],
     });
+    Ok(())
+}
+
+pub fn push_debug_cube(position: Vector3, width: f32, height: f32, length: f32, color: [f32; 3]) -> Result<(), NUError> {
+    let p = position;
+    let hw = width / 2.0;
+    let hh = height / 2.0;
+    let hl = length / 2.0;
+
+    let tri = |a: Vector3, b: Vector3, c: Vector3| -> Result<(), NUError> {
+        push_debug_triangle(a, b, c, color[0], color[1], color[2])?;
+        Ok(())
+    };
+
+    // front
+    tri(Vector3::new(p.x - hw, p.y - hh, p.z + hl), Vector3::new(p.x + hw, p.y - hh, p.z + hl), Vector3::new(p.x - hw, p.y + hh, p.z + hl))?;
+    tri(Vector3::new(p.x + hw, p.y + hh, p.z + hl), Vector3::new(p.x - hw, p.y + hh, p.z + hl), Vector3::new(p.x + hw, p.y - hh, p.z + hl))?;
+    // back
+    tri(Vector3::new(p.x - hw, p.y - hh, p.z - hl), Vector3::new(p.x - hw, p.y + hh, p.z - hl), Vector3::new(p.x + hw, p.y - hh, p.z - hl))?;
+    tri(Vector3::new(p.x + hw, p.y + hh, p.z - hl), Vector3::new(p.x + hw, p.y - hh, p.z - hl), Vector3::new(p.x - hw, p.y + hh, p.z - hl))?;
+    // top
+    tri(Vector3::new(p.x - hw, p.y + hh, p.z - hl), Vector3::new(p.x - hw, p.y + hh, p.z + hl), Vector3::new(p.x + hw, p.y + hh, p.z + hl))?;
+    tri(Vector3::new(p.x + hw, p.y + hh, p.z - hl), Vector3::new(p.x - hw, p.y + hh, p.z - hl), Vector3::new(p.x + hw, p.y + hh, p.z + hl))?;
+    // bottom
+    tri(Vector3::new(p.x - hw, p.y - hh, p.z - hl), Vector3::new(p.x + hw, p.y - hh, p.z + hl), Vector3::new(p.x - hw, p.y - hh, p.z + hl))?;
+    tri(Vector3::new(p.x + hw, p.y - hh, p.z - hl), Vector3::new(p.x + hw, p.y - hh, p.z + hl), Vector3::new(p.x - hw, p.y - hh, p.z - hl))?;
+    // right
+    tri(Vector3::new(p.x + hw, p.y - hh, p.z - hl), Vector3::new(p.x + hw, p.y + hh, p.z - hl), Vector3::new(p.x + hw, p.y + hh, p.z + hl))?;
+    tri(Vector3::new(p.x + hw, p.y - hh, p.z + hl), Vector3::new(p.x + hw, p.y - hh, p.z - hl), Vector3::new(p.x + hw, p.y + hh, p.z + hl))?;
+    // left
+    tri(Vector3::new(p.x - hw, p.y - hh, p.z - hl), Vector3::new(p.x - hw, p.y + hh, p.z + hl), Vector3::new(p.x - hw, p.y + hh, p.z - hl))?;
+    tri(Vector3::new(p.x - hw, p.y - hh, p.z + hl), Vector3::new(p.x - hw, p.y + hh, p.z + hl), Vector3::new(p.x - hw, p.y - hh, p.z - hl))
+}
+
+pub fn push_debug_cube_wires(position: Vector3, width: f32, height: f32, length: f32, color: [f32; 3]) -> Result<(), NUError> {
+    let p = position;
+    let hw = width / 2.0;
+    let hh = height / 2.0;
+    let hl = length / 2.0;
+
+    let line = |a: Vector3, b: Vector3| -> Result<(), NUError> {
+        push_debug_line(a, b, color[0], color[1], color[2])
+    };
+
+    // front
+    line(Vector3::new(p.x - hw, p.y - hh, p.z + hl), Vector3::new(p.x + hw, p.y - hh, p.z + hl))?;
+    line(Vector3::new(p.x + hw, p.y - hh, p.z + hl), Vector3::new(p.x + hw, p.y + hh, p.z + hl))?;
+    line(Vector3::new(p.x + hw, p.y + hh, p.z + hl), Vector3::new(p.x - hw, p.y + hh, p.z + hl))?;
+    line(Vector3::new(p.x - hw, p.y + hh, p.z + hl), Vector3::new(p.x - hw, p.y - hh, p.z + hl))?;
+    // back
+    line(Vector3::new(p.x - hw, p.y - hh, p.z - hl), Vector3::new(p.x + hw, p.y - hh, p.z - hl))?;
+    line(Vector3::new(p.x + hw, p.y - hh, p.z - hl), Vector3::new(p.x + hw, p.y + hh, p.z - hl))?;
+    line(Vector3::new(p.x + hw, p.y + hh, p.z - hl), Vector3::new(p.x - hw, p.y + hh, p.z - hl))?;
+    line(Vector3::new(p.x - hw, p.y + hh, p.z - hl), Vector3::new(p.x - hw, p.y - hh, p.z - hl))?;
+    // edges
+    line(Vector3::new(p.x - hw, p.y + hh, p.z + hl), Vector3::new(p.x - hw, p.y + hh, p.z - hl))?;
+    line(Vector3::new(p.x + hw, p.y + hh, p.z + hl), Vector3::new(p.x + hw, p.y + hh, p.z - hl))?;
+    line(Vector3::new(p.x - hw, p.y - hh, p.z + hl), Vector3::new(p.x - hw, p.y - hh, p.z - hl))?;
+    line(Vector3::new(p.x + hw, p.y - hh, p.z + hl), Vector3::new(p.x + hw, p.y - hh, p.z - hl))
+}
+
+pub fn push_debug_sphere(center: Vector3, radius: f32, rings: i32, slices: i32, color: [f32; 3]) -> Result<(), NUError> {
+    let ringangle = (180.0f32 / (rings + 1) as f32).to_radians();
+    let sliceangle = (360.0f32 / slices as f32).to_radians();
+
+    let cosring = ringangle.cos();
+    let sinring = ringangle.sin();
+    let cosslice = sliceangle.cos();
+    let sinslice = sliceangle.sin();
+
+    let mut verts = [Vector3::new(0., 0., 0.); 4];
+    verts[2] = Vector3::new(0., 1., 0.);
+    verts[3] = Vector3::new(sinring, cosring, 0.);
+
+    for _ in 0..rings + 1 {
+        for _ in 0..slices {
+            verts[0] = verts[2];
+            verts[1] = verts[3];
+            verts[2] = Vector3::new(cosslice * verts[2].x - sinslice * verts[2].z, verts[2].y, sinslice * verts[2].x + cosslice * verts[2].z);
+            verts[3] = Vector3::new(cosslice * verts[3].x - sinslice * verts[3].z, verts[3].y, sinslice * verts[3].x + cosslice * verts[3].z);
+
+            let v = |i: usize| Vector3::new(center.x + verts[i].x * radius, center.y + verts[i].y * radius, center.z + verts[i].z * radius);
+            push_debug_triangle(v(0), v(3), v(1), color[0], color[1], color[2])?;
+            push_debug_triangle(v(0), v(2), v(3), color[0], color[1], color[2])?;
+        }
+        verts[2] = verts[3];
+        verts[3] = Vector3::new(cosring * verts[3].x + sinring * verts[3].y, -sinring * verts[3].x + cosring * verts[3].y, verts[3].z);
+    }
+
+    Ok(())
+}
+
+pub fn push_debug_sphere_wires(center: Vector3, radius: f32, rings: i32, slices: i32, color: [f32; 3])-> Result<(), NUError> {
+    for i in 0..rings + 2 {
+        for j in 0..slices {
+            let ring_a = (270.0 + (180.0 / (rings + 1) as f32) * i as f32).to_radians();
+            let ring_b = (270.0 + (180.0 / (rings + 1) as f32) * (i + 1) as f32).to_radians();
+            let slice_a = (360.0 * j as f32 / slices as f32).to_radians();
+            let slice_b = (360.0 * (j + 1) as f32 / slices as f32).to_radians();
+
+            let vert = |ring: f32, slice: f32| Vector3::new(
+                center.x + ring.cos() * slice.sin() * radius,
+                center.y + ring.sin() * radius,
+                center.z + ring.cos() * slice.cos() * radius,
+            );
+
+            // diagonal
+            push_debug_line(vert(ring_a, slice_a), vert(ring_b, slice_b), color[0], color[1], color[2])?;
+            // horizontal
+            push_debug_line(vert(ring_b, slice_b), vert(ring_b, slice_a), color[0], color[1], color[2])?;
+            // vertical
+            push_debug_line(vert(ring_b, slice_a), vert(ring_a, slice_a), color[0], color[1], color[2])?;
+        }
+    }
+    Ok(())
+}
+
+pub fn push_debug_cylinder(start_pos: Vector3, end_pos: Vector3, start_radius: f32, end_radius: f32, sides: i32, color: [f32; 3])-> Result<(), NUError> {
+    let sides = sides.max(3);
+    let direction = math::vector3_subtract(end_pos, start_pos);
+    if vector3_length(direction) == 0. { 
+        return Err(NUError::MiscError("cylinder has no direction".to_string()));
+    }
+
+    let b1 = raymath::vector3_normalize(raymath::vector3_perpendicular(direction));
+    let b2 = raymath::vector3_normalize(raymath::vector3_cross_product(b1, direction));
+    let base_angle = std::f32::consts::TAU / sides as f32;
+
+    for i in 0..sides {
+        let s1 = (base_angle * i as f32).sin() * start_radius;
+        let c1 = (base_angle * i as f32).cos() * start_radius;
+        let w1 = Vector3::new(start_pos.x + s1*b1.x + c1*b2.x, start_pos.y + s1*b1.y + c1*b2.y, start_pos.z + s1*b1.z + c1*b2.z);
+        let s2 = (base_angle * (i+1) as f32).sin() * start_radius;
+        let c2 = (base_angle * (i+1) as f32).cos() * start_radius;
+        let w2 = Vector3::new(start_pos.x + s2*b1.x + c2*b2.x, start_pos.y + s2*b1.y + c2*b2.y, start_pos.z + s2*b1.z + c2*b2.z);
+        let s3 = (base_angle * i as f32).sin() * end_radius;
+        let c3 = (base_angle * i as f32).cos() * end_radius;
+        let w3 = Vector3::new(end_pos.x + s3*b1.x + c3*b2.x, end_pos.y + s3*b1.y + c3*b2.y, end_pos.z + s3*b1.z + c3*b2.z);
+        let s4 = (base_angle * (i+1) as f32).sin() * end_radius;
+        let c4 = (base_angle * (i+1) as f32).cos() * end_radius;
+        let w4 = Vector3::new(end_pos.x + s4*b1.x + c4*b2.x, end_pos.y + s4*b1.y + c4*b2.y, end_pos.z + s4*b1.z + c4*b2.z);
+
+        if start_radius > 0.0 {
+            push_debug_triangle(start_pos, w2, w1, color[0], color[1], color[2])?;
+        }
+        push_debug_triangle(w1, w2, w3, color[0], color[1], color[2])?;
+        push_debug_triangle(w2, w4, w3, color[0], color[1], color[2])?;
+        if end_radius > 0.0 {
+            push_debug_triangle(end_pos, w3, w4, color[0], color[1], color[2])?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn push_debug_cylinder_wires(start_pos: Vector3, end_pos: Vector3, start_radius: f32, end_radius: f32, sides: i32, color: [f32; 3]) -> Result<(), NUError>  {
+    let sides = sides.max(3);
+    let direction = math::vector3_subtract(end_pos, start_pos);
+    if vector3_length(direction) == 0. { 
+        return Err(NUError::MiscError("cylinder has no direction".to_string()));
+    }
+
+    let b1 = raymath::vector3_normalize(raymath::vector3_perpendicular(direction));
+    let b2 = raymath::vector3_normalize(raymath::vector3_cross_product(b1, direction));
+    let base_angle = std::f32::consts::TAU / sides as f32;
+
+    for i in 0..sides {
+        let s1 = (base_angle * i as f32).sin() * start_radius;
+        let c1 = (base_angle * i as f32).cos() * start_radius;
+        let w1 = Vector3::new(start_pos.x + s1*b1.x + c1*b2.x, start_pos.y + s1*b1.y + c1*b2.y, start_pos.z + s1*b1.z + c1*b2.z);
+        let s2 = (base_angle * (i+1) as f32).sin() * start_radius;
+        let c2 = (base_angle * (i+1) as f32).cos() * start_radius;
+        let w2 = Vector3::new(start_pos.x + s2*b1.x + c2*b2.x, start_pos.y + s2*b1.y + c2*b2.y, start_pos.z + s2*b1.z + c2*b2.z);
+        let s3 = (base_angle * i as f32).sin() * end_radius;
+        let c3 = (base_angle * i as f32).cos() * end_radius;
+        let w3 = Vector3::new(end_pos.x + s3*b1.x + c3*b2.x, end_pos.y + s3*b1.y + c3*b2.y, end_pos.z + s3*b1.z + c3*b2.z);
+        let s4 = (base_angle * (i+1) as f32).sin() * end_radius;
+        let c4 = (base_angle * (i+1) as f32).cos() * end_radius;
+        let w4 = Vector3::new(end_pos.x + s4*b1.x + c4*b2.x, end_pos.y + s4*b1.y + c4*b2.y, end_pos.z + s4*b1.z + c4*b2.z);
+
+        push_debug_line(w1, w2, color[0], color[1], color[2])?;
+        push_debug_line(w1, w3, color[0], color[1], color[2])?;
+        push_debug_line(w3, w4, color[0], color[1], color[2])?;
+    }
+
     Ok(())
 }

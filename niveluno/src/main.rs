@@ -74,6 +74,9 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
 
     // todo, text init here?
     video_subsystem
+        // setting swap interval fails in VM,
+        // todo, consider doing it manually if this fails,
+        // or not bubbling up this error
         .gl_set_swap_interval(SwapInterval::Immediate)
         // .gl_set_swap_interval(SwapInterval::VSync)
         .map_err(|e| NUError::SDLError(e))?;
@@ -120,7 +123,8 @@ fn main() -> Result<(), String> {
             .as_secs();
         newtime = time;
         if newtime - oldtime >= 2 {
-            eprintln!("fps: {}", frames as f32 / 2.0);
+            let fps = frames as f32 / 2.;
+            time::set_fps(fps).unwrap();
             oldtime = newtime;
             frames = 0;
         }
