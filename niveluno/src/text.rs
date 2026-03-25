@@ -505,7 +505,7 @@ pub fn create_barrier_level_surface<'a>(
     out_surf
         .fill_rect(
             sdl2::rect::Rect::new(0, 0, w, h),
-            sdl2::pixels::Color::RGBA(input.color.r, input.color.g, input.color.b, 196),
+            sdl2::pixels::Color::RGBA(input.color.r, input.color.g, input.color.b, input.color.a),
         )
         .unwrap();
 
@@ -513,14 +513,14 @@ pub fn create_barrier_level_surface<'a>(
         let (black_num, white_num) = match render_map.get(&v) {
             Some(bw) => bw,
             None => {
-                let black = sdl2::pixels::Color::RGBA(16, 16, 16, 196);
+                let black = sdl2::pixels::Color::RGBA(16, 16, 16, input.color.a);
                 let black_num = font
                     .render(&v.to_string())
                     .solid(black)
                     .map_err(|e| NUError::SDLError(e.to_string()))?;
                 // eprintln!("bn {} {}", black_num.width(), black_num.height());
 
-                let white = sdl2::pixels::Color::RGBA(224, 224, 224, 255);
+                let white = sdl2::pixels::Color::RGBA(224, 224, 224, input.color.a);
                 let white_num = font
                     .render(&v.to_string())
                     .blended(white)

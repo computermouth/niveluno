@@ -25,7 +25,7 @@ pub struct Player {
     base: Entity,
     pitch: f32,
     yaw: f32,
-    position: Vector3,
+    pub position: Vector3,
     hud: Box<text::OverlaySurface>,
     speed: f32,
     acceleration: Vector3,

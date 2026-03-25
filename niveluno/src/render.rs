@@ -108,6 +108,7 @@ struct RenderGod {
     pub current_window_height: i32,
 
     pub placeholder_tex_id: usize,
+    pub billboard_quad_f1: GLint,
 
     // debug drawing
     pub debug_shader_program: GLuint,
@@ -156,8 +157,8 @@ pub fn change_window_size(w: i32, h: i32) -> Result<(), NUError> {
     Ok(())
 }
 
-pub fn placeholder_tex_id() -> Result<isize, NUError> {
-    Ok(RenderGod::get()?.placeholder_tex_id as isize)
+pub fn placeholder_tex_id() -> Result<u32, NUError> {
+    Ok(RenderGod::get()?.placeholder_tex_id as u32)
 }
 
 pub fn compile_shader(shader_type: GLenum, shader_str: &str) -> Result<GLuint, NUError> {
@@ -350,6 +351,7 @@ pub fn init() -> Result<(), NUError> {
         current_window_height: D_WINDOW_H as i32,
 
         placeholder_tex_id: 0,
+        billboard_quad_f1: 0,
 
         debug_shader_program: 0,
         debug_vbo: 0,
@@ -501,6 +503,28 @@ pub fn init() -> Result<(), NUError> {
         data: PLACEHOLDER_PNG.to_vec(),
     })?;
 
+    // billboard unit quad (two triangles, centered at origin, in x/y plane)
+    let n = Vector3::new(0., 0., 1.);
+    rg.billboard_quad_f1 = rg.r_num_verts as GLint;
+
+    struct Vert {
+        pos: Vector3,
+        u: f32,
+        v: f32,
+    }
+
+    let bot_l = Vert { pos: Vector3::new(-0.5, -0.5, 0.), u: 0., v: 1.};
+    let bot_r = Vert { pos: Vector3::new(0.5, -0.5, 0.), u: 1., v: 1.};
+    let top_l = Vert { pos: Vector3::new(-0.5,  0.5, 0.), u: 0., v: 0.};
+    let top_r = Vert { pos: Vector3::new(0.5,  0.5, 0.), u: 1., v: 0.};
+    
+    push_vert(bot_l.pos, n, bot_l.u, bot_l.v)?;
+    push_vert(bot_r.pos, n, bot_r.u, bot_r.v)?;
+    push_vert(top_r.pos, n, top_r.u, top_r.v)?;
+    push_vert(bot_l.pos, n, bot_l.u, bot_l.v)?;
+    push_vert(top_r.pos, n, top_r.u, top_r.v)?;
+    push_vert(top_l.pos, n, top_l.u, top_l.v)?;
+
     // debug shader
     rg.debug_shader_program = create_program(
         compile_shader(gl::VERTEX_SHADER, DEBUG_V_SHADER_STR)?,
@@ -540,26 +564,7 @@ pub struct PngBin {
     pub data: Vec<u8>,
 }
 
-pub fn create_texture(p: PngBin) -> Result<usize, NUError> {
-    let header =
-        minipng::decode_png_header(&p.data).map_err(|e| NUError::MiniPNGError(e.to_string()))?;
-    let mut buffer = vec![0; header.required_bytes()];
-    let (width, height) = match minipng::decode_png(&p.data, &mut buffer)
-        .map_err(|e| NUError::MiniPNGError(e.to_string()))
-    {
-        Ok(i) => (i.width(), i.height()),
-        Err(e) => {
-            eprintln!(
-                "create_texture failed: {} {} {}",
-                e.to_string(),
-                p.data.len(),
-                buffer.len()
-            );
-            buffer = PLACEHOLDER_PNG.to_vec();
-            (1, 1)
-        }
-    };
-
+fn upload_texture_rgba(buffer: &[u8], width: u32, height: u32) -> Result<usize, NUError> {
     let mut texture: GLuint = 0;
 
     unsafe {
@@ -596,6 +601,33 @@ pub fn create_texture(p: PngBin) -> Result<usize, NUError> {
     });
 
     Ok(ts.len() - 1)
+}
+
+pub fn create_texture(p: PngBin) -> Result<usize, NUError> {
+    let header =
+        minipng::decode_png_header(&p.data).map_err(|e| NUError::MiniPNGError(e.to_string()))?;
+    let mut buffer = vec![0; header.required_bytes()];
+    let (width, height) = match minipng::decode_png(&p.data, &mut buffer)
+        .map_err(|e| NUError::MiniPNGError(e.to_string()))
+    {
+        Ok(i) => (i.width(), i.height()),
+        Err(e) => {
+            eprintln!(
+                "create_texture failed: {} {} {}",
+                e.to_string(),
+                p.data.len(),
+                buffer.len()
+            );
+            buffer = PLACEHOLDER_PNG.to_vec();
+            (1, 1)
+        }
+    };
+
+    upload_texture_rgba(&buffer, width, height)
+}
+
+pub fn create_texture_from_rgba(data: &[u8], width: u32, height: u32) -> Result<usize, NUError> {
+    upload_texture_rgba(data, width, height)
 }
 
 pub fn prepare_frame() -> Result<(), NUError> {
@@ -1285,4 +1317,40 @@ pub fn push_debug_cylinder_wires(start_pos: Vector3, end_pos: Vector3, start_rad
     }
 
     Ok(())
+}
+
+pub fn push_billboard(
+    pos: Vector3,
+    width: f32,
+    height: f32,
+    scale: f32,
+    texture: GLuint,
+    glow: Option<Vector3>,
+) -> Result<(), NUError> {
+    let rg = RenderGod::get()?;
+    let f1 = rg.billboard_quad_f1;
+
+    // constant screen size: scale world size by distance from camera
+    let cam_dist = raymath::vector3_distance(pos, rg.camera_position);
+    let dist_scale = scale * cam_dist.max(0.001);
+
+    // build billboard model matrix: scale * rotation * translate (raymath convention)
+    // matrix_multiply(A, B) computes mathematical B*A, so multiply(rx, ry) = Ry*Rx
+    // this cancels the camera's Rx(-pitch) * Ry(-yaw) in the vertex shader
+    let rx = raymath::matrix_rotate_x(rg.camera_pitch);
+    let ry = raymath::matrix_rotate_y(rg.camera_yaw);
+    let rot = raymath::matrix_multiply(rx, ry);
+    let sc = raymath::matrix_scale(width * dist_scale, height * dist_scale, 1.0);
+    let tr = raymath::matrix_translate(pos.x, pos.y, pos.z);
+    let model = raymath::matrix_multiply(raymath::matrix_multiply(sc, rot), tr);
+
+    draw(DrawCall {
+        matrix: model,
+        texture,
+        f1,
+        f2: f1,
+        mix: 0.0,
+        glow,
+        num_verts: 6,
+    })
 }

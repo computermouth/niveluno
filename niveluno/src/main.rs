@@ -23,6 +23,7 @@ mod e_menu;
 mod e_pig;
 mod e_player;
 // pak/decor??
+mod d_computer;
 mod d_floor;
 mod d_platform;
 mod d_table;
