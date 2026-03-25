@@ -1,3 +1,4 @@
+use crate::d_computer::Computer;
 use crate::d_floor::Floor;
 use crate::d_platform::Platform;
 use crate::d_table::Table;
@@ -19,6 +20,7 @@ use crate::math;
 
 pub enum Instance {
     // Decor
+    DComputer(Computer),
     DFloor(Floor),
     DPlatform(Platform),
     DTable(Table),
@@ -54,6 +56,7 @@ pub fn ref_ent_from_str(s: &str) -> Option<LoadedEnttReference> {
 pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
     match s {
         // decor
+        "computer" => Some(Instance::DComputer(Computer::new(entt))),
         "floor" => Some(Instance::DFloor(Floor::new(entt))),
         "viridian_house" => Some(Instance::DFloor(Floor::new(entt))),
         "viridian_floor" => Some(Instance::DFloor(Floor::new(entt))),
@@ -81,6 +84,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 impl Instance {
     pub fn update(&mut self) {
         match self {
+            Self::DComputer(e) => e.update(),
             Self::DFloor(e) => e.update(),
             Self::DPlatform(e) => e.update(),
             Self::DTable(e) => e.update(),
@@ -101,6 +105,7 @@ impl Instance {
 
     pub fn draw_model(&mut self) {
         match self {
+            Self::DComputer(e) => e.draw_model(),
             Self::DFloor(e) => e.draw_model(),
             Self::DPlatform(e) => e.draw_model(),
             Self::DTable(e) => e.draw_model(),
@@ -121,6 +126,7 @@ impl Instance {
 
     pub fn is_decor(&mut self) -> bool {
         match self {
+            Self::DComputer(_) => true,
             Self::DFloor(_) => true,
             Self::DPlatform(_) => true,
             Self::DTable(_) => true,
@@ -142,6 +148,7 @@ impl Instance {
     pub fn get_mesh(&mut self) -> Vec<[raymath::Vector3; 3]> {
         match self {
             // get meshes for decor
+            Self::DComputer(e) => e.get_mesh(),
             Self::DFloor(e) => e.get_mesh(),
             Self::DPlatform(e) => e.get_mesh(),
             Self::DTable(e) => e.get_mesh(),
@@ -164,6 +171,7 @@ impl Instance {
     pub fn get_matrix(&mut self) -> raymath::Matrix {
         match self {
             // get mat for decor
+            Self::DComputer(e) => e.get_matrix(),
             Self::DFloor(e) => e.get_matrix(),
             Self::DPlatform(e) => e.get_matrix(),
             Self::DTable(e) => e.get_matrix(),
@@ -225,4 +233,21 @@ pub fn get_barrier_instances<'a>() -> Result<Vec<&'a mut Instance>, NUError> {
         Instance::EBarrier(_) => true,
         _ => false,
     })
+}
+
+pub fn get_player_instance<'a>() -> Result<&'a mut Player, NUError> {
+    let mut insts = g_game::get_filtered_instances(|inst| match inst {
+        Instance::EPlayer(_) => true,
+        _ => false,
+    })?;
+
+    if insts.len() != 1 {
+        return Err(NUError::MiscError("expected exactly one player".into()));
+    }
+    
+    let player_inst = insts.remove(0);
+    match player_inst {
+        Instance::EPlayer(player) => Ok(player),
+        _ => Err(NUError::MiscError("expected exactly one player".into()))
+    }
 }
