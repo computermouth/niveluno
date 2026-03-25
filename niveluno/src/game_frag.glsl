@@ -21,6 +21,17 @@ out vec4 fragColor;
 void main(void) {
     fragColor = texture(s, vt);
 
+    // skip lights
+    if (isinf(out_glow.x)) {
+        return;
+    }
+
+    // override with a color
+    if (!isnan(out_glow.x)) {
+        fragColor.rgb = out_glow;
+        return;
+    }
+
     // Debug: no textures
     // fragColor.rgb = vec3(.5);
 
@@ -42,11 +53,6 @@ void main(void) {
     // vl = vec3(2, 2, 2);
 
     vec3 p = pow(vl, vec3(0.75));
-
-    if (!isnan(out_glow.x)) {
-        fragColor.rgb = out_glow;
-        return;
-    }
     
     fragColor.rgb = floor(
         fragColor.rgb * p // Light, Gamma

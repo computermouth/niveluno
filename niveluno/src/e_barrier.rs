@@ -4,11 +4,11 @@ use raymath::{
     Matrix, Vector3, matrix_identity, quaternion_to_matrix, vector3_add, vector3_distance, vector3_transform
 };
 
-use crate::{g_instance, math, time};
+use crate::{e_player, g_instance, math, time};
 
 use crate::map::Entity;
 
-use crate::text::{BannerInput, FontColor};
+use crate::text::{BannerInput, FontColor, OverlaySurface};
 use crate::{g_game, render, text};
 
 pub struct Barrier {
@@ -16,6 +16,8 @@ pub struct Barrier {
     id: Option<u32>,
     bounds: Bounds,
     mats: [Matrix; 8],
+    v_text: Box<OverlaySurface>,
+    tex_id: u32,
 }
 
 struct Bounds {
@@ -100,6 +102,22 @@ impl Barrier {
             *point = raymath::vector3_transform(*point, mat_t);
         }
 
+        let color = BANNER_COLORS_RGB[id.unwrap() as usize];
+
+        let v_text = text::create_barrier_level_surface(BannerInput {
+            color: FontColor {
+                r: color[0],
+                g: color[1],
+                b: color[2],
+                a: 255,
+            },
+            level: id.unwrap() * 10,
+        })
+        .unwrap();
+
+        let pixels = v_text.surf.without_lock().unwrap();
+        let tex_id = render::create_texture_from_rgba(pixels, v_text.w, v_text.h).unwrap() as u32;
+
         Self {
             base: entt.clone(),
             id,
@@ -114,68 +132,22 @@ impl Barrier {
                 t4: bounds[7],
             },
             mats,
+            v_text,
+            tex_id,
         }
     }
 
     pub fn update(&mut self) {
-        // todo, push the barrier level surface to a queue with a distance,
-        // to perform an ordered draw with the final camera params
-        let pos_2d = math::world_point_to_screen_coord(
+
+        render::push_billboard(
             self.base.location.into(),
-            render::get_camera_pos().unwrap(),
-            render::get_camera_yaw().unwrap(),
-            render::get_camera_pitch().unwrap(),
-            render::INTERNAL_W as f32,
-            render::INTERNAL_H as f32,
-        );
-
-        match pos_2d {
-            None => {}
-            Some(pos) => {
-                // simple distance check
-                if vector3_distance(render::get_camera_pos().unwrap(), self.base.location.into()) > 64. {
-                    return;
-                }
-                // if !g_instance::pos_is_visible(
-                //     render::get_camera_pos().unwrap(),
-                //     self.base.location.into(),
-                // ) {
-                //     return;
-                // }
-
-                let color = BANNER_COLORS_RGB[self.id.unwrap() as usize];
-
-                let mut v_text = text::create_barrier_level_surface(BannerInput {
-                    color: FontColor {
-                        r: color[0],
-                        g: color[1],
-                        b: color[2],
-                        a: 255,
-                    },
-                    level: self.id.unwrap() * 10,
-                })
-                .unwrap();
-
-                let pos_x = pos.x as i32;
-                let pos_y = pos.y as i32;
-                let vtx_w = v_text.w as i32;
-                let vtx_h = v_text.h as i32;
-                let int_w = render::INTERNAL_W as i32;
-                let int_h = render::INTERNAL_H as i32;
-
-                if pos_x < (0 - vtx_w)
-                    || pos_y < (0 - vtx_h)
-                    || pos_x > (int_w + vtx_w)
-                    || pos_y > (int_h + vtx_h)
-                {
-                    return;
-                }
-
-                v_text.dst_rect.x = pos_x - vtx_w / 2;
-                v_text.dst_rect.y = pos_y - vtx_h / 2;
-                text::push_surface(&v_text).unwrap();
-            }
-        }
+            self.v_text.w as f32, self.v_text.h as f32,
+            0.002,
+            self.tex_id,
+            // infinity for no-shade
+            Some(Vector3 { x: f32::INFINITY, y: f32::INFINITY, z: f32::INFINITY }),
+        ).unwrap();
+        
     }
 
     pub fn draw_model(&mut self) {
