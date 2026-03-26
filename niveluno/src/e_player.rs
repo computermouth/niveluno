@@ -200,7 +200,8 @@ impl Player {
 
         if g_game::get_state().unwrap() == TopState::Menu && keys[input::Key::Jump as usize] == true
         {
-            let nmap = asset::get_file("map/nmap.mp").unwrap().unwrap();
+            // let nmap = asset::get_file("map/nmap.mp").unwrap().unwrap();
+            let nmap = asset::get_file("map/blank.mp").unwrap().unwrap();
             let payload = mparse::unmarshal(&nmap).unwrap();
             let level = map::load(payload).unwrap();
             g_game::set_state(TopState::Play).unwrap();
