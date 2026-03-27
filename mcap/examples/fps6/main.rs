@@ -359,7 +359,7 @@ fn main() {
             };
 
             // wall push
-            (pos, _) = push_out_walls_2(pos, player.chest_height, player.radius, collision_surfaces);
+            (pos, _, _) = push_out_walls_2(pos, player.chest_height, player.radius, collision_surfaces);
 
             // snap down only when on ground
             snap_down = match player.on_ground {

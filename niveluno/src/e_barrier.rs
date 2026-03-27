@@ -205,12 +205,12 @@ impl Barrier {
             let floating_center = vector3_add(self.base.location.into(), Vector3::new(0., 1., 0.));
 
             // draw a point at base + 1 height
-            render::push_debug_point(floating_center, 1., 1., 1.).unwrap();
+            render::push_debug_point(floating_center, 1., 1., 1., 1.).unwrap();
 
             let time = time::get_run_time().unwrap();
 
             let axis = Vector3::new((time / 3.).sin() as f32, (time / 7.).cos() as f32, time.tan() as f32);
-            render::push_debug_circle(floating_center, 0.5, axis, f32::consts::PI, [1., 1., 1.]).unwrap();
+            render::push_debug_circle(floating_center, 0.5, axis, f32::consts::PI, [1., 1., 1., 1.]).unwrap();
         }
     }
 

@@ -252,12 +252,12 @@ impl Player {
             && g_game::get_state().unwrap() != g_game::TopState::Menu
         {
             render::push_debug_cylinder_wires(
-                self.position, 
-                vector3_add(self.position, Vector3::new(0., self.height, 0.)), 
-                self.radius, 
-                self.radius, 
-                11, 
-                [1., 1., 0.]
+                vector3_add(self.position, Vector3::new(0., self.chest_height, 0.)),
+                vector3_add(self.position, Vector3::new(0., self.height, 0.)),
+                self.radius / 2.,
+                self.radius / 2.,
+                11,
+                [1., 1., 0., 1.]
             ).unwrap();
         }
 
@@ -476,7 +476,19 @@ impl Player {
             let collision_surfaces = g_game::get_surface_grid().unwrap().surfaces_in_cell(grid_pos).unwrap_or_default();
 
             // wall push
-            (pos, _) = mcap::push_out_walls_2(pos, self.chest_height, self.radius, collision_surfaces);
+            let walls;
+            (pos, _, walls) = mcap::push_out_walls_2(pos, self.chest_height, self.radius, collision_surfaces);
+            for t in walls {
+                if cfg!(debug_assertions) {
+                    let v1 = t.verts[0] + t.normal * 0.1;
+                    let v2 = t.verts[1] + t.normal * 0.1;
+                    let v3 = t.verts[2] + t.normal * 0.1;
+                    let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                    let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                    let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                    render::push_debug_triangle(v1, v2, v3, 0., 1., 0., 0.2).unwrap();
+                }
+            }
 
             // snap down only when on ground
             let snap_down = match self.on_ground {
@@ -491,13 +503,15 @@ impl Player {
                     self.velocity.y = self.velocity.y.max(0.0);
                     self.on_ground = true;
 
-                    let v1 = floor.verts[0] + floor.normal * 0.1;
-                    let v2 = floor.verts[1] + floor.normal * 0.1;
-                    let v3 = floor.verts[2] + floor.normal * 0.1;
-                    let v1 = Vector3::new(v1.x, v1.y, v1.z);
-                    let v2 = Vector3::new(v2.x, v2.y, v2.z);
-                    let v3 = Vector3::new(v3.x, v3.y, v3.z);
-                    render::push_debug_triangle(v1, v2, v3, 1., 0., 0.).unwrap();
+                    if cfg!(debug_assertions) {
+                        let v1 = floor.verts[0] + floor.normal * 0.1;
+                        let v2 = floor.verts[1] + floor.normal * 0.1;
+                        let v3 = floor.verts[2] + floor.normal * 0.1;
+                        let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                        let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                        let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                        render::push_debug_triangle(v1, v2, v3, 1., 0., 0., 0.2).unwrap();
+                    }
                 }
                 Some((Surface::Slide(slide), y)) => {
                     pos.y = y;
@@ -518,13 +532,15 @@ impl Player {
 
                     self.on_ground = false;
 
-                    let v1 = slide.verts[0] + slide.normal * 0.1;
-                    let v2 = slide.verts[1] + slide.normal * 0.1;
-                    let v3 = slide.verts[2] + slide.normal * 0.1;
-                    let v1 = Vector3::new(v1.x, v1.y, v1.z);
-                    let v2 = Vector3::new(v2.x, v2.y, v2.z);
-                    let v3 = Vector3::new(v3.x, v3.y, v3.z);
-                    render::push_debug_triangle(v1, v2, v3, 0., 0., 1.).unwrap();
+                    if cfg!(debug_assertions) {
+                        let v1 = slide.verts[0] + slide.normal * 0.1;
+                        let v2 = slide.verts[1] + slide.normal * 0.1;
+                        let v3 = slide.verts[2] + slide.normal * 0.1;
+                        let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                        let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                        let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                        render::push_debug_triangle(v1, v2, v3, 0., 0., 1., 0.2).unwrap();
+                    }
                 }
                 _ => {
                     // falling
@@ -538,13 +554,15 @@ impl Player {
                 pos.y = y - self.height;
                 self.velocity.y = self.velocity.y.min(0.0);
 
-                let v1 = ciel.verts[0] + ciel.normal * 0.1;
-                let v2 = ciel.verts[1] + ciel.normal * 0.1;
-                let v3 = ciel.verts[2] + ciel.normal * 0.1;
-                let v1 = Vector3::new(v1.x, v1.y, v1.z);
-                let v2 = Vector3::new(v2.x, v2.y, v2.z);
-                let v3 = Vector3::new(v3.x, v3.y, v3.z);
-                render::push_debug_triangle(v1, v2, v3, 1., 1., 0.).unwrap();
+                if cfg!(debug_assertions) {
+                    let v1 = ciel.verts[0] + ciel.normal * 0.1;
+                    let v2 = ciel.verts[1] + ciel.normal * 0.1;
+                    let v3 = ciel.verts[2] + ciel.normal * 0.1;
+                    let v1 = Vector3::new(v1.x, v1.y, v1.z);
+                    let v2 = Vector3::new(v2.x, v2.y, v2.z);
+                    let v3 = Vector3::new(v3.x, v3.y, v3.z);
+                    render::push_debug_triangle(v1, v2, v3, 1., 1., 0., 0.2).unwrap();
+                }
             }
 
             self.position = Vector3::new(pos.x, pos.y, pos.z);

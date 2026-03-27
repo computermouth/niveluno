@@ -255,7 +255,7 @@ impl Pig {
         };
         render::draw(dc).unwrap();
 
-        render::push_debug_cube_wires(self.base.location.into(), 2., 2., 2., [1., 1., 1.]).unwrap()
+        render::push_debug_cube_wires(self.base.location.into(), 2., 2., 2., [1., 1., 1., 1.]).unwrap()
     }
 
     pub fn get_mesh(&self) -> Vec<[raymath::Vector3; 3]> {

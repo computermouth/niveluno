@@ -65,17 +65,18 @@ impl Surface {
     }
 }
 
-pub fn push_out_walls_2(
+pub fn push_out_walls_2<'a>(
     pos: Vec3,
     check_height: f32,
     radius: f32,
-    surfaces: &[&Surface],
-) -> (Vec3, bool) {
+    surfaces: &[&'a Surface],
+) -> (Vec3, bool, Vec<&'a Triangle>) {
     let radius = radius - SKIN_FACTOR * 2.;
     let sph_y = pos.y + check_height;
     let mut out_x = pos.x;
     let mut out_z = pos.z;
     let mut hit = false;
+    let mut walls = vec![];
 
     for s in surfaces {
         // all downward facing normals
@@ -114,15 +115,17 @@ pub fn push_out_walls_2(
 
         let (push_dir_x, push_dir_z) = if diff_xz_len > f32::EPSILON {
             (diff_xz.x / diff_xz_len, diff_xz.y / diff_xz_len)
-        } else {
+        } else if xz_len > f32::EPSILON {
             // diff is ~ 0
             // center is directly above/below the nearest point
             // fall back to face normal
-            //
-            // we should be able to ensure this doesn't happen
-            // by padding downward raycasts a little bit
             (n.x / xz_len, n.z / xz_len)
+        } else {
+            // floor/ceiling normal with no xz component, skip
+            continue;
         };
+
+        walls.push(tri);
 
         let push = radius - dist;
         out_x += push_dir_x * push;
@@ -130,7 +133,7 @@ pub fn push_out_walls_2(
         hit = true;
     }
 
-    (Vec3::new(out_x, pos.y, out_z), hit)
+    (Vec3::new(out_x, pos.y, out_z), hit, walls)
 }
 
 /// Renderkit/Embree

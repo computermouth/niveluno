@@ -52,6 +52,9 @@ void main(void) {
     // Debug: full bright lights
     // vl = vec3(2, 2, 2);
 
+    // enforce minimum luminosity
+    vl = max(vl, vec3(0.2, 0.2, 0.2));
+
     vec3 p = pow(vl, vec3(0.75));
     
     fragColor.rgb = floor(

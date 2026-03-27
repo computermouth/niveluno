@@ -48,7 +48,7 @@ struct DebugDrawCmd {
     primitive: GLenum,
     start: GLint,
     count: GLsizei,
-    color: [f32; 3],
+    color: [f32; 4],
 }
 
 struct MetaTex {
@@ -812,7 +812,7 @@ pub fn end_frame() -> Result<(), NUError> {
         }
         for cmd in &rg.debug_cmds {
             unsafe {
-                gl::Uniform3f(rg.debug_u_color, cmd.color[0], cmd.color[1], cmd.color[2]);
+                gl::Uniform4f(rg.debug_u_color, cmd.color[0], cmd.color[1], cmd.color[2], cmd.color[3]);
                 gl::DrawArrays(cmd.primitive, cmd.start, cmd.count);
             }
         }
@@ -1061,7 +1061,7 @@ pub fn get_camera_yaw() -> Result<f32, NUError> {
     Ok(rg.camera_yaw)
 }
 
-pub fn push_debug_point(pos: Vector3, r: f32, g: f32, b: f32) -> Result<(), NUError> {
+pub fn push_debug_point(pos: Vector3, r: f32, g: f32, b: f32, a: f32) -> Result<(), NUError> {
     let rg = RenderGod::get()?;
     let start = (rg.debug_verts.len() / 3) as GLint;
     // actually a small line
@@ -1070,12 +1070,12 @@ pub fn push_debug_point(pos: Vector3, r: f32, g: f32, b: f32) -> Result<(), NUEr
         primitive: gl::LINES,
         start,
         count: 2,
-        color: [r, g, b],
+        color: [r, g, b, a],
     });
     Ok(())
 }
 
-pub fn push_debug_line(v1: Vector3, v2: Vector3, r: f32, g: f32, b: f32) -> Result<(), NUError> {
+pub fn push_debug_line(v1: Vector3, v2: Vector3, r: f32, g: f32, b: f32, a: f32) -> Result<(), NUError> {
     let rg = RenderGod::get()?;
     let start = (rg.debug_verts.len() / 3) as GLint;
     rg.debug_verts.extend_from_slice(&[v1.x, v1.y, v1.z, v2.x, v2.y, v2.z]);
@@ -1083,12 +1083,12 @@ pub fn push_debug_line(v1: Vector3, v2: Vector3, r: f32, g: f32, b: f32) -> Resu
         primitive: gl::LINES,
         start,
         count: 2,
-        color: [r, g, b],
+        color: [r, g, b, a],
     });
     Ok(())
 }
 
-pub fn push_debug_circle(center: Vector3, radius: f32, rotation_axis: Vector3, rotation_angle: f32, color: [f32; 3]) -> Result<(), NUError>
+pub fn push_debug_circle(center: Vector3, radius: f32, rotation_axis: Vector3, rotation_angle: f32, color: [f32; 4]) -> Result<(), NUError>
 {
     let rot = raymath::matrix_rotate(rotation_axis, rotation_angle);
     let segments = 36;
@@ -1108,7 +1108,7 @@ pub fn push_debug_circle(center: Vector3, radius: f32, rotation_axis: Vector3, r
         let v0 = math::vector3_add(center, p0);
         let v1 = math::vector3_add(center, p1);
 
-        push_debug_line(v0, v1, color[0], color[1], color[2])?;
+        push_debug_line(v0, v1, color[0], color[1], color[2], color[3])?;
     }
 
     Ok(())
@@ -1121,6 +1121,7 @@ pub fn push_debug_triangle(
     r: f32,
     g: f32,
     b: f32,
+    a: f32,
 ) -> Result<(), NUError> {
     let rg = RenderGod::get()?;
     let start = (rg.debug_verts.len() / 3) as GLint;
@@ -1129,19 +1130,19 @@ pub fn push_debug_triangle(
         primitive: gl::TRIANGLES,
         start,
         count: 3,
-        color: [r, g, b],
+        color: [r, g, b, a],
     });
     Ok(())
 }
 
-pub fn push_debug_cube(position: Vector3, width: f32, height: f32, length: f32, color: [f32; 3]) -> Result<(), NUError> {
+pub fn push_debug_cube(position: Vector3, width: f32, height: f32, length: f32, color: [f32; 4]) -> Result<(), NUError> {
     let p = position;
     let hw = width / 2.0;
     let hh = height / 2.0;
     let hl = length / 2.0;
 
     let tri = |a: Vector3, b: Vector3, c: Vector3| -> Result<(), NUError> {
-        push_debug_triangle(a, b, c, color[0], color[1], color[2])?;
+        push_debug_triangle(a, b, c, color[0], color[1], color[2], color[3])?;
         Ok(())
     };
 
@@ -1165,14 +1166,14 @@ pub fn push_debug_cube(position: Vector3, width: f32, height: f32, length: f32, 
     tri(Vector3::new(p.x - hw, p.y - hh, p.z + hl), Vector3::new(p.x - hw, p.y + hh, p.z + hl), Vector3::new(p.x - hw, p.y - hh, p.z - hl))
 }
 
-pub fn push_debug_cube_wires(position: Vector3, width: f32, height: f32, length: f32, color: [f32; 3]) -> Result<(), NUError> {
+pub fn push_debug_cube_wires(position: Vector3, width: f32, height: f32, length: f32, color: [f32; 4]) -> Result<(), NUError> {
     let p = position;
     let hw = width / 2.0;
     let hh = height / 2.0;
     let hl = length / 2.0;
 
     let line = |a: Vector3, b: Vector3| -> Result<(), NUError> {
-        push_debug_line(a, b, color[0], color[1], color[2])
+        push_debug_line(a, b, color[0], color[1], color[2], color[3])
     };
 
     // front
@@ -1192,7 +1193,7 @@ pub fn push_debug_cube_wires(position: Vector3, width: f32, height: f32, length:
     line(Vector3::new(p.x + hw, p.y - hh, p.z + hl), Vector3::new(p.x + hw, p.y - hh, p.z - hl))
 }
 
-pub fn push_debug_sphere(center: Vector3, radius: f32, rings: i32, slices: i32, color: [f32; 3]) -> Result<(), NUError> {
+pub fn push_debug_sphere(center: Vector3, radius: f32, rings: i32, slices: i32, color: [f32; 4]) -> Result<(), NUError> {
     let ringangle = (180.0f32 / (rings + 1) as f32).to_radians();
     let sliceangle = (360.0f32 / slices as f32).to_radians();
 
@@ -1213,8 +1214,8 @@ pub fn push_debug_sphere(center: Vector3, radius: f32, rings: i32, slices: i32, 
             verts[3] = Vector3::new(cosslice * verts[3].x - sinslice * verts[3].z, verts[3].y, sinslice * verts[3].x + cosslice * verts[3].z);
 
             let v = |i: usize| Vector3::new(center.x + verts[i].x * radius, center.y + verts[i].y * radius, center.z + verts[i].z * radius);
-            push_debug_triangle(v(0), v(3), v(1), color[0], color[1], color[2])?;
-            push_debug_triangle(v(0), v(2), v(3), color[0], color[1], color[2])?;
+            push_debug_triangle(v(0), v(3), v(1), color[0], color[1], color[2], color[3])?;
+            push_debug_triangle(v(0), v(2), v(3), color[0], color[1], color[2], color[3])?;
         }
         verts[2] = verts[3];
         verts[3] = Vector3::new(cosring * verts[3].x + sinring * verts[3].y, -sinring * verts[3].x + cosring * verts[3].y, verts[3].z);
@@ -1223,7 +1224,7 @@ pub fn push_debug_sphere(center: Vector3, radius: f32, rings: i32, slices: i32, 
     Ok(())
 }
 
-pub fn push_debug_sphere_wires(center: Vector3, radius: f32, rings: i32, slices: i32, color: [f32; 3])-> Result<(), NUError> {
+pub fn push_debug_sphere_wires(center: Vector3, radius: f32, rings: i32, slices: i32, color: [f32; 4])-> Result<(), NUError> {
     for i in 0..rings + 2 {
         for j in 0..slices {
             let ring_a = (270.0 + (180.0 / (rings + 1) as f32) * i as f32).to_radians();
@@ -1238,17 +1239,17 @@ pub fn push_debug_sphere_wires(center: Vector3, radius: f32, rings: i32, slices:
             );
 
             // diagonal
-            push_debug_line(vert(ring_a, slice_a), vert(ring_b, slice_b), color[0], color[1], color[2])?;
+            push_debug_line(vert(ring_a, slice_a), vert(ring_b, slice_b), color[0], color[1], color[2], color[3])?;
             // horizontal
-            push_debug_line(vert(ring_b, slice_b), vert(ring_b, slice_a), color[0], color[1], color[2])?;
+            push_debug_line(vert(ring_b, slice_b), vert(ring_b, slice_a), color[0], color[1], color[2], color[3])?;
             // vertical
-            push_debug_line(vert(ring_b, slice_a), vert(ring_a, slice_a), color[0], color[1], color[2])?;
+            push_debug_line(vert(ring_b, slice_a), vert(ring_a, slice_a), color[0], color[1], color[2], color[3])?;
         }
     }
     Ok(())
 }
 
-pub fn push_debug_cylinder(start_pos: Vector3, end_pos: Vector3, start_radius: f32, end_radius: f32, sides: i32, color: [f32; 3])-> Result<(), NUError> {
+pub fn push_debug_cylinder(start_pos: Vector3, end_pos: Vector3, start_radius: f32, end_radius: f32, sides: i32, color: [f32; 4])-> Result<(), NUError> {
     let sides = sides.max(3);
     let direction = math::vector3_subtract(end_pos, start_pos);
     if vector3_length(direction) == 0. { 
@@ -1274,19 +1275,19 @@ pub fn push_debug_cylinder(start_pos: Vector3, end_pos: Vector3, start_radius: f
         let w4 = Vector3::new(end_pos.x + s4*b1.x + c4*b2.x, end_pos.y + s4*b1.y + c4*b2.y, end_pos.z + s4*b1.z + c4*b2.z);
 
         if start_radius > 0.0 {
-            push_debug_triangle(start_pos, w2, w1, color[0], color[1], color[2])?;
+            push_debug_triangle(start_pos, w2, w1, color[0], color[1], color[2], color[3])?;
         }
-        push_debug_triangle(w1, w2, w3, color[0], color[1], color[2])?;
-        push_debug_triangle(w2, w4, w3, color[0], color[1], color[2])?;
+        push_debug_triangle(w1, w2, w3, color[0], color[1], color[2], color[3])?;
+        push_debug_triangle(w2, w4, w3, color[0], color[1], color[2], color[3])?;
         if end_radius > 0.0 {
-            push_debug_triangle(end_pos, w3, w4, color[0], color[1], color[2])?;
+            push_debug_triangle(end_pos, w3, w4, color[0], color[1], color[2], color[3])?;
         }
     }
 
     Ok(())
 }
 
-pub fn push_debug_cylinder_wires(start_pos: Vector3, end_pos: Vector3, start_radius: f32, end_radius: f32, sides: i32, color: [f32; 3]) -> Result<(), NUError>  {
+pub fn push_debug_cylinder_wires(start_pos: Vector3, end_pos: Vector3, start_radius: f32, end_radius: f32, sides: i32, color: [f32; 4]) -> Result<(), NUError>  {
     let sides = sides.max(3);
     let direction = math::vector3_subtract(end_pos, start_pos);
     if vector3_length(direction) == 0. { 
@@ -1311,9 +1312,9 @@ pub fn push_debug_cylinder_wires(start_pos: Vector3, end_pos: Vector3, start_rad
         let c4 = (base_angle * (i+1) as f32).cos() * end_radius;
         let w4 = Vector3::new(end_pos.x + s4*b1.x + c4*b2.x, end_pos.y + s4*b1.y + c4*b2.y, end_pos.z + s4*b1.z + c4*b2.z);
 
-        push_debug_line(w1, w2, color[0], color[1], color[2])?;
-        push_debug_line(w1, w3, color[0], color[1], color[2])?;
-        push_debug_line(w3, w4, color[0], color[1], color[2])?;
+        push_debug_line(w1, w2, color[0], color[1], color[2], color[3])?;
+        push_debug_line(w1, w3, color[0], color[1], color[2], color[3])?;
+        push_debug_line(w3, w4, color[0], color[1], color[2], color[3])?;
     }
 
     Ok(())
