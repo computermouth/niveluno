@@ -1,10 +1,10 @@
-#version 310 es
+#version 330 core
 
 precision mediump float;
-layout(binding = 0)uniform sampler2D tex;
+uniform sampler2D tex;
 
-layout(location = 0)in vec2 v_texcoord;
-layout(location = 0)out vec4 color;
+in vec2 v_texcoord;
+out vec4 color;
 void main() {
     color = texture(tex, v_texcoord);
 }

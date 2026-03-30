@@ -73,9 +73,13 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
         .timer()
         .map_err(|e| nuerror::NUError::SDLError(e))?;
 
+    let si = video_subsystem.gl_get_swap_interval();
+    eprintln!("swap_interval: {:?}", si);
+
     // todo, text init here?
     video_subsystem
         // setting swap interval fails in VM,
+        // also fails with mesa, looks like
         // todo, consider doing it manually if this fails,
         // or not bubbling up this error
         .gl_set_swap_interval(SwapInterval::Immediate)
