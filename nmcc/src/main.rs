@@ -100,7 +100,7 @@ fn get_reference(
             return None;
         }
     } else {
-        eprint!("W: node in reference zone, with no extras {:?}", n.name());
+        eprintln!("W: node in reference zone, with no extras {:?}", n.name());
         return None;
     }
 
@@ -181,7 +181,7 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Entity
             return None;
         }
     } else {
-        eprint!("W: node in reference zone, with no extras {:?}", n.name());
+        eprintln!("W: node in reference zone, with no extras {:?}", n.name());
         return None;
     }
 
