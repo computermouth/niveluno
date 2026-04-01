@@ -56,6 +56,57 @@ pub fn ref_ent_from_str(s: &str) -> Option<LoadedEnttReference> {
 pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
     match s {
         // decor
+
+		// WEAPONS
+		"weapons.arrow_A" |
+		"weapons.arrow_B" |
+		"weapons.arrow_C" |
+		"weapons.axe_A" |
+		"weapons.axe_B" |
+		"weapons.axe_C" |
+		"weapons.axe_D" |
+		"weapons.bow_A" |
+		"weapons.bow_A_withString" |
+		"weapons.bow_B" |
+		"weapons.bow_B_withString" |
+		"weapons.bow_C" |
+		"weapons.bow_C_withString" |
+		"weapons.dagger_A" |
+		"weapons.dagger_B" |
+		"weapons.dagger_C" |
+		"weapons.fistweapon_A" |
+		"weapons.fistweapon_A_stacked" |
+		"weapons.fistweapon_B" |
+		"weapons.fistweapon_B_stacked" |
+		"weapons.fistweapon_C_left" |
+		"weapons.fistweapon_C_right" |
+		"weapons.fistweapon_C_stacked" |
+		"weapons.halberd" |
+		"weapons.hammer_A" |
+		"weapons.hammer_B" |
+		"weapons.hammer_C" |
+		"weapons.hammer_D" |
+		"weapons.scythe" |
+		"weapons.shield_A" |
+		"weapons.shield_B" |
+		"weapons.shield_C" |
+		"weapons.shield_D" |
+		"weapons.spear_A" |
+		"weapons.spear_B" |
+		"weapons.staff_A" |
+		"weapons.staff_B" |
+		"weapons.staff_C" |
+		"weapons.staff_D" |
+		"weapons.sword_A" |
+		"weapons.sword_B" |
+		"weapons.sword_C" |
+		"weapons.sword_D" |
+		"weapons.sword_E" |
+		"weapons.sword_F" |
+		"weapons.sword_G" |
+		"weapons.wand_A" |
+		"weapons.wand_B" |
+        // DUNGEON
 		"dungeon.banner_blue" |
 		"dungeon.banner_brown" |
 		"dungeon.banner_green" |
@@ -352,6 +403,18 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"dungeon.wall_doorway_scaffold_open" |
 		"dungeon.wall_doorway_closed" |
 		"dungeon.wall_door" |
+		"dungeon.bartop_A_small" |
+		"dungeon.bed_frame" |
+		"dungeon.book_tan" |
+		"dungeon.bookcase_double_decoratedA" |
+		"dungeon.bookcase_double_decoratedB" |
+		"dungeon.bookcase_single_decoratedA" |
+		"dungeon.bookcase_single_decoratedB" |
+		"dungeon.floor_dirt_small_C" |
+		"dungeon.plate_food_A" |
+		"dungeon.torch_mounted" |
+		"dungeon.chest_large_gold_open" |
+		"dungeon.wall_doorway_open" |
         // CITY
 		"city.base" |
 		"city.bench" |
