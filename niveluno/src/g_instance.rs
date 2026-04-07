@@ -57,6 +57,61 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
     match s {
         // decor
 
+		// PLATFORMER
+		"platformer.ball" |
+		"platformer.barrier_1x1x1" |
+		"platformer.barrier_1x1x2" |
+		"platformer.barrier_1x1x4" |
+		"platformer.barrier_2x1x1" |
+		"platformer.barrier_2x1x2" |
+		"platformer.barrier_2x1x4" |
+		"platformer.barrier_3x1x1" |
+		"platformer.barrier_3x1x2" |
+		"platformer.barrier_3x1x4" |
+		"platformer.barrier_4x1x1" |
+		"platformer.barrier_4x1x2" |
+		"platformer.barrier_4x1x4" |
+		"platformer.bomb" |
+		"platformer.cannon_bullet" |
+		"platformer.chain_full" |
+		"platformer.chain_link" |
+		"platformer.chain_link_end_bottom" |
+		"platformer.chain_link_end_top" |
+		"platformer.cone" |
+		"platformer.floor_spikes_2x2x1" |
+		"platformer.floor_spikes_4x4x1" |
+		"platformer.floor_spikes_curved_4x2x2" |
+		"platformer.floor_wood_1x1" |
+		"platformer.floor_wood_2x2" |
+		"platformer.floor_wood_2x6" |
+		"platformer.floor_wood_4x4" |
+		"platformer.hammerblock" |
+		"platformer.hammerblock_spikes" |
+		"platformer.pillar_1x1x1" |
+		"platformer.pillar_1x1x2" |
+		"platformer.pillar_1x1x4" |
+		"platformer.pillar_1x1x8" |
+		"platformer.pillar_2x2x2" |
+		"platformer.pillar_2x2x4" |
+		"platformer.pillar_2x2x8" |
+		"platformer.platform_wood_1x1x1" |
+		"platformer.sawblade" |
+		"platformer.sign" |
+		"platformer.signage_arrows_left" |
+		"platformer.signage_arrows_right" |
+		"platformer.signage_finish" |
+		"platformer.signage_finish_wide" |
+		"platformer.spikeball" |
+		"platformer.spikeball_hanger" |
+		"platformer.spikeroller_horizontal" |
+		"platformer.spikeroller_vertical" |
+		"platformer.spring" |
+		"platformer.structure_A" |
+		"platformer.structure_B" |
+		"platformer.structure_C" |
+		"platformer.strut_horizontal" |
+		"platformer.strut_vertical" |
+		// PLATFORMER_BLUE
 		"platformer.arch_blue" |
 		"platformer.arch_tall_blue" |
 		"platformer.arch_wide_blue" |
