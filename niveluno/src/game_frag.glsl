@@ -10,7 +10,7 @@ uniform sampler2D s;
 uniform int light_count;
 
 // Lights [(x,y,z), [r,g,b], ...]
-uniform vec3 lights[64];
+uniform vec3 lights[512];
 
 // Use a static multiplier to light, instead
 // of dynamic lighting
@@ -44,8 +44,8 @@ void main(void) {
                 dot(
                     vn, normalize(lights[i] - vp)
                 )
-            , 0.0) *
-            (1.0 / pow(length(lights[i] - vp), 2.0)) // Inverse distance squared
+            , 0.0)
+            * (1.0 / pow(length(lights[i] - vp), 2.0)) // Inverse distance squared
             * lights[i + 1]; // Light color/intensity
     }
 

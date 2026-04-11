@@ -26,7 +26,7 @@ const DEBUG_F_SHADER_STR: &str = include_str!("debug_frag.glsl");
 // magic numbers
 // MAX_LIGHT_V3S game_frag.glsl
 const MAX_VERTS: usize = 1024 * 128 * 64;
-const MAX_LIGHT_V3S: usize = 32 * 2;
+const MAX_LIGHT_V3S: usize = 256 * 2;
 
 pub const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
 
@@ -991,8 +991,8 @@ pub fn push_light(pos: Vector3, intensity: u8, r: u8, g: u8, b: u8) -> Result<()
     let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
 
     // Calculate the distance to the light, fade it out between 16--32
-    let start_fade_dist = 16.;
-    let end_fade_dist = 32.;
+    let start_fade_dist = 32.;
+    let end_fade_dist = 128.;
     let cam_light_dist = vector3_distance(pos, cam_pos);
 
     // past max fade distance, skip the push entirely
