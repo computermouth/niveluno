@@ -22,8 +22,9 @@ mod e_light;
 mod e_menu;
 mod e_pig;
 mod e_player;
+mod e_prototype_coin_a;
 // pak/decor??
-mod d_computer;
+mod d_generic;
 mod d_floor;
 mod d_platform;
 mod d_table;

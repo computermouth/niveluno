@@ -1,4 +1,4 @@
-use crate::d_computer::Computer;
+use crate::d_generic::Generic;
 use crate::d_floor::Floor;
 use crate::d_platform::Platform;
 use crate::d_table::Table;
@@ -10,6 +10,7 @@ use crate::e_menu::Menu;
 use crate::e_pig::Pig;
 use crate::e_player::Player;
 
+use crate::e_prototype_coin_a::PrototypeCoinA;
 use crate::g_game;
 use crate::map::{Entity, LoadedEnttReference};
 use crate::nuerror::NUError;
@@ -20,11 +21,12 @@ use crate::math;
 
 pub enum Instance {
     // Decor
-    DComputer(Computer),
+    DGeneric(Generic),
     DFloor(Floor),
     DPlatform(Platform),
     DTable(Table),
     // Entities
+    EPrototypeCoinA(PrototypeCoinA),
     EBarrier(Barrier),
     EGcyl(Gcyl),
     ELight(Light),
@@ -599,7 +601,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"prototype.Bullet" |
 		"prototype.Can_A" |
 		"prototype.Can_B" |
-		"prototype.Coin_A" |
+		// "prototype.Coin_A" |
 		"prototype.Coin_B" |
 		"prototype.Coin_C" |
 		"prototype.Cube_Prototype_Large_A" |
@@ -2075,14 +2077,17 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"block.tree_with_snow" |
 		"block.vault" |
 		"block.wood" |
-		"blocks.computer" | "computer" => Some(Instance::DComputer(Computer::new(entt))),
+		"blocks.computer" => Some(Instance::DGeneric(Generic::new(entt))),
         "floor" => Some(Instance::DFloor(Floor::new(entt))),
         "viridian_house" => Some(Instance::DFloor(Floor::new(entt))),
         "viridian_floor" => Some(Instance::DFloor(Floor::new(entt))),
         "tree" => Some(Instance::DFloor(Floor::new(entt))),
         "platform" => Some(Instance::DPlatform(Platform::new(entt))),
         "table" => Some(Instance::DTable(Table::new(entt))),
+		// ============================================================
         // entities
+		// ============================================================
+		"prototype.Coin_A" => Some(Instance::EPrototypeCoinA(PrototypeCoinA::new(entt))),
         "barrier" => Some(Instance::EBarrier(Barrier::new(entt))),
         "gcyl" => Some(Instance::EGcyl(Gcyl::new(entt))),
         "light" => Some(Instance::ELight(Light::new(entt))),
@@ -2103,10 +2108,14 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 impl Instance {
     pub fn update(&mut self) {
         match self {
-            Self::DComputer(e) => e.update(),
+            Self::DGeneric(e) => e.update(),
             Self::DFloor(e) => e.update(),
             Self::DPlatform(e) => e.update(),
             Self::DTable(e) => e.update(),
+			// ============================================================
+			// entities
+			// ============================================================
+            Self::EPrototypeCoinA(e) => e.update(),
             Self::EBarrier(e) => e.update(),
             Self::EGcyl(e) => e.update(),
             Self::ELight(e) => e.update(),
@@ -2124,10 +2133,14 @@ impl Instance {
 
     pub fn draw_model(&mut self) {
         match self {
-            Self::DComputer(e) => e.draw_model(),
+            Self::DGeneric(e) => e.draw_model(),
             Self::DFloor(e) => e.draw_model(),
             Self::DPlatform(e) => e.draw_model(),
             Self::DTable(e) => e.draw_model(),
+			// ============================================================
+			// entities
+			// ============================================================
+            Self::EPrototypeCoinA(e) => e.draw_model(),
             Self::EBarrier(e) => e.draw_model(),
             Self::EGcyl(e) => e.draw_model(),
             Self::ELight(e) => e.draw_model(),
@@ -2145,10 +2158,14 @@ impl Instance {
 
     pub fn is_decor(&mut self) -> bool {
         match self {
-            Self::DComputer(_) => true,
+            Self::DGeneric(_) => true,
             Self::DFloor(_) => true,
             Self::DPlatform(_) => true,
             Self::DTable(_) => true,
+			// ============================================================
+			// entities
+			// ============================================================
+            Self::EPrototypeCoinA(_) => false,
             Self::EBarrier(_) => false,
             Self::EGcyl(_) => false,
             Self::ELight(_) => false,
@@ -2167,11 +2184,15 @@ impl Instance {
     pub fn get_mesh(&mut self) -> Vec<[raymath::Vector3; 3]> {
         match self {
             // get meshes for decor
-            Self::DComputer(e) => e.get_mesh(),
+            Self::DGeneric(e) => e.get_mesh(),
             Self::DFloor(e) => e.get_mesh(),
             Self::DPlatform(e) => e.get_mesh(),
             Self::DTable(e) => e.get_mesh(),
+			// ============================================================
+			// entities
+			// ============================================================
             // rest will panic
+            Self::EPrototypeCoinA(e) => e.get_mesh(),
             Self::EBarrier(e) => e.get_mesh(),
             Self::EGcyl(e) => e.get_mesh(),
             Self::ELight(e) => e.get_mesh(),
@@ -2190,11 +2211,15 @@ impl Instance {
     pub fn get_matrix(&mut self) -> raymath::Matrix {
         match self {
             // get mat for decor
-            Self::DComputer(e) => e.get_matrix(),
+            Self::DGeneric(e) => e.get_matrix(),
             Self::DFloor(e) => e.get_matrix(),
             Self::DPlatform(e) => e.get_matrix(),
             Self::DTable(e) => e.get_matrix(),
+			// ============================================================
+			// entities
+			// ============================================================
             // rest will panic
+            Self::EPrototypeCoinA(e) => e.get_matrix(),
             Self::EBarrier(e) => e.get_matrix(),
             Self::EGcyl(e) => e.get_matrix(),
             Self::ELight(e) => e.get_matrix(),
