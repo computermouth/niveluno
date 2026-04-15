@@ -69,7 +69,11 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
     ig.mouse_x = 0.;
     ig.mouse_y = 0.;
 
-    let current_states: Vec<_> = event_pump.keyboard_state().scancodes().collect();
+    // something's up with later versions of sdl2 here, it panics on values from the reserved
+    // range, so now we're going to check scancodes individually
+    let kb = event_pump.keyboard_state();
+    let alt_pressed =
+        kb.is_scancode_pressed(Scancode::LAlt) || kb.is_scancode_pressed(Scancode::RAlt);
 
     for event in event_pump.poll_iter() {
         match event {
@@ -105,17 +109,13 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
                                      Keycode::E => { ig.keys[Key::Next   as usize] = false; },
                     Keycode::Space              => { ig.keys[Key::Jump   as usize] = false; },
                     Keycode::LShift             => { ig.keys[Key::Sprint as usize] = false; }
-                    Keycode::Return             => {                        
-                        if current_states.contains(&(Scancode::RAlt, true)) || 
-                            current_states.contains(&(Scancode::LAlt, true)) {
-                            
-                            let mut fs = FullscreenType::Desktop;
-                            if ig.fullscreen {
-                                fs = FullscreenType::Off;
-                            }
-                            ig.fullscreen = !ig.fullscreen;
-                            window.set_fullscreen(fs).map_err(|e| NUError::SDLError(e))?;
+                    Keycode::Return if alt_pressed => {
+                        let mut fs = FullscreenType::Desktop;
+                        if ig.fullscreen {
+                            fs = FullscreenType::Off;
                         }
+                        ig.fullscreen = !ig.fullscreen;
+                        window.set_fullscreen(fs).map_err(|e| NUError::SDLError(e))?;
                     },
                     _ => {}
                 }
