@@ -1,5 +1,8 @@
 use core::f32;
+use std::collections::HashMap;
 use std::{io::Cursor, vec};
+
+type ImageCache = HashMap<(usize, usize, usize), Option<Vec<u8>>>;
 
 use gltf;
 use image::ImageReader;
@@ -68,6 +71,7 @@ fn get_reference(
     n: &gltf::Node,
     b: &Vec<gltf::buffer::Data>,
     bb: &mut big_buffer::BigBuffer,
+    image_cache: &mut ImageCache,
 ) -> Option<EntityReference> {
     let (c_pos, _, scale) = trs_from_decomp(n.transform().decomposed());
 
@@ -113,12 +117,12 @@ fn get_reference(
             _type: Some("decor"),
             _decor: Some(name),
             ..
-        }) => parse_ref_decor(n, b, bb, name),
+        }) => parse_ref_decor(n, b, bb, name, image_cache),
         Some(Extras {
             _type: Some("entity"),
             _entity: Some(name),
             ..
-        }) => parse_ref_entt(n, b, bb, name),
+        }) => parse_ref_entt(n, b, bb, name, image_cache),
         Some(Extras {
             _type: Some("decor"),
             _decor: None,
@@ -318,51 +322,66 @@ fn f32s_from_acc(
     }
 }
 
-fn image_from_prim(prim: &gltf::Primitive, b: &Vec<gltf::buffer::Data>) -> Option<Vec<u8>> {
+fn image_from_prim(
+    prim: &gltf::Primitive,
+    b: &Vec<gltf::buffer::Data>,
+    cache: &mut ImageCache,
+) -> Option<Vec<u8>> {
     let bct = prim
         .material()
         .pbr_metallic_roughness()
         .base_color_texture()?;
 
-    let source = bct.texture().source().source();
+    let view = match bct.texture().source().source() {
+        gltf::image::Source::View { view, .. } => view,
+        gltf::image::Source::Uri { .. } => return None,
+    };
 
-    match source {
-        gltf::image::Source::View { view, .. } => {
-            let buffer = &b[view.buffer().index()];
-            let start = view.offset() as usize;
-            let end = start + view.length() as usize;
-            let data_slice = &buffer[start..end];
+    let key = (
+        view.buffer().index(),
+        view.offset() as usize,
+        view.length() as usize,
+    );
+    if let Some(hit) = cache.get(&key) {
+        return hit.clone();
+    }
 
-            let cursor = Cursor::new(data_slice);
-            let rdr = ImageReader::new(cursor).with_guessed_format();
-            if rdr.is_err() {
-                eprintln!("E: failed to open reader on image");
-                return None;
-            }
+    let data_slice = &b[key.0][key.1..key.1 + key.2];
 
-            if let Ok(img) = rdr.unwrap().decode() {
-                // I wish this was rgb8, but tried it, and changed the texture loads
-                // to gl::RGB, and it produced weird artifacts for the RGBA textures??
-                // size difference is negligable when compressed
-                let rgb_img = img.to_rgba8();
+    let rdr = match ImageReader::new(Cursor::new(data_slice)).with_guessed_format() {
+        Ok(r) => r,
+        Err(_) => {
+            eprintln!("E: failed to open reader on image");
+            cache.insert(key, None);
+            return None;
+        }
+    };
 
-                let mut out_bytes: Vec<u8> = vec![];
-                if rgb_img
-                    .write_to(&mut Cursor::new(&mut out_bytes), image::ImageFormat::Png)
-                    .is_err()
-                {
-                    eprintln!("E: failed to write image");
-                    return None;
-                }
-
-                Some(out_bytes)
-            } else {
-                eprintln!("E: failed to decode image");
+    let result = match rdr.decode() {
+        Ok(img) => {
+            // I wish this was rgb8, but tried it, and changed the texture loads
+            // to gl::RGB, and it produced weird artifacts for the RGBA textures??
+            // size difference is negligable when compressed
+            let rgb_img = img.to_rgba8();
+            let mut out_bytes: Vec<u8> = vec![];
+            if rgb_img
+                .write_to(&mut Cursor::new(&mut out_bytes), image::ImageFormat::Png)
+                .is_err()
+            {
+                eprintln!("E: failed to write image");
                 None
+            } else {
+                Some(out_bytes)
             }
         }
-        gltf::image::Source::Uri { .. } => None,
-    }
+        Err(_) => {
+            eprintln!("E: failed to decode image");
+            None
+        }
+    };
+
+    cache.insert(key, result.clone());
+    result
 }
 
 fn parse_ref_decor(
@@ -370,6 +389,7 @@ fn parse_ref_decor(
     b: &Vec<gltf::buffer::Data>,
     bb: &mut big_buffer::BigBuffer,
     name: &str,
+    image_cache: &mut ImageCache,
 ) -> Option<EntityReference> {
     let mesh = n.mesh().or_else(|| {
         eprintln!("W: {:?} has no mesh", n.name());
@@ -451,12 +471,12 @@ fn parse_ref_decor(
         }
 
         if i == 0 {
-            out_img = image_from_prim(&prim, b).or_else(|| {
+            out_img = image_from_prim(&prim, b, image_cache).or_else(|| {
                 eprintln!("W: {:?} z_prim has no image", n.name());
                 None
             })?;
         } else {
-            if image_from_prim(&prim, b).is_some_and(|i| i != out_img) {
+            if image_from_prim(&prim, b, image_cache).is_some_and(|i| i != out_img) {
                 eprintln!(
                     "W: {:?}'s prim[{}] has a texture which differs from prim[0]'s",
                     n.name(),
@@ -489,6 +509,7 @@ fn parse_ref_entt(
     b: &Vec<gltf::buffer::Data>,
     bb: &mut big_buffer::BigBuffer,
     name: &str,
+    image_cache: &mut ImageCache,
 ) -> Option<EntityReference> {
     let mesh = n.mesh().or_else(|| {
         eprintln!("W: {:?} has no mesh", n.name());
@@ -623,12 +644,12 @@ fn parse_ref_entt(
         }
 
         if i == 0 {
-            out_img = image_from_prim(&prim, b).or_else(|| {
+            out_img = image_from_prim(&prim, b, image_cache).or_else(|| {
                 eprintln!("W: {:?} z_prim has no image", n.name());
                 None
             })?;
         } else {
-            if image_from_prim(&prim, b).is_some_and(|i| i != out_img) {
+            if image_from_prim(&prim, b, image_cache).is_some_and(|i| i != out_img) {
                 eprintln!(
                     "W: {:?}'s prim[{}] has a texture which differs from prim[0]'s",
                     n.name(),
@@ -693,13 +714,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut map_ins_entt = vec![];
 
     let bb = &mut big_buffer::BigBuffer::new();
+    let mut image_cache: ImageCache = HashMap::new();
 
     // first lap we only check for references,
     // then we can enforce later that field entitites must
     // have a matching reference
     let mut reference_index = vec![];
     for (i, node) in document.nodes().enumerate() {
-        if let Some(r) = get_reference(&node, &buffers, bb) {
+        if let Some(r) = get_reference(&node, &buffers, bb, &mut image_cache) {
             map_ref_entt.push(r);
             reference_index.push(i);
         }
