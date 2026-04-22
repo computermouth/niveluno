@@ -142,11 +142,11 @@ pub fn init_level(level: &map::Map) -> Result<(), NUError> {
     let gg = GameGod::get()?;
 
     // let mut animations = HashMap::new();
-    for mr in &level.ref_entities {
-        match level.payload.ern_data[mr.index].as_str() {
-            s => eprintln!("mr ern: {s}"),
-        }
-    }
+    // for mr in &level.ref_entities {
+    //     match level.payload.ern_data[mr.index].as_str() {
+    //         s => eprintln!("mr ern: {s}"),
+    //     }
+    // }
 
     gg.entts_inst = vec![];
     for me in &level.map_entities {
@@ -200,8 +200,18 @@ pub fn run() -> Result<(), NUError> {
         init_level(gg.current_level.as_ref().unwrap())?;
     }
 
-    for entt in &mut gg.entts_inst {
+    let mut dead = vec![];
+    for (i, entt) in gg.entts_inst.iter_mut().enumerate() {
         entt.update();
+        if entt.is_dead() {
+            dead.push(i);
+        }
+    }
+
+    dead.sort();
+    dead.reverse();
+    for i in dead {
+        gg.entts_inst.remove(i);
     }
 
     for entt in &mut gg.entts_inst {

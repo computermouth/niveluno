@@ -4,6 +4,7 @@ use crate::d_platform::Platform;
 use crate::d_table::Table;
 
 use crate::e_barrier::Barrier;
+use crate::e_coplight::CopLight;
 use crate::e_gcyl::Gcyl;
 use crate::e_light::Light;
 use crate::e_menu::Menu;
@@ -28,6 +29,7 @@ pub enum Instance {
     // Entities
     EPrototypeCoinA(PrototypeCoinA),
     EBarrier(Barrier),
+    ECopLight(CopLight),
     EGcyl(Gcyl),
     ELight(Light),
     EPlayer(Player),
@@ -2089,6 +2091,8 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		// ============================================================
 		"prototype.Coin_A" => Some(Instance::EPrototypeCoinA(PrototypeCoinA::new(entt))),
         "barrier" => Some(Instance::EBarrier(Barrier::new(entt))),
+		"coplight" => Some(Instance::ECopLight(CopLight::new(entt))),
+		// "coplight" => Some(Instance::EGcyl(Gcyl::new(entt))),
         "gcyl" => Some(Instance::EGcyl(Gcyl::new(entt))),
         "light" => Some(Instance::ELight(Light::new(entt))),
         "player" => Some(Instance::EPlayer(Player::new(entt))),
@@ -2118,6 +2122,7 @@ impl Instance {
             Self::EPrototypeCoinA(e) => e.update(),
             Self::EBarrier(e) => e.update(),
             Self::EGcyl(e) => e.update(),
+            Self::ECopLight(e) => e.update(),
             Self::ELight(e) => e.update(),
             Self::EPlayer(e) => e.update(),
             Self::EPig(e) => e.update(),
@@ -2142,6 +2147,7 @@ impl Instance {
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.draw_model(),
             Self::EBarrier(e) => e.draw_model(),
+            Self::ECopLight(e) => e.draw_model(),
             Self::EGcyl(e) => e.draw_model(),
             Self::ELight(e) => e.draw_model(),
             Self::EPlayer(e) => e.draw_model(),
@@ -2167,6 +2173,7 @@ impl Instance {
 			// ============================================================
             Self::EPrototypeCoinA(_) => false,
             Self::EBarrier(_) => false,
+            Self::ECopLight(_) => false,
             Self::EGcyl(_) => false,
             Self::ELight(_) => false,
             Self::EPlayer(_) => false,
@@ -2177,6 +2184,19 @@ impl Instance {
             Self::EMenuU(_) => false,
             Self::ETriggerLevelChange => {
                 panic!("unimplemented")
+            }
+        }
+    }
+	
+    pub fn is_dead(&mut self) -> bool {
+        match self {
+			// ============================================================
+			// entities
+			// ============================================================
+            Self::EPrototypeCoinA(e) => e.dead,
+            _ => {
+				// death unimplemented
+                false
             }
         }
     }
@@ -2194,6 +2214,7 @@ impl Instance {
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_mesh(),
             Self::EBarrier(e) => e.get_mesh(),
+            Self::ECopLight(e) => e.get_mesh(),
             Self::EGcyl(e) => e.get_mesh(),
             Self::ELight(e) => e.get_mesh(),
             Self::EPlayer(e) => e.get_mesh(),
@@ -2221,6 +2242,7 @@ impl Instance {
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_matrix(),
             Self::EBarrier(e) => e.get_matrix(),
+            Self::ECopLight(e) => e.get_matrix(),
             Self::EGcyl(e) => e.get_matrix(),
             Self::ELight(e) => e.get_matrix(),
             Self::EPlayer(e) => e.get_matrix(),

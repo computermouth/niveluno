@@ -40,6 +40,7 @@ pub struct Player {
     snap_up: f32,
     snap_down: f32,
     opt_ass: Option<OptAssets>,
+    coins: usize,
 }
 
 pub struct OptAssets {
@@ -171,6 +172,7 @@ impl Player {
                     })
                 }
             },
+            coins: 0,
         }
     }
 
@@ -378,6 +380,22 @@ impl Player {
             .unwrap();
             v_text.dst_rect.set_y(16 * 7);
             text::push_surface(&v_text).unwrap();
+
+            let mut v_text = text::create_text_overlay_surface(text::TextInput {
+                text: format!("coins: {}", self.coins ),
+                mode: text::Mode::Solid {
+                    color: text::FontColor {
+                        r: 128,
+                        g: 255,
+                        b: 0,
+                        a: 255,
+                    },
+                },
+                font: g_game::get_text_font_sm().unwrap(),
+            })
+            .unwrap();
+            v_text.dst_rect.set_y(16 * 8);
+            text::push_surface(&v_text).unwrap();
         }
 
         match g_game::get_state().unwrap() {
@@ -570,5 +588,9 @@ impl Player {
         }
 
 
+    }
+
+    pub fn get_coin(&mut self) {
+        self.coins += 1;
     }
 }
