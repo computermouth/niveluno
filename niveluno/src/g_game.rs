@@ -7,6 +7,7 @@ use crate::{asset, g_instance, time};
 
 use mcap::{Surface, SurfaceGrid};
 use raymath::vector3_negate;
+use rand::prelude::*;
 
 struct GameGod {
     pub current_level: Option<map::Map>,
@@ -17,6 +18,7 @@ struct GameGod {
     pub text_font_lg: Option<text::SizedFontHandle>,
     pub text_font_sm: Option<text::SizedFontHandle>,
     pub symb_font: Option<text::SizedFontHandle>,
+    pub rng: StdRng,
 }
 
 impl GameGod {
@@ -52,6 +54,7 @@ pub fn init() -> Result<(), NUError> {
             text_font_lg: None,
             text_font_sm: None,
             symb_font: None,
+            rng: rand::rngs::StdRng::from_entropy(),
         });
     }
 
@@ -295,4 +298,9 @@ where
     }
 
     Ok(filtered)
+}
+
+pub fn get_rng<'a>() -> Result<&'a mut StdRng, NUError> {
+    let gg = GameGod::get()?;
+    Ok(&mut gg.rng)
 }

@@ -28,7 +28,7 @@ void main(void) {
 
     // override with a color
     if (!isnan(out_glow.x)) {
-        fragColor.rgb = mix(out_glow, fragColor.rgb, 0.5);
+        fragColor.rgb = out_glow;
         return;
     }
 

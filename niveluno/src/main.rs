@@ -18,6 +18,7 @@ mod g_instance;
 // pak/entity??
 mod e_barrier;
 mod e_coplight;
+mod e_copfire;
 mod e_gcyl;
 mod e_light;
 mod e_menu;
