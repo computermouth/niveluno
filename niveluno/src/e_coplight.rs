@@ -26,13 +26,13 @@ impl CopLight {
         let z_trans = raymath::vector3_scale(Vector3::new(0., 0., 1.), (run_time * speed).cos() as f32);
         let position = raymath::vector3_add(raymath::vector3_add(self.base.location.into(), x_trans), z_trans);
 
-        render::push_light(position, 16, 255, 0, 0).unwrap();
+        render::push_light(position, 64, 255, 0, 0).unwrap();
 
         let x_trans = raymath::vector3_scale(Vector3::new(1., 0., 0.), (run_time * speed + std::f64::consts::PI).sin() as f32);
         let z_trans = raymath::vector3_scale(Vector3::new(0., 0., 1.), (run_time * speed + std::f64::consts::PI).cos() as f32);
         let position = raymath::vector3_add(raymath::vector3_add(self.base.location.into(), x_trans), z_trans);
 
-        render::push_light(position, 16, 0, 0, 255).unwrap();
+        render::push_light(position, 64, 0, 0, 255).unwrap();
     }
 
     pub fn draw_model(&mut self) {}
