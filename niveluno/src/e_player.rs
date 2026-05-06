@@ -26,7 +26,8 @@ pub struct Player {
     pitch: f32,
     yaw: f32,
     pub position: Vector3,
-    hud: Box<text::OverlaySurface>,
+    hud: Option<Box<text::OverlaySurface>>,
+    hud_needs_update: bool,
     speed: f32,
     acceleration: Vector3,
     velocity: Vector3,
@@ -41,6 +42,7 @@ pub struct Player {
     snap_down: f32,
     opt_ass: Option<OptAssets>,
     coins: usize,
+    equipment: Vec<Equipment>
 }
 
 pub struct OptAssets {
@@ -51,6 +53,27 @@ pub struct OptAssets {
 // 4x regular gravity, 4x regular terminal velocity
 const GRAVITY: f32 = -36.0;
 const TERMINAL_VEL: f32 = -216.0;
+
+struct EquipmentDetails {
+    name: &'static str,
+    icon: char,
+}
+
+enum Equipment {
+    Knife
+}
+
+impl Equipment {
+
+    const KNIFE_NAME: &'static str = "knife";
+    const KNIFE_CHAR: char = '\u{f09fb}';
+
+    fn get_details(&self) -> EquipmentDetails {
+        match self {
+            &Equipment::Knife => EquipmentDetails { name: Self::KNIFE_NAME, icon: Self::KNIFE_CHAR }
+        }
+    }
+}
 
 impl Player {
     pub fn new(entt: &Entity) -> Self {
@@ -81,6 +104,11 @@ impl Player {
         let chest_height = snap_up * 0.7 + radius;
         let height = chest_height + radius;
 
+        let zero = '\u{f03a2}';
+        let dash = '\u{eacc}';
+        let knife = '\u{f09fb}';
+        let selector = '\u{f1050}';
+
         Self {
             base: entt.clone(),
             pitch: 0.,
@@ -106,33 +134,23 @@ impl Player {
             on_ground: true,
             friction: 0.3,
             hud: match g_game::get_state().unwrap() {
-                TopState::Menu => text::create_text_overlay_surface(text::TextInput {
-                    text: "MAIN MENU".to_string(),
-                    mode: text::Mode::Solid {
-                        color: text::FontColor {
-                            r: 255,
-                            g: 167,
-                            b: 167,
-                            a: 255,
+                TopState::Menu => {
+                    text::create_text_overlay_surface(text::TextInput {
+                        text: "MAIN MENU".to_string(),
+                        mode: text::Mode::Solid {
+                            color: text::FontColor {
+                                r: 255,
+                                g: 167,
+                                b: 167,
+                                a: 255,
+                            },
                         },
-                    },
-                    font: g_game::get_text_font_lg().unwrap(),
-                })
-                .unwrap(),
-                TopState::Play => text::create_text_overlay_surface(text::TextInput {
-                    text: "󰊠󰘉".to_string(),
-                    mode: text::Mode::Solid {
-                        color: text::FontColor {
-                            r: 167,
-                            g: 167,
-                            b: 255,
-                            a: 255,
-                        },
-                    },
-                    font: g_game::get_symb_font().unwrap(),
-                })
-                .unwrap(),
+                        font: g_game::get_text_font_lg().unwrap(),
+                    }).ok()
+                },
+                _ => None,
             },
+            hud_needs_update: false,
             height: height,
             radius: radius, 
             chest_height: chest_height,
@@ -173,11 +191,43 @@ impl Player {
                 }
             },
             coins: 0,
+            equipment: vec![],
         }
     }
 
     pub fn update_hud(&mut self) {
-        text::push_surface(&self.hud).unwrap();
+
+        if self.hud_needs_update {
+
+            if self.equipment.len() != 0 {
+
+                let mut equip_string = String::new();
+                for e in &self.equipment {
+                    equip_string.push(e.get_details().icon);
+                }
+
+                let hud = text::create_text_overlay_surface(text::TextInput {
+                            text: equip_string,
+                            mode: text::Mode::Solid {
+                                color: text::FontColor {
+                                    r: 167,
+                                    g: 167,
+                                    b: 255,
+                                    a: 255,
+                                },
+                            },
+                            font: g_game::get_symb_font().unwrap(),
+                        })
+                        .ok();
+                
+                self.hud = hud;
+
+            }
+        }
+
+        if let Some(hud) = &self.hud {
+            text::push_surface(hud).unwrap();
+        } 
 
         match g_game::get_state().unwrap() {
             TopState::Play => {
@@ -592,5 +642,10 @@ impl Player {
 
     pub fn get_coin(&mut self) {
         self.coins += 1;
+    }
+
+    pub fn get_knife(&mut self) {
+        self.equipment.push(Equipment::Knife);
+        self.hud_needs_update = true;
     }
 }

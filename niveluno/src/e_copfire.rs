@@ -1,7 +1,7 @@
 use core::f32;
 
 use rand::Rng;
-use raymath::{vector3_add, vector3_scale};
+use raymath::{matrix_multiply, vector3_add, vector3_scale};
 
 use crate::map::Entity;
 use crate::math::Vector3;
@@ -14,17 +14,18 @@ struct Cloud {
     scale_mult: f32,
     start_color: Vector3,
     end_color: Vector3,
+    spin: Vector3,
 }
 
 impl Cloud {
     fn new(start_time: f64) -> Self {
         let rng = g_game::get_rng().unwrap();
 
-        let dir = Vector3::new(
+        let dir = raymath::vector3_normalize(Vector3::new(
             rng.gen_range(-1f32..1f32),
             rng.gen_range(-1f32..1f32),
             rng.gen_range(-1f32..1f32)
-        );
+        ));
 
         let start_green = rng.gen_range(0.2f32..0.5f32);
         let start_color = Vector3::new(0.5, start_green, start_green / 2.);
@@ -38,6 +39,7 @@ impl Cloud {
             dir: raymath::vector3_normalize(dir),
             start_color,
             end_color,
+            spin: Vector3::new(-dir.y, -dir.z, -dir.x)
         }
     }
 }
@@ -99,7 +101,12 @@ impl CopFire {
                     self.base.scale[1] * scale * cloud.scale_mult,
                     self.base.scale[2] * scale * cloud.scale_mult
                 );
-            let mat_r = raymath::quaternion_to_matrix(self.base.rotation.into());
+            
+            let spin_mat = raymath::matrix_rotate_xyz(vector3_scale(cloud.spin, 2. + 5. * p_pi_half_sin));
+            let mat_r = matrix_multiply(
+                raymath::quaternion_to_matrix(self.base.rotation.into()),
+                spin_mat
+            );
 
             let pos = Vector3::new(
                 self.base.location[0] + cloud.dir.x * (0.1 + 2. * progress),

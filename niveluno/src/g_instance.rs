@@ -13,6 +13,7 @@ use crate::e_pig::Pig;
 use crate::e_player::Player;
 
 use crate::e_prototype_coin_a::PrototypeCoinA;
+use crate::e_restaurant_knife::RestaurantKnife;
 use crate::g_game;
 use crate::map::{Entity, LoadedEnttReference};
 use crate::nuerror::NUError;
@@ -29,6 +30,7 @@ pub enum Instance {
     DTable(Table),
     // Entities
     EPrototypeCoinA(PrototypeCoinA),
+    ERestaurantKnife(RestaurantKnife),
     EBarrier(Barrier),
     ECopFire(CopFire),
     ECopLight(CopLight),
@@ -396,7 +398,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"restaurant.kitchentable_sink" |
 		"restaurant.kitchentable_sink_large" |
 		"restaurant.kitchentable_sink_large_decorated" |
-		"restaurant.knife" |
+		// "restaurant.knife" |
 		"restaurant.lid_A" |
 		"restaurant.lid_B" |
 		"restaurant.lid_large" |
@@ -2092,6 +2094,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
         // entities
 		// ============================================================
 		"prototype.Coin_A" => Some(Instance::EPrototypeCoinA(PrototypeCoinA::new(entt))),
+		"restaurant.knife" => Some(Instance::ERestaurantKnife(RestaurantKnife::new(entt))),
         "barrier" => Some(Instance::EBarrier(Barrier::new(entt))),
 		"copfire" => Some(Instance::ECopFire(CopFire::new(entt))),
 		"coplight" => Some(Instance::ECopLight(CopLight::new(entt))),
@@ -2122,6 +2125,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.update(),
+            Self::ERestaurantKnife(e) => e.update(),
             Self::EBarrier(e) => e.update(),
             Self::EGcyl(e) => e.update(),
             Self::ECopFire(e) => e.update(),
@@ -2149,6 +2153,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.draw_model(),
+            Self::ERestaurantKnife(e) => e.draw_model(),
             Self::EBarrier(e) => e.draw_model(),
             Self::ECopFire(e) => e.draw_model(),
             Self::ECopLight(e) => e.draw_model(),
@@ -2176,6 +2181,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(_) => false,
+            Self::ERestaurantKnife(_) => false,
             Self::EBarrier(_) => false,
             Self::ECopFire(_) => false,
             Self::ECopLight(_) => false,
@@ -2199,6 +2205,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.dead,
+            Self::ERestaurantKnife(e) => e.dead,
             _ => {
 				// death unimplemented
                 false
@@ -2218,6 +2225,7 @@ impl Instance {
 			// ============================================================
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_mesh(),
+            Self::ERestaurantKnife(e) => e.get_mesh(),
             Self::EBarrier(e) => e.get_mesh(),
             Self::ECopFire(e) => e.get_mesh(),
             Self::ECopLight(e) => e.get_mesh(),
@@ -2247,6 +2255,7 @@ impl Instance {
 			// ============================================================
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_matrix(),
+            Self::ERestaurantKnife(e) => e.get_matrix(),
             Self::EBarrier(e) => e.get_matrix(),
             Self::ECopFire(e) => e.get_matrix(),
             Self::ECopLight(e) => e.get_matrix(),
