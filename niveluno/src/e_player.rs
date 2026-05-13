@@ -27,6 +27,7 @@ pub struct Player {
     yaw: f32,
     pub position: Vector3,
     hud: Option<Box<text::OverlaySurface>>,
+    hud_equipment_selector: Option<Box<text::OverlaySurface>>,
     hud_needs_update: bool,
     speed: f32,
     acceleration: Vector3,
@@ -42,7 +43,8 @@ pub struct Player {
     snap_down: f32,
     opt_ass: Option<OptAssets>,
     coins: usize,
-    equipment: Vec<Equipment>
+    equipment: Vec<Equipment>,
+    active_equipment: Option<usize>,
 }
 
 pub struct OptAssets {
@@ -54,22 +56,32 @@ pub struct OptAssets {
 const GRAVITY: f32 = -36.0;
 const TERMINAL_VEL: f32 = -216.0;
 
-struct EquipmentDetails {
-    name: &'static str,
+pub struct EquipmentDetails {
+    pub name: &'static str,
     icon: char,
 }
 
-enum Equipment {
-    Knife
+pub enum Equipment {
+    Candle,
+    Key,
+    Knife,
 }
 
 impl Equipment {
 
+    const CANDLE_NAME: &'static str = "candle";
+    const CANDLE_CHAR: char = '\u{f05e2}';
+
+    const KEY_NAME: &'static str = "key";
+    const KEY_CHAR: char = '\u{f084}';
+
     const KNIFE_NAME: &'static str = "knife";
     const KNIFE_CHAR: char = '\u{f09fb}';
 
-    fn get_details(&self) -> EquipmentDetails {
+    pub fn get_details(&self) -> EquipmentDetails {
         match self {
+            &Equipment::Candle => EquipmentDetails { name: Self::CANDLE_NAME, icon: Self::CANDLE_CHAR },
+            &Equipment::Key => EquipmentDetails { name: Self::KEY_NAME, icon: Self::KEY_CHAR },
             &Equipment::Knife => EquipmentDetails { name: Self::KNIFE_NAME, icon: Self::KNIFE_CHAR }
         }
     }
@@ -103,11 +115,6 @@ impl Player {
         let radius = 1.;
         let chest_height = snap_up * 0.7 + radius;
         let height = chest_height + radius;
-
-        let zero = '\u{f03a2}';
-        let dash = '\u{eacc}';
-        let knife = '\u{f09fb}';
-        let selector = '\u{f1050}';
 
         Self {
             base: entt.clone(),
@@ -150,6 +157,18 @@ impl Player {
                 },
                 _ => None,
             },
+            hud_equipment_selector: text::create_text_overlay_surface(text::TextInput {
+                text: "_".to_string(),
+                mode: text::Mode::Solid {
+                    color: text::FontColor {
+                        r: 167,
+                        g: 167,
+                        b: 167,
+                        a: 167,
+                    },
+                },
+                font: g_game::get_text_font_lg().unwrap(),
+            }).ok(),
             hud_needs_update: false,
             height: height,
             radius: radius, 
@@ -192,6 +211,7 @@ impl Player {
             },
             coins: 0,
             equipment: vec![],
+            active_equipment: None,
         }
     }
 
@@ -201,13 +221,13 @@ impl Player {
 
             if self.equipment.len() != 0 {
 
-                let mut equip_string = String::new();
+                let mut equip_list = String::new();
                 for e in &self.equipment {
-                    equip_string.push(e.get_details().icon);
+                    equip_list.push(e.get_details().icon);
                 }
 
                 let hud = text::create_text_overlay_surface(text::TextInput {
-                            text: equip_string,
+                            text: equip_list,
                             mode: text::Mode::Solid {
                                 color: text::FontColor {
                                     r: 167,
@@ -240,6 +260,12 @@ impl Player {
                     text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar_frame)
                         .unwrap();
                 }
+
+                let es = self.hud_equipment_selector.as_mut().unwrap();
+                es.dst_rect.set_x(es.w as i32 * self.active_equipment.unwrap_or_default() as i32);
+                es.dst_rect.set_y(0);
+                text::push_surface(es).unwrap();
+
             }
             _ => {}
         }
@@ -644,8 +670,23 @@ impl Player {
         self.coins += 1;
     }
 
-    pub fn get_knife(&mut self) {
-        self.equipment.push(Equipment::Knife);
+    fn push_equip(&mut self, e: Equipment) {
+        self.equipment.push(e);
         self.hud_needs_update = true;
+        if self.active_equipment == None {
+            self.active_equipment = Some(0);
+        }
+    }
+
+    pub fn get_knife(&mut self) {
+        self.push_equip(Equipment::Knife);
+    }
+
+    pub fn get_key(&mut self) {
+        self.push_equip(Equipment::Key);
+    }
+
+    pub fn get_candle(&mut self) {
+        self.push_equip(Equipment::Candle);
     }
 }

@@ -4,9 +4,11 @@ use crate::d_platform::Platform;
 use crate::d_table::Table;
 
 use crate::e_barrier::Barrier;
+use crate::e_candle::Candle;
 use crate::e_copfire::CopFire;
 use crate::e_coplight::CopLight;
 use crate::e_gcyl::Gcyl;
+use crate::e_key_b::KeyB;
 use crate::e_light::Light;
 use crate::e_menu::Menu;
 use crate::e_pig::Pig;
@@ -30,6 +32,8 @@ pub enum Instance {
     DTable(Table),
     // Entities
     EPrototypeCoinA(PrototypeCoinA),
+    EKeyB(KeyB),
+    ECandle(Candle),
     ERestaurantKnife(RestaurantKnife),
     EBarrier(Barrier),
     ECopFire(CopFire),
@@ -178,7 +182,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"tools.journal_closed" |
 		"tools.journal_open" |
 		"tools.key_A" |
-		"tools.key_B" |
+		// "tools.key_B" |
 		"tools.key_C" |
 		"tools.knife" |
 		"tools.lantern" |
@@ -1744,7 +1748,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"dungeon.candle_lit" |
 		"dungeon.candle_melted" |
 		"dungeon.candle_thin" |
-		"dungeon.candle_thin_lit" |
+		// "dungeon.candle_thin_lit" |
 		"dungeon.candle_triple" |
 		"dungeon.ceiling_tile" |
 		"dungeon.chair" |
@@ -2095,6 +2099,8 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		// ============================================================
 		"prototype.Coin_A" => Some(Instance::EPrototypeCoinA(PrototypeCoinA::new(entt))),
 		"restaurant.knife" => Some(Instance::ERestaurantKnife(RestaurantKnife::new(entt))),
+		"tools.key_B" => Some(Instance::EKeyB(KeyB::new(entt))),
+		"dungeon.candle_thin_lit" => Some(Instance::ECandle(Candle::new(entt))),
         "barrier" => Some(Instance::EBarrier(Barrier::new(entt))),
 		"copfire" => Some(Instance::ECopFire(CopFire::new(entt))),
 		"coplight" => Some(Instance::ECopLight(CopLight::new(entt))),
@@ -2125,6 +2131,8 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.update(),
+            Self::EKeyB(e) => e.update(),
+            Self::ECandle(e) => e.update(),
             Self::ERestaurantKnife(e) => e.update(),
             Self::EBarrier(e) => e.update(),
             Self::EGcyl(e) => e.update(),
@@ -2153,6 +2161,8 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.draw_model(),
+            Self::EKeyB(e) => e.draw_model(),
+            Self::ECandle(e) => e.draw_model(),
             Self::ERestaurantKnife(e) => e.draw_model(),
             Self::EBarrier(e) => e.draw_model(),
             Self::ECopFire(e) => e.draw_model(),
@@ -2181,6 +2191,8 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(_) => false,
+            Self::EKeyB(_) => false,
+            Self::ECandle(_) => false,
             Self::ERestaurantKnife(_) => false,
             Self::EBarrier(_) => false,
             Self::ECopFire(_) => false,
@@ -2205,6 +2217,8 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.dead,
+            Self::EKeyB(e) => e.dead,
+            Self::ECandle(e) => e.dead,
             Self::ERestaurantKnife(e) => e.dead,
             _ => {
 				// death unimplemented
@@ -2225,6 +2239,8 @@ impl Instance {
 			// ============================================================
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_mesh(),
+            Self::EKeyB(e) => e.get_mesh(),
+            Self::ECandle(e) => e.get_mesh(),
             Self::ERestaurantKnife(e) => e.get_mesh(),
             Self::EBarrier(e) => e.get_mesh(),
             Self::ECopFire(e) => e.get_mesh(),
@@ -2255,6 +2271,8 @@ impl Instance {
 			// ============================================================
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_matrix(),
+            Self::EKeyB(e) => e.get_matrix(),
+            Self::ECandle(e) => e.get_matrix(),
             Self::ERestaurantKnife(e) => e.get_matrix(),
             Self::EBarrier(e) => e.get_matrix(),
             Self::ECopFire(e) => e.get_matrix(),

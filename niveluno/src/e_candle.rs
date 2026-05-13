@@ -12,12 +12,12 @@ use crate::render;
 use raymath::{self, Vector3};
 
 #[derive(Debug)]
-pub struct RestaurantKnife {
+pub struct Candle {
     base: Entity,
     pub dead: bool
 }
 
-impl RestaurantKnife {
+impl Candle {
     pub fn new(entt: &Entity) -> Self {
         Self {
             base: entt.clone(),
@@ -29,16 +29,16 @@ impl RestaurantKnife {
         let player = g_instance::get_player_instance().unwrap();
 
         if raymath::vector3_distance(player.position, self.base.location.into()) < 3. {
-            player.get_knife();
+            player.get_candle();
             self.dead = true;
 
             let mut spawn = text::create_text_overlay_surface(text::TextInput {
-                text: format!("{} FOUND", e_player::Equipment::Knife.get_details().name),
+                text: format!("{} FOUND", e_player::Equipment::Candle.get_details().name),
                 mode: text::Mode::Solid {
                     color: text::FontColor {
-                        r: 196,
+                        r: 64,
                         g: 32,
-                        b: 64,
+                        b: 196,
                         a: 255,
                     },
                 },
