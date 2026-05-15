@@ -25,9 +25,9 @@ mod e_menu;
 mod e_pig;
 mod e_player;
 mod e_prototype_coin_a;
-mod e_restaurant_knife;
-mod e_key_b;
-mod e_candle;
+// mod e_restaurant_knife;
+// mod e_key_b;
+mod e_pickup;
 // pak/decor??
 mod d_generic;
 mod d_floor;

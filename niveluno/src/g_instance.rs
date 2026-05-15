@@ -4,18 +4,18 @@ use crate::d_platform::Platform;
 use crate::d_table::Table;
 
 use crate::e_barrier::Barrier;
-use crate::e_candle::Candle;
+use crate::e_pickup::Pickup;
 use crate::e_copfire::CopFire;
 use crate::e_coplight::CopLight;
 use crate::e_gcyl::Gcyl;
-use crate::e_key_b::KeyB;
+// use crate::e_key_b::KeyB;
 use crate::e_light::Light;
 use crate::e_menu::Menu;
 use crate::e_pig::Pig;
 use crate::e_player::Player;
 
 use crate::e_prototype_coin_a::PrototypeCoinA;
-use crate::e_restaurant_knife::RestaurantKnife;
+// use crate::e_restaurant_knife::RestaurantKnife;
 use crate::g_game;
 use crate::map::{Entity, LoadedEnttReference};
 use crate::nuerror::NUError;
@@ -32,9 +32,7 @@ pub enum Instance {
     DTable(Table),
     // Entities
     EPrototypeCoinA(PrototypeCoinA),
-    EKeyB(KeyB),
-    ECandle(Candle),
-    ERestaurantKnife(RestaurantKnife),
+	EPickup(Pickup),
     EBarrier(Barrier),
     ECopFire(CopFire),
     ECopLight(CopLight),
@@ -180,7 +178,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"tools.handdrill" |
 		"tools.handplane" |
 		"tools.journal_closed" |
-		"tools.journal_open" |
+		// "tools.journal_open" |
 		"tools.key_A" |
 		// "tools.key_B" |
 		"tools.key_C" |
@@ -226,7 +224,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"tools.torch_burnt" |
 		"tools.trowel" |
 		"tools.wrench_A" |
-		"tools.wrench_B" |
+		// "tools.wrench_B" |
 		// RESTAURANT
 		"restaurant.bowl" |
 		"restaurant.bowl_dirty" |
@@ -262,7 +260,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"restaurant.food_dinner" |
 		"restaurant.food_icecream_cone_chocolate" |
 		"restaurant.food_icecream_cone_strawberry" |
-		"restaurant.food_icecream_cone_vanilla" |
+		// "restaurant.food_icecream_cone_vanilla" |
 		"restaurant.food_ingredient_bun" |
 		"restaurant.food_ingredient_bun_bottom" |
 		"restaurant.food_ingredient_bun_top" |
@@ -486,7 +484,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"resource.Copper_Nugget_Small" |
 		"resource.Copper_Nuggets" |
 		"resource.Food_Apple_Green" |
-		"resource.Food_Apple_Red" |
+		// "resource.Food_Apple_Red" |
 		"resource.Food_Barrel_Empty" |
 		"resource.Food_Barrel_Fish" |
 		"resource.Food_Basket_A_Berries" |
@@ -624,7 +622,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"prototype.Floor" |
 		"prototype.Floor_Dirt" |
 		"prototype.Floor_Prototype" |
-		"prototype.Gun_Pistol" |
+		// "prototype.Gun_Pistol" |
 		"prototype.Gun_Rifle" |
 		"prototype.Gun_Sniper" |
 		"prototype.Locker" |
@@ -940,7 +938,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"medieval.waterplant_A" |
 		"medieval.waterplant_B" |
 		"medieval.waterplant_C" |
-		"medieval.anchor" |
+		// "medieval.anchor" |
 		"medieval.barrel" |
 		"medieval.boat" |
 		"medieval.boatrack" |
@@ -957,7 +955,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"medieval.crate_long_C" |
 		"medieval.crate_long_empty" |
 		"medieval.crate_open" |
-		"medieval.flag_blue" |
+		// "medieval.flag_blue" |
 		"medieval.flag_green" |
 		"medieval.flag_red" |
 		"medieval.flag_yellow" |
@@ -1082,7 +1080,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"xmas.candy_C_yellow" |
 		"xmas.candy_peppermint" |
 		"xmas.candycane_large" |
-		"xmas.candycane_small" |
+		// "xmas.candycane_small" |
 		"xmas.carpet_round_large" |
 		"xmas.carpet_round_small" |
 		"xmas.chair_large_blue" |
@@ -1093,7 +1091,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"xmas.christmas_tree_base" |
 		"xmas.christmas_tree_decorated" |
 		"xmas.christmas_tree_withoutLights" |
-		"xmas.cookie" |
+		// "xmas.cookie" |
 		"xmas.cube_gingerbread_large_A" |
 		"xmas.cube_gingerbread_large_B" |
 		"xmas.cube_gingerbread_slope" |
@@ -1708,7 +1706,6 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"dungeon.barrier_half" |
 		"dungeon.bartop_A_large" |
 		"dungeon.bartop_A_medium" |
-		"dungeon.bartop_A_medium" |
 		"dungeon.bartop_B_large" |
 		"dungeon.bartop_B_medium" |
 		"dungeon.bartop_B_small" |
@@ -1719,16 +1716,10 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"dungeon.bed_B_single" |
 		"dungeon.bed_decorated" |
 		"dungeon.bed_floor" |
-		"dungeon.bed_floor" |
 		"dungeon.bench" |
 		"dungeon.book_brown" |
 		"dungeon.book_grey" |
-		"dungeon.book_grey" |
 		"dungeon.bookcase_double" |
-		"dungeon.bookcase_double" |
-		"dungeon.bookcase_double" |
-		"dungeon.bookcase_single" |
-		"dungeon.bookcase_single" |
 		"dungeon.bookcase_single" |
 		"dungeon.bottle_A_brown" |
 		"dungeon.bottle_A_green" |
@@ -1737,7 +1728,7 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
 		"dungeon.bottle_B_brown" |
 		"dungeon.bottle_B_green" |
 		"dungeon.bottle_C_brown" |
-		"dungeon.bottle_C_green" |
+		// "dungeon.bottle_C_green" |
 		"dungeon.box_large" |
 		"dungeon.box_small" |
 		"dungeon.box_small_decorated" |
@@ -2098,9 +2089,19 @@ pub fn instance_from_str(s: &str, entt: &Entity) -> Option<Instance> {
         // entities
 		// ============================================================
 		"prototype.Coin_A" => Some(Instance::EPrototypeCoinA(PrototypeCoinA::new(entt))),
-		"restaurant.knife" => Some(Instance::ERestaurantKnife(RestaurantKnife::new(entt))),
-		"tools.key_B" => Some(Instance::EKeyB(KeyB::new(entt))),
-		"dungeon.candle_thin_lit" => Some(Instance::ECandle(Candle::new(entt))),
+		"prototype.Gun_Pistol" |
+		"medieval.flag_blue" |
+		"xmas.candycane_small" |
+		"tools.wrench_B" |
+		"restaurant.food_icecream_cone_vanilla" |
+		"dungeon.bottle_C_green" |
+		"resource.Food_Apple_Red" |
+		"tools.journal_open" |
+		"restaurant.knife" |
+		"xmas.cookie" |
+		"tools.key_B" |
+		"medieval.anchor" |
+		"dungeon.candle_thin_lit" => Some(Instance::EPickup(Pickup::new(entt))),
         "barrier" => Some(Instance::EBarrier(Barrier::new(entt))),
 		"copfire" => Some(Instance::ECopFire(CopFire::new(entt))),
 		"coplight" => Some(Instance::ECopLight(CopLight::new(entt))),
@@ -2131,9 +2132,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.update(),
-            Self::EKeyB(e) => e.update(),
-            Self::ECandle(e) => e.update(),
-            Self::ERestaurantKnife(e) => e.update(),
+            Self::EPickup(e) => e.update(),
             Self::EBarrier(e) => e.update(),
             Self::EGcyl(e) => e.update(),
             Self::ECopFire(e) => e.update(),
@@ -2161,9 +2160,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.draw_model(),
-            Self::EKeyB(e) => e.draw_model(),
-            Self::ECandle(e) => e.draw_model(),
-            Self::ERestaurantKnife(e) => e.draw_model(),
+            Self::EPickup(e) => e.draw_model(),
             Self::EBarrier(e) => e.draw_model(),
             Self::ECopFire(e) => e.draw_model(),
             Self::ECopLight(e) => e.draw_model(),
@@ -2191,9 +2188,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(_) => false,
-            Self::EKeyB(_) => false,
-            Self::ECandle(_) => false,
-            Self::ERestaurantKnife(_) => false,
+            Self::EPickup(_) => false,
             Self::EBarrier(_) => false,
             Self::ECopFire(_) => false,
             Self::ECopLight(_) => false,
@@ -2217,9 +2212,7 @@ impl Instance {
 			// entities
 			// ============================================================
             Self::EPrototypeCoinA(e) => e.dead,
-            Self::EKeyB(e) => e.dead,
-            Self::ECandle(e) => e.dead,
-            Self::ERestaurantKnife(e) => e.dead,
+            Self::EPickup(e) => e.dead,
             _ => {
 				// death unimplemented
                 false
@@ -2239,9 +2232,7 @@ impl Instance {
 			// ============================================================
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_mesh(),
-            Self::EKeyB(e) => e.get_mesh(),
-            Self::ECandle(e) => e.get_mesh(),
-            Self::ERestaurantKnife(e) => e.get_mesh(),
+            Self::EPickup(e) => e.get_mesh(),
             Self::EBarrier(e) => e.get_mesh(),
             Self::ECopFire(e) => e.get_mesh(),
             Self::ECopLight(e) => e.get_mesh(),
@@ -2271,9 +2262,7 @@ impl Instance {
 			// ============================================================
             // rest will panic
             Self::EPrototypeCoinA(e) => e.get_matrix(),
-            Self::EKeyB(e) => e.get_matrix(),
-            Self::ECandle(e) => e.get_matrix(),
-            Self::ERestaurantKnife(e) => e.get_matrix(),
+            Self::EPickup(e) => e.get_matrix(),
             Self::EBarrier(e) => e.get_matrix(),
             Self::ECopFire(e) => e.get_matrix(),
             Self::ECopLight(e) => e.get_matrix(),

@@ -10,6 +10,7 @@ use raymath::{
 };
 use sdl2::rect::Point;
 
+use crate::e_pickup::Equipment;
 use crate::g_game::TopState;
 use crate::g_instance::{get_decor_instances, Instance};
 use crate::map::{self, Entity};
@@ -55,37 +56,6 @@ pub struct OptAssets {
 // 4x regular gravity, 4x regular terminal velocity
 const GRAVITY: f32 = -36.0;
 const TERMINAL_VEL: f32 = -216.0;
-
-pub struct EquipmentDetails {
-    pub name: &'static str,
-    icon: char,
-}
-
-pub enum Equipment {
-    Candle,
-    Key,
-    Knife,
-}
-
-impl Equipment {
-
-    const CANDLE_NAME: &'static str = "candle";
-    const CANDLE_CHAR: char = '\u{f05e2}';
-
-    const KEY_NAME: &'static str = "key";
-    const KEY_CHAR: char = '\u{f084}';
-
-    const KNIFE_NAME: &'static str = "knife";
-    const KNIFE_CHAR: char = '\u{f09fb}';
-
-    pub fn get_details(&self) -> EquipmentDetails {
-        match self {
-            &Equipment::Candle => EquipmentDetails { name: Self::CANDLE_NAME, icon: Self::CANDLE_CHAR },
-            &Equipment::Key => EquipmentDetails { name: Self::KEY_NAME, icon: Self::KEY_CHAR },
-            &Equipment::Knife => EquipmentDetails { name: Self::KNIFE_NAME, icon: Self::KNIFE_CHAR }
-        }
-    }
-}
 
 impl Player {
     pub fn new(entt: &Entity) -> Self {
@@ -670,23 +640,11 @@ impl Player {
         self.coins += 1;
     }
 
-    fn push_equip(&mut self, e: Equipment) {
+    pub fn push_equip(&mut self, e: Equipment) {
         self.equipment.push(e);
         self.hud_needs_update = true;
         if self.active_equipment == None {
             self.active_equipment = Some(0);
         }
-    }
-
-    pub fn get_knife(&mut self) {
-        self.push_equip(Equipment::Knife);
-    }
-
-    pub fn get_key(&mut self) {
-        self.push_equip(Equipment::Key);
-    }
-
-    pub fn get_candle(&mut self) {
-        self.push_equip(Equipment::Candle);
     }
 }
