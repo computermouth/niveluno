@@ -17,6 +17,7 @@ use crate::nuerror::NUError;
 use crate::render;
 use crate::time;
 
+#[derive(Copy, Clone)]
 pub struct FontColor {
     pub r: u8,
     pub g: u8,

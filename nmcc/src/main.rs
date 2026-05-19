@@ -201,10 +201,15 @@ fn get_instance(n: &gltf::Node, bb: &mut big_buffer::BigBuffer) -> Option<Entity
                 eprintln!("W: couldn't get entt index for {:?} {d}", n.name());
                 None
             })?;
+            let mut p = vec![];
+            for (k, v) in kvp {
+                p.push(bb.add_kv_string(&k));
+                p.push(bb.add_kv_string(&v));
+            }
             Some(EntityInstance {
                 index: di,
                 has_ref: true,
-                params: vec![],
+                params: p,
                 location: bb.add_sequence(big_buffer::HashItem::Vert([c_pos.x, c_pos.z, c_pos.y])),
                 rotation: bb
                     .add_sequence(big_buffer::HashItem::Quat([-rot.x, -rot.z, -rot.y, rot.w])),

@@ -12,6 +12,8 @@ use raymath::{self, Vector3};
 pub struct EquipmentDetails {
     pub name: &'static str,
     pub icon: char,
+    pub action: &'static str,
+    pub font_color: &'static text::FontColor,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -36,71 +38,97 @@ impl Equipment {
     const PISTOL_ENTITY_NAME: &'static str = "prototype.Gun_Pistol";
     const PISTOL_NAME: &'static str = "pistol";
     const PISTOL_CHAR: char = '\u{f0703}';
+    const PISTOL_ACTION: &'static str = "ACQUIRED";
+    const PISTOL_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 196, g: 32, b: 32, a: 255 };
 
     const FLAG_ENTITY_NAME: &'static str = "medieval.flag_blue";
     const FLAG_NAME: &'static str = "flag";
     const FLAG_CHAR: char = '\u{f024}';
+    const FLAG_ACTION: &'static str = "DISCOVERED";
+    const FLAG_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 32, g: 64, b: 196, a: 255 };
 
     const CANDY_CANE_ENTITY_NAME: &'static str = "xmas.candycane_small";
-    const CANDY_CANE_NAME: &'static str = "candy_cane";
+    const CANDY_CANE_NAME: &'static str = "candy cane";
     const CANDY_CANE_CHAR: char = '\u{ef3a}';
+    const CANDY_CANE_ACTION: &'static str = "UNEARTHED";
+    const CANDY_CANE_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 240, g: 128, b: 160, a: 255 };
 
     const WRENCH_ENTITY_NAME: &'static str = "tools.wrench_B";
     const WRENCH_NAME: &'static str = "wrench";
     const WRENCH_CHAR: char = '\u{f0ad}';
+    const WRENCH_ACTION: &'static str = "SALVAGED";
+    const WRENCH_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 128, g: 128, b: 144, a: 255 };
 
     const ICE_CREAM_ENTITY_NAME: &'static str = "restaurant.food_icecream_cone_vanilla";
-    const ICE_CREAM_NAME: &'static str = "ice_cream";
+    const ICE_CREAM_NAME: &'static str = "ice cream";
     const ICE_CREAM_CHAR: char = '\u{ef88}';
+    const ICE_CREAM_ACTION: &'static str = "SWIPED";
+    const ICE_CREAM_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 240, g: 220, b: 180, a: 255 };
 
     const BOTTLE_ENTITY_NAME: &'static str = "dungeon.bottle_C_green";
     const BOTTLE_NAME: &'static str = "bottle";
     const BOTTLE_CHAR: char = '\u{f1132}';
+    const BOTTLE_ACTION: &'static str = "SCAVENGED";
+    const BOTTLE_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 32, g: 160, b: 64, a: 255 };
 
     const APPLE_ENTITY_NAME: &'static str = "resource.Food_Apple_Red";
     const APPLE_NAME: &'static str = "apple";
     const APPLE_CHAR: char = '\u{e29e}';
+    const APPLE_ACTION: &'static str = "PLUCKED";
+    const APPLE_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 220, g: 40, b: 60, a: 255 };
 
     const BOOK_ENTITY_NAME: &'static str = "tools.journal_open";
     const BOOK_NAME: &'static str = "book";
     const BOOK_CHAR: char = '\u{ede2}';
+    const BOOK_ACTION: &'static str = "UNCOVERED";
+    const BOOK_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 140, g: 90, b: 50, a: 255 };
 
     const KNIFE_ENTITY_NAME: &'static str = "restaurant.knife";
     const KNIFE_NAME: &'static str = "knife";
     const KNIFE_CHAR: char = '\u{f09fb}';
+    const KNIFE_ACTION: &'static str = "RECOVERED";
+    const KNIFE_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 200, g: 200, b: 210, a: 255 };
 
     const COOKIE_ENTITY_NAME: &'static str = "xmas.cookie";
     const COOKIE_NAME: &'static str = "cookie";
     const COOKIE_CHAR: char = '\u{f0198}';
+    const COOKIE_ACTION: &'static str = "FOUND";
+    const COOKIE_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 180, g: 130, b: 80, a: 255 };
 
     const KEY_ENTITY_NAME: &'static str = "tools.key_B";
     const KEY_NAME: &'static str = "key";
     const KEY_CHAR: char = '\u{f084}';
+    const KEY_ACTION: &'static str = "OBTAINED";
+    const KEY_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 220, g: 180, b: 32, a: 255 };
 
     const ANCHOR_ENTITY_NAME: &'static str = "medieval.anchor";
     const ANCHOR_NAME: &'static str = "anchor";
     const ANCHOR_CHAR: char = '\u{f0031}';
+    const ANCHOR_ACTION: &'static str = "HAULED UP";
+    const ANCHOR_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 80, g: 140, b: 200, a: 255 };
 
     const CANDLE_ENTITY_NAME: &'static str = "dungeon.candle_thin_lit";
     const CANDLE_NAME: &'static str = "candle";
     const CANDLE_CHAR: char = '\u{f05e2}';
+    const CANDLE_ACTION: &'static str = "GRABBED";
+    const CANDLE_FONT_COLOR: &'static text::FontColor = &text::FontColor { r: 240, g: 160, b: 40, a: 255 };
 
 
     pub fn get_details(&self) -> EquipmentDetails {
         match self {
-            &Equipment::Pistol => EquipmentDetails { name: Self::PISTOL_NAME, icon: Self::PISTOL_CHAR },
-            &Equipment::Flag => EquipmentDetails { name: Self::FLAG_NAME, icon: Self::FLAG_CHAR },
-            &Equipment::CandyCane => EquipmentDetails { name: Self::CANDY_CANE_NAME, icon: Self::CANDY_CANE_CHAR },
-            &Equipment::Wrench => EquipmentDetails { name: Self::WRENCH_NAME, icon: Self::WRENCH_CHAR },
-            &Equipment::IceCream => EquipmentDetails { name: Self::ICE_CREAM_NAME, icon: Self::ICE_CREAM_CHAR },
-            &Equipment::Bottle => EquipmentDetails { name: Self::BOTTLE_NAME, icon: Self::BOTTLE_CHAR },
-            &Equipment::Apple => EquipmentDetails { name: Self::APPLE_NAME, icon: Self::APPLE_CHAR },
-            &Equipment::Book => EquipmentDetails { name: Self::BOOK_NAME, icon: Self::BOOK_CHAR },
-            &Equipment::Knife => EquipmentDetails { name: Self::KNIFE_NAME, icon: Self::KNIFE_CHAR },
-            &Equipment::Cookie => EquipmentDetails { name: Self::COOKIE_NAME, icon: Self::COOKIE_CHAR },
-            &Equipment::Key => EquipmentDetails { name: Self::KEY_NAME, icon: Self::KEY_CHAR },
-            &Equipment::Anchor => EquipmentDetails { name: Self::ANCHOR_NAME, icon: Self::ANCHOR_CHAR },
-            &Equipment::Candle => EquipmentDetails { name: Self::CANDLE_NAME, icon: Self::CANDLE_CHAR },
+            &Equipment::Pistol => EquipmentDetails { name: Self::PISTOL_NAME, icon: Self::PISTOL_CHAR, action: Self::PISTOL_ACTION, font_color: Self::PISTOL_FONT_COLOR },
+            &Equipment::Flag => EquipmentDetails { name: Self::FLAG_NAME, icon: Self::FLAG_CHAR, action: Self::FLAG_ACTION, font_color: Self::FLAG_FONT_COLOR },
+            &Equipment::CandyCane => EquipmentDetails { name: Self::CANDY_CANE_NAME, icon: Self::CANDY_CANE_CHAR, action: Self::CANDY_CANE_ACTION, font_color: Self::CANDY_CANE_FONT_COLOR },
+            &Equipment::Wrench => EquipmentDetails { name: Self::WRENCH_NAME, icon: Self::WRENCH_CHAR, action: Self::WRENCH_ACTION, font_color: Self::WRENCH_FONT_COLOR },
+            &Equipment::IceCream => EquipmentDetails { name: Self::ICE_CREAM_NAME, icon: Self::ICE_CREAM_CHAR, action: Self::ICE_CREAM_ACTION, font_color: Self::ICE_CREAM_FONT_COLOR },
+            &Equipment::Bottle => EquipmentDetails { name: Self::BOTTLE_NAME, icon: Self::BOTTLE_CHAR, action: Self::BOTTLE_ACTION, font_color: Self::BOTTLE_FONT_COLOR },
+            &Equipment::Apple => EquipmentDetails { name: Self::APPLE_NAME, icon: Self::APPLE_CHAR, action: Self::APPLE_ACTION, font_color: Self::APPLE_FONT_COLOR },
+            &Equipment::Book => EquipmentDetails { name: Self::BOOK_NAME, icon: Self::BOOK_CHAR, action: Self::BOOK_ACTION, font_color: Self::BOOK_FONT_COLOR },
+            &Equipment::Knife => EquipmentDetails { name: Self::KNIFE_NAME, icon: Self::KNIFE_CHAR, action: Self::KNIFE_ACTION, font_color: Self::KNIFE_FONT_COLOR },
+            &Equipment::Cookie => EquipmentDetails { name: Self::COOKIE_NAME, icon: Self::COOKIE_CHAR, action: Self::COOKIE_ACTION, font_color: Self::COOKIE_FONT_COLOR },
+            &Equipment::Key => EquipmentDetails { name: Self::KEY_NAME, icon: Self::KEY_CHAR, action: Self::KEY_ACTION, font_color: Self::KEY_FONT_COLOR },
+            &Equipment::Anchor => EquipmentDetails { name: Self::ANCHOR_NAME, icon: Self::ANCHOR_CHAR, action: Self::ANCHOR_ACTION, font_color: Self::ANCHOR_FONT_COLOR },
+            &Equipment::Candle => EquipmentDetails { name: Self::CANDLE_NAME, icon: Self::CANDLE_CHAR, action: Self::CANDLE_ACTION, font_color: Self::CANDLE_FONT_COLOR },
         }
     }
 }
@@ -157,15 +185,29 @@ impl Pickup {
             player.push_equip(self.equipment);
             self.dead = true;
 
+            // drop shadow
+            let details = self.equipment.get_details();
             let mut spawn = text::create_text_overlay_surface(text::TextInput {
-                text: format!("{} ACQUIRED", self.equipment.get_details().name),
+                text: format!("{}: {}", details.name.to_uppercase(), details.action),
                 mode: text::Mode::Solid {
-                    color: text::FontColor {
-                        r: 64,
-                        g: 32,
-                        b: 196,
-                        a: 255,
-                    },
+                    color: text::FontColor { r: 96, b: 96, g: 96, a: 96},
+                },
+                font: g_game::get_text_font_lg().unwrap(),
+            })
+            .unwrap();
+
+            spawn.dst_rect.set_x(196);
+            spawn.dst_rect.set_y(196);
+
+            // actual text
+            let ts = text::TimedSurface::new(spawn, 1000);
+            text::push_timed_surface(ts).unwrap();
+
+            let details = self.equipment.get_details();
+            let mut spawn = text::create_text_overlay_surface(text::TextInput {
+                text: format!("{}: {}", details.name.to_uppercase(), details.action),
+                mode: text::Mode::Solid {
+                    color: *details.font_color,
                 },
                 font: g_game::get_text_font_lg().unwrap(),
             })
