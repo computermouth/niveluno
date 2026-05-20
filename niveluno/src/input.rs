@@ -25,7 +25,9 @@ struct InputGod {
     pub mouse_speed: f32,
     pub mouse_invert: bool,
     pub quit: bool,
-    pub keys: [bool; 9],
+    pub keys_pressed: [bool; 9],
+    pub keys_down: [bool; 9],
+    pub keys_released: [bool; 9],
     pub fullscreen: bool,
 }
 
@@ -52,7 +54,9 @@ pub fn init() -> Result<(), NUError> {
         mouse_speed: 10., // 0-50 // todo, verify
         mouse_invert: false,
         quit: false,
-        keys: [false; 9],
+        keys_pressed: [false; 9],
+        keys_down: [false; 9],
+        keys_released: [false; 9],
         fullscreen: false,
     };
 
@@ -75,6 +79,10 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
     let alt_pressed =
         kb.is_scancode_pressed(Scancode::LAlt) || kb.is_scancode_pressed(Scancode::RAlt);
 
+    ig.keys_pressed.fill(false);
+    // ig.keys_down.fill(false);
+    ig.keys_released.fill(false);
+
     for event in event_pump.poll_iter() {
         match event {
             Event::Quit {..} => { ig.quit = true },
@@ -84,14 +92,14 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
                 ..
             } => {
                 match key {
-                    Keycode::Up    | Keycode::W => { ig.keys[Key::Up     as usize] = true; },
-                    Keycode::Left  | Keycode::A => { ig.keys[Key::Left   as usize] = true; },
-                    Keycode::Down  | Keycode::S => { ig.keys[Key::Down   as usize] = true; },
-                    Keycode::Right | Keycode::D => { ig.keys[Key::Right  as usize] = true; },
-                                     Keycode::Q => { ig.keys[Key::Prev   as usize] = true; },
-                                     Keycode::E => { ig.keys[Key::Next   as usize] = true; },
-                    Keycode::Space              => { ig.keys[Key::Jump   as usize] = true; },
-                    Keycode::LShift             => { ig.keys[Key::Sprint as usize] = true; }
+                    Keycode::Up    | Keycode::W => { ig.keys_down[Key::Up     as usize] = true; ig.keys_pressed[Key::Up     as usize] = true; },
+                    Keycode::Left  | Keycode::A => { ig.keys_down[Key::Left   as usize] = true; ig.keys_pressed[Key::Left   as usize] = true; },
+                    Keycode::Down  | Keycode::S => { ig.keys_down[Key::Down   as usize] = true; ig.keys_pressed[Key::Down   as usize] = true; },
+                    Keycode::Right | Keycode::D => { ig.keys_down[Key::Right  as usize] = true; ig.keys_pressed[Key::Right  as usize] = true; },
+                                     Keycode::Q => { ig.keys_down[Key::Prev   as usize] = true; ig.keys_pressed[Key::Prev   as usize] = true; },
+                                     Keycode::E => { ig.keys_down[Key::Next   as usize] = true; ig.keys_pressed[Key::Next   as usize] = true; },
+                    Keycode::Space              => { ig.keys_down[Key::Jump   as usize] = true; ig.keys_pressed[Key::Jump   as usize] = true; },
+                    Keycode::LShift             => { ig.keys_down[Key::Sprint as usize] = true; ig.keys_pressed[Key::Sprint as usize] = true; }
                     _ => {}
                 }
             },
@@ -101,14 +109,14 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
             } => {
                 match key {
                     Keycode::Escape             => { mouse.set_relative_mouse_mode(false); },
-                    Keycode::Up    | Keycode::W => { ig.keys[Key::Up     as usize] = false; },
-                    Keycode::Left  | Keycode::A => { ig.keys[Key::Left   as usize] = false; },
-                    Keycode::Down  | Keycode::S => { ig.keys[Key::Down   as usize] = false; },
-                    Keycode::Right | Keycode::D => { ig.keys[Key::Right  as usize] = false; },
-                                     Keycode::Q => { ig.keys[Key::Prev   as usize] = false; },
-                                     Keycode::E => { ig.keys[Key::Next   as usize] = false; },
-                    Keycode::Space              => { ig.keys[Key::Jump   as usize] = false; },
-                    Keycode::LShift             => { ig.keys[Key::Sprint as usize] = false; }
+                    Keycode::Up    | Keycode::W => { ig.keys_down[Key::Up     as usize] = false; ig.keys_released[Key::Up     as usize] = true;},
+                    Keycode::Left  | Keycode::A => { ig.keys_down[Key::Left   as usize] = false; ig.keys_released[Key::Left   as usize] = true;},
+                    Keycode::Down  | Keycode::S => { ig.keys_down[Key::Down   as usize] = false; ig.keys_released[Key::Down   as usize] = true;},
+                    Keycode::Right | Keycode::D => { ig.keys_down[Key::Right  as usize] = false; ig.keys_released[Key::Right  as usize] = true;},
+                                     Keycode::Q => { ig.keys_down[Key::Prev   as usize] = false; ig.keys_released[Key::Prev   as usize] = true;},
+                                     Keycode::E => { ig.keys_down[Key::Next   as usize] = false; ig.keys_released[Key::Next   as usize] = true;},
+                    Keycode::Space              => { ig.keys_down[Key::Jump   as usize] = false; ig.keys_released[Key::Jump   as usize] = true;},
+                    Keycode::LShift             => { ig.keys_down[Key::Sprint as usize] = false; ig.keys_released[Key::Sprint as usize] = true;}
                     Keycode::Return if alt_pressed => {
                         let mut fs = FullscreenType::Desktop;
                         if ig.fullscreen {
@@ -124,21 +132,21 @@ pub fn consume(window: &mut Window, mouse: &MouseUtil, event_pump: &mut EventPum
                 if mouse.relative_mouse_mode() == false {
                     mouse.set_relative_mouse_mode(true);
                 }
-                ig.keys[Key::Action as usize] = true;
+                ig.keys_down[Key::Action as usize] = true;
             },
             Event::MouseButtonUp { mouse_btn: MouseButton::Left, .. } => {
-                ig.keys[Key::Action as usize] = false;
+                ig.keys_down[Key::Action as usize] = false;
             },
             Event::MouseButtonDown { mouse_btn: MouseButton::Right, .. } => {
-                ig.keys[Key::Jump as usize] = true;
+                ig.keys_down[Key::Jump as usize] = true;
             },
             Event::MouseButtonUp { mouse_btn: MouseButton::Right, .. } => {
-                ig.keys[Key::Jump as usize] = false;
+                ig.keys_down[Key::Jump as usize] = false;
             }
             Event::MouseWheel { y, .. } => {
                 match y {
-                    std::i32::MIN..=-1 => { ig.keys[Key::Prev as usize] = true },
-                    1..=std::i32::MAX  => { ig.keys[Key::Next as usize] = true },
+                    std::i32::MIN..=-1 => { ig.keys_down[Key::Next as usize] = true; ig.keys_pressed[Key::Next   as usize] = true; },
+                    1..=std::i32::MAX  => { ig.keys_down[Key::Prev as usize] = true; ig.keys_pressed[Key::Prev   as usize] = true; },
                     _ => {}
                 }
             }
@@ -180,6 +188,14 @@ pub fn get_mouse() -> Result<(f32, f32), NUError> {
     Ok((ig.mouse_x, ig.mouse_y))
 }
 
-pub fn get_keys() -> Result<[bool; 9], NUError> {
-    Ok(InputGod::get()?.keys)
+pub fn get_keys_pressed() -> Result<[bool; 9], NUError> {
+    Ok(InputGod::get()?.keys_pressed)
+}
+
+pub fn get_keys_down() -> Result<[bool; 9], NUError> {
+    Ok(InputGod::get()?.keys_down)
+}
+
+pub fn get_keys_released() -> Result<[bool; 9], NUError> {
+    Ok(InputGod::get()?.keys_released)
 }

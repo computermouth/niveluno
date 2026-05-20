@@ -145,8 +145,6 @@ impl Pickup {
 
         let mut equipment = Equipment::Candle;
 
-        eprintln!("equip param len: {}", entt.params.len());
-
         for (i, v) in entt.params.iter().enumerate() {
             let key = g_game::get_param(*v as usize).unwrap();
             if key == "_decor" {
@@ -185,9 +183,12 @@ impl Pickup {
             player.push_equip(self.equipment);
             self.dead = true;
 
+            let g_w = render::INTERNAL_W;
+            let g_h = render::INTERNAL_H;
+
             // drop shadow
             let details = self.equipment.get_details();
-            let mut spawn = text::create_text_overlay_surface(text::TextInput {
+            let mut text_drop_shadow = text::create_text_overlay_surface(text::TextInput {
                 text: format!("{}: {}", details.name.to_uppercase(), details.action),
                 mode: text::Mode::Solid {
                     color: text::FontColor { r: 96, b: 96, g: 96, a: 96},
@@ -196,15 +197,18 @@ impl Pickup {
             })
             .unwrap();
 
-            spawn.dst_rect.set_x(196);
-            spawn.dst_rect.set_y(196);
+            let t_x = g_w / 2 - (text_drop_shadow.src_rect.w / 2);
+            let t_y = g_h / 2 - (text_drop_shadow.src_rect.h / 2);
+
+            text_drop_shadow.dst_rect.set_x(t_x - 3);
+            text_drop_shadow.dst_rect.set_y(t_y - 3);
 
             // actual text
-            let ts = text::TimedSurface::new(spawn, 1000);
+            let ts = text::TimedSurface::new(text_drop_shadow, 1000);
             text::push_timed_surface(ts).unwrap();
 
             let details = self.equipment.get_details();
-            let mut spawn = text::create_text_overlay_surface(text::TextInput {
+            let mut text_colored = text::create_text_overlay_surface(text::TextInput {
                 text: format!("{}: {}", details.name.to_uppercase(), details.action),
                 mode: text::Mode::Solid {
                     color: *details.font_color,
@@ -213,10 +217,10 @@ impl Pickup {
             })
             .unwrap();
 
-            spawn.dst_rect.set_x(200);
-            spawn.dst_rect.set_y(200);
+            text_colored.dst_rect.set_x(t_x);
+            text_colored.dst_rect.set_y(t_y);
 
-            let ts = text::TimedSurface::new(spawn, 1000);
+            let ts = text::TimedSurface::new(text_colored, 1000);
             text::push_timed_surface(ts).unwrap();
         }
 

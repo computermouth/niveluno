@@ -2,22 +2,15 @@ use core::{f32, panic};
 
 use mcap::Surface;
 use raymath::{
-    matrix_rotate_y, matrix_translate, vector2_add, vector2_distance, vector2_dot_product,
-    vector2_length, vector2_normalize, vector2_scale, vector2_subtract, vector3_add,
-    vector3_distance, vector3_dot_product, vector3_length, vector3_multiply, vector3_negate,
-    vector3_normalize, vector3_scale, vector3_subtract, vector3_transform, BoundingBox,
-    RayCollision, Vector2,
+    matrix_rotate_y, vector3_add, vector3_length, vector3_multiply,
+    vector3_normalize, vector3_scale, vector3_transform
 };
-use sdl2::rect::Point;
 
 use crate::e_pickup::Equipment;
 use crate::g_game::TopState;
-use crate::g_instance::{get_decor_instances, Instance};
 use crate::map::{self, Entity};
-use crate::math::{
-    closest_point_to_triangle, get_ray_collision_mesh, mesh_tranform, vec3_face_normal, Vector3,
-};
-use crate::text::{self, OverlaySurface};
+use crate::math::Vector3;
+use crate::text;
 use crate::{asset, g_game};
 use crate::{g_instance, input};
 use crate::{render, time};
@@ -202,17 +195,24 @@ impl Player {
                                 color: text::FontColor {
                                     r: 167,
                                     g: 167,
-                                    b: 255,
-                                    a: 255,
+                                    b: 167,
+                                    a: 167,
                                 },
                             },
                             font: g_game::get_symb_font().unwrap(),
                         })
                         .ok();
+
+                let es = self.hud_equipment_selector.as_mut().unwrap();
+                es.dst_rect.set_x((hud.as_ref().unwrap().w / self.equipment.len() as u32) as i32 * self.active_equipment.unwrap() as i32 + 1);
+                es.dst_rect.set_y(0);
+                text::push_surface(es).unwrap();
                 
                 self.hud = hud;
 
             }
+
+            self.hud_needs_update = false;
         }
 
         if let Some(hud) = &self.hud {
@@ -230,12 +230,6 @@ impl Player {
                     text::push_surface(&self.opt_ass.as_ref().unwrap().encounter_bar_frame)
                         .unwrap();
                 }
-
-                let es = self.hud_equipment_selector.as_mut().unwrap();
-                es.dst_rect.set_x(es.w as i32 * self.active_equipment.unwrap_or_default() as i32);
-                es.dst_rect.set_y(0);
-                text::push_surface(es).unwrap();
-
             }
             _ => {}
         }
@@ -244,8 +238,9 @@ impl Player {
     pub fn update(&mut self) {
         let _ = self.base;
 
-        let keys = input::get_keys().unwrap();
+        let keys = input::get_keys_down().unwrap();
 
+        // TopState management
         if g_game::get_state().unwrap() == TopState::Menu && keys[input::Key::Jump as usize] == true
         {
             // let nmap = asset::get_file("map/nmap.mp").unwrap().unwrap();
@@ -290,6 +285,24 @@ impl Player {
             Vector3::new(0., self.chest_height, 0.),
         ))
         .unwrap();
+
+        if g_game::get_state().unwrap() == TopState::Play {
+            let pressed = input::get_keys_pressed().unwrap();
+            
+            // scroll through equipment
+            if self.equipment.len() != 0 {
+                let mut equipment = self.active_equipment.unwrap();
+                if pressed[input::Key::Next as usize] == true {
+                    equipment = (equipment + 1) % (self.equipment.len());
+                }
+                if pressed[input::Key::Prev as usize] == true {
+                    equipment = (self.equipment.len() + equipment - 1) % (self.equipment.len())
+                }
+                self.active_equipment = Some(equipment);
+                self.hud_needs_update = true;
+            }
+
+        }
 
         self.update_hud();
     }
@@ -468,7 +481,7 @@ impl Player {
 
         let y_mat = matrix_rotate_y(self.yaw);
 
-        let keys = input::get_keys().unwrap();
+        let keys = input::get_keys_down().unwrap();
 
         let key_r = keys[input::Key::Right as usize] as i8;
         let key_l = keys[input::Key::Left as usize] as i8;
@@ -476,6 +489,9 @@ impl Player {
         let key_d = keys[input::Key::Down as usize] as i8;
 
         let sprint = keys[input::Key::Sprint as usize];
+
+        // let pressed = input::get_keys_pressed().unwrap();
+        // jumping as soon as you hit a new surface is kinda fun
         let jump = keys[input::Key::Jump as usize];
 
         let fd = time::get_delta_time().unwrap() as f32;
