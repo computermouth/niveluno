@@ -85,21 +85,9 @@ impl Player {
             yaw: 0.,
             position: entt.location.into(),
             speed: 96.,
-            acceleration: Vector3 {
-                x: 0.,
-                y: 0.,
-                z: 0.,
-            },
-            velocity: Vector3 {
-                x: 0.,
-                y: 0.,
-                z: 0.,
-            },
-            last_floor: Vector3 {
-                x: 0.,
-                y: 0.,
-                z: 0.,
-            },
+            acceleration: Vector3::new(0., 0., 0.),
+            velocity: Vector3::new(0., 0., 0.),
+            last_floor: Vector3::new(0., 0., 0.),
             bid: None,
             on_ground: true,
             friction: 0.3,
@@ -497,11 +485,7 @@ impl Player {
         let fd = time::get_delta_time().unwrap() as f32;
 
         self.acceleration = vector3_transform(
-            Vector3 {
-                x: (key_r - key_l) as f32,
-                y: 0.,
-                z: (key_u - key_d) as f32,
-            },
+            Vector3::new((key_r - key_l) as f32, 0., (key_u - key_d) as f32),
             y_mat,
         );
 

@@ -37,11 +37,11 @@ pub fn vec3_face_normal(v0: Vector3, v1: Vector3, v2: Vector3) -> Vector3 {
 
 /// Transforms a Vector3 by a given Matrix
 pub fn vector3_transform(v: Vector3, mat: Matrix) -> Vector3 {
-    Vector3 {
-        x: mat.m0 * v.x + mat.m4 * v.y + mat.m8 * v.z + mat.m12,
-        y: mat.m1 * v.x + mat.m5 * v.y + mat.m9 * v.z + mat.m13,
-        z: mat.m2 * v.x + mat.m6 * v.y + mat.m10 * v.z + mat.m14,
-    }
+    Vector3::new(
+        mat.m0 * v.x + mat.m4 * v.y + mat.m8 * v.z + mat.m12,
+        mat.m1 * v.x + mat.m5 * v.y + mat.m9 * v.z + mat.m13,
+        mat.m2 * v.x + mat.m6 * v.y + mat.m10 * v.z + mat.m14,
+    )
 }
 
 /// Transforms a Vec<[Vector3;3]> by a given Matrix
@@ -59,37 +59,13 @@ pub fn mesh_tranform(mesh: Vec<[Vector3; 3]>, mat: Matrix) -> Vec<[Vector3; 3]> 
 fn get_box_vertices(bbox: &BoundingBox) -> [Vector3; 8] {
     [
         bbox.min,
-        Vector3 {
-            x: bbox.max.x,
-            y: bbox.min.y,
-            z: bbox.min.z,
-        },
-        Vector3 {
-            x: bbox.min.x,
-            y: bbox.max.y,
-            z: bbox.min.z,
-        },
-        Vector3 {
-            x: bbox.min.x,
-            y: bbox.min.y,
-            z: bbox.max.z,
-        },
+        Vector3::new(bbox.max.x, bbox.min.y, bbox.min.z),
+        Vector3::new(bbox.min.x, bbox.max.y, bbox.min.z),
+        Vector3::new(bbox.min.x, bbox.min.y, bbox.max.z),
         bbox.max,
-        Vector3 {
-            x: bbox.min.x,
-            y: bbox.max.y,
-            z: bbox.max.z,
-        },
-        Vector3 {
-            x: bbox.max.x,
-            y: bbox.min.y,
-            z: bbox.max.z,
-        },
-        Vector3 {
-            x: bbox.max.x,
-            y: bbox.max.y,
-            z: bbox.min.z,
-        },
+        Vector3::new(bbox.min.x, bbox.max.y, bbox.max.z),
+        Vector3::new(bbox.max.x, bbox.min.y, bbox.max.z),
+        Vector3::new(bbox.max.x, bbox.max.y, bbox.min.z),
     ]
 }
 
@@ -145,18 +121,7 @@ pub fn sat_aabb_tri(bbox: &BoundingBox, tri: [Vector3; 3]) -> bool {
     let tri_vertices = [tri[0], tri[1], tri[2]];
     let tri_edges = get_triangle_edges(tri);
 
-    let box_normals = vec![
-        Vector3 {
-            x: 1.0,
-            y: 0.0,
-            z: 0.0,
-        },
-        Vector3 {
-            x: 0.0,
-            y: 0.0,
-            z: 1.0,
-        },
-    ];
+    let box_normals = vec![Vector3::new(1.0, 0.0, 0.0), Vector3::new(0.0, 0.0, 1.0)];
 
     let tri_normal = vector3_normalize(vector3_cross_product(tri_edges[0], tri_edges[1]));
 
@@ -234,16 +199,8 @@ pub fn get_ray_collision_mesh(
     let mut collision = RayCollision {
         hit: false,
         distance: 0.,
-        point: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
-        normal: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: 0.,
-        },
+        point: Vector3::new(0., 0., 0.),
+        normal: Vector3::new(0., 0., 0.),
     };
 
     // Test against all triangles in mesh

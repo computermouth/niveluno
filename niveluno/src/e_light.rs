@@ -87,30 +87,9 @@ impl Light {
 
     fn move_on_orientation(&mut self) {
         let (axis, shift) = match self.orientation {
-            Orientation::LeftRight => (
-                Vector3 {
-                    x: 1.0,
-                    y: 0.0,
-                    z: 0.0,
-                },
-                1.,
-            ),
-            Orientation::UpDown => (
-                Vector3 {
-                    x: 0.0,
-                    y: 2.0,
-                    z: 0.0,
-                },
-                2.,
-            ),
-            Orientation::BackForward => (
-                Vector3 {
-                    x: 0.0,
-                    y: 0.0,
-                    z: 1.0,
-                },
-                3.,
-            ),
+            Orientation::LeftRight => (Vector3::new(1.0, 0.0, 0.0), 1.),
+            Orientation::UpDown => (Vector3::new(0.0, 2.0, 0.0), 2.),
+            Orientation::BackForward => (Vector3::new(0.0, 0.0, 1.0), 3.),
             Orientation::Unset => {
                 unreachable!("light had unset orientation in move_on_orientation")
             }

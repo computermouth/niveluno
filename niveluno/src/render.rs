@@ -316,11 +316,7 @@ pub fn init() -> Result<(), NUError> {
         vao: 0,
 
         // camera bits
-        camera_position: Vector3 {
-            x: 0.,
-            y: 0.,
-            z: -50.,
-        },
+        camera_position: Vector3::new(0., 0., -50.),
         camera_pitch: 0.,
         camera_yaw: 0.,
 

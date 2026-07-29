@@ -58,21 +58,9 @@ fn pack_floats(verts: Vec<Vec<[f32; 3]>>, uvs: Vec<[f32; 2]>) -> Result<Vec<usiz
         for (v, u) in verts[frame].chunks(3).zip(uvs.chunks(3)) {
             // todo -- are these necessary?
             // looks like we're already flipping x in nmcc
-            let v0 = Vector3 {
-                x: v[0][0],
-                y: v[0][1],
-                z: v[0][2],
-            };
-            let v1 = Vector3 {
-                x: v[1][0],
-                y: v[1][1],
-                z: v[1][2],
-            };
-            let v2 = Vector3 {
-                x: v[2][0],
-                y: v[2][1],
-                z: v[2][2],
-            };
+            let v0 = Vector3::new(v[0][0], v[0][1], v[0][2]);
+            let v1 = Vector3::new(v[1][0], v[1][1], v[1][2]);
+            let v2 = Vector3::new(v[2][0], v[2][1], v[2][2]);
 
             let u0 = u[0];
             let u1 = u[1];

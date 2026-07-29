@@ -1210,6 +1210,9 @@ dependencies = [
 [[package]]
 name = "raymath"
 version = "0.1.0"
+dependencies = [
+ "mcap",
+]
 
 [[package]]
 name = "rayon"

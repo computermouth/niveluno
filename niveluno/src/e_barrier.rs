@@ -145,7 +145,7 @@ impl Barrier {
             0.002,
             self.tex_id,
             // infinity for no-shade
-            Some(Vector3 { x: f32::INFINITY, y: f32::INFINITY, z: f32::INFINITY }),
+            Some(Vector3::new(f32::INFINITY, f32::INFINITY, f32::INFINITY)),
         ).unwrap();
         
     }
