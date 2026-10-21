@@ -48,6 +48,8 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
     let gl_attr = video_subsystem.gl_attr();
     gl_attr.set_context_profile(GLProfile::Core);
     gl_attr.set_context_version(3, 3);
+    // required for core profile on macOS
+    gl_attr.set_context_flags().forward_compatible().set();
 
     let window = video_subsystem
         .window("niveluno", render::D_WINDOW_W, render::D_WINDOW_H)
@@ -83,14 +85,15 @@ fn init_sdl() -> Result<(sdl2::Sdl, sdl2::video::Window, sdl2::video::GLContext)
     eprintln!("swap_interval: {:?}", si);
 
     // todo, text init here?
-    video_subsystem
-        // setting swap interval fails in VM,
-        // also fails with mesa, looks like
-        // todo, consider doing it manually if this fails,
-        // or not bubbling up this error
-        .gl_set_swap_interval(SwapInterval::Immediate)
+    // setting swap interval fails in VM,
+    // also fails with mesa, looks like
+    // todo, consider doing it manually if this fails
+    if let Err(e) = video_subsystem.gl_set_swap_interval(SwapInterval::Immediate) {
         // .gl_set_swap_interval(SwapInterval::VSync)
-        .map_err(|e| NUError::SDLError(e))?;
+        eprintln!("failed to set swap interval: {}", e);
+    }
+    // a failed swap interval leaves an error string behind
+    sdl2::clear_error();
 
     Ok((sdl_context, window, ctx))
 }
@@ -153,13 +156,11 @@ fn main() -> Result<(), String> {
         render::end_frame()?;
         window.gl_swap_window();
 
-        loop {
-            let s = sdl2::get_error();
-            if s == "" {
-                break;
-            }
+        // log but don't panic on non-fatal error
+        let s = sdl2::get_error();
+        if s != "" {
             eprintln!("sdlerror: {}", s);
-            panic!();
+            sdl2::clear_error();
         }
 
         loop {

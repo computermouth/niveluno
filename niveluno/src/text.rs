@@ -203,7 +203,7 @@ pub fn init() -> Result<(), NUError> {
             tg.overlay_program,
             CString::new("texcoord")?.as_ptr() as *const i8,
         );
-        tg.overlay_tex_u = gl::GetAttribLocation(
+        tg.overlay_tex_u = gl::GetUniformLocation(
             tg.overlay_program,
             CString::new("tex")?.as_ptr() as *const i8,
         );
