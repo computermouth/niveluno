@@ -1,6 +1,5 @@
 #version 330 core
 
-precision mediump float;
 uniform sampler2D tex;
 
 in vec2 v_texcoord;
