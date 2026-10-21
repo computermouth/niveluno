@@ -9,9 +9,12 @@ uniform sampler2D s;
 // count of (the vectors) of lights (2* num_lights)
 uniform int light_count;
 
-// Lights [(x,y,z), [r,g,b], ...]
-// Must match MAX_LIGHT_V3S in render.rs, kept within the GL 3.3 guarantee (256 vec4 slots)
-uniform vec3 lights[252];
+// Lights [(x,y,z,_), [r,g,b,_], ...]
+// Must match MAX_LIGHT_VEC4S in render.rs, 1024 vec4s is the
+// GL 3.3 guaranteed 16KiB uniform block size
+layout(std140) uniform Lights {
+    vec4 lights[1024];
+};
 
 // Use a static multiplier to light, instead
 // of dynamic lighting
@@ -43,11 +46,11 @@ void main(void) {
             // Angle to normal
             max(
                 dot(
-                    vn, normalize(lights[i] - vp)
+                    vn, normalize(lights[i].xyz - vp)
                 )
             , 0.0)
-            * (1.0 / pow(length(lights[i] - vp), 2.0)) // Inverse distance squared
-            * lights[i + 1]; // Light color/intensity
+            * (1.0 / pow(length(lights[i].xyz - vp), 2.0)) // Inverse distance squared
+            * lights[i + 1].rgb; // Light color/intensity
     }
 
     // Debug: full bright lights

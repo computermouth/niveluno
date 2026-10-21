@@ -24,11 +24,13 @@ const DEBUG_V_SHADER_STR: &str = include_str!("debug_vert.glsl");
 const DEBUG_F_SHADER_STR: &str = include_str!("debug_frag.glsl");
 
 // magic numbers
-// MAX_LIGHT_V3S game_frag.glsl
+// MAX_LIGHT_VEC4S game_frag.glsl
 const MAX_VERTS: usize = 1024 * 128 * 64;
-// GL 3.3 only guarantees 256 vec4 slots, 126 lights (252 v3s) leaves
-// room for light_count and the sampler
-const MAX_LIGHT_V3S: usize = 126 * 2;
+// lights live in a std140 uniform block, GL 3.3 guarantees 16KiB per block,
+// which is 1024 vec4s, or 512 lights at 2 vec4s each
+const MAX_LIGHT_VEC4S: usize = 1024;
+// uniform buffer binding point for the Lights block
+const LIGHTS_UBO_BINDING: GLuint = 0;
 
 pub const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
 
@@ -59,6 +61,15 @@ struct MetaTex {
     height: u32,
 }
 
+// A light pushed this frame, before the nearest MAX_LIGHT_VEC4S / 2 are
+// selected for upload in end_frame
+#[derive(Clone, Copy)]
+struct LightCandidate {
+    dist: f32,
+    // [x,y,z, r,g,b]
+    data: [f32; 6],
+}
+
 struct RenderGod {
     // global collections
     pub draw_calls: Vec<DrawCall>,
@@ -68,10 +79,11 @@ struct RenderGod {
     pub r_buffer: Box<[f32; MAX_VERTS * 8]>,
     pub r_num_verts: usize,
     pub verts_changed: bool,
-    // 2 vec3 per light [(x,y,z), [r,g,b], ...]
+    // 2 vec4 per light [(x,y,z,_), [r,g,b,_], ...], std140 pads vec3s anyway
     // rename, light_array_buffer_data
-    pub r_light_buffer: Box<[f32; MAX_LIGHT_V3S * 3]>,
+    pub r_light_buffer: Box<[f32; MAX_LIGHT_VEC4S * 4]>,
     pub r_num_lights: usize,
+    pub r_light_candidates: Vec<LightCandidate>,
 
     // shader stuff
     pub shader_program: GLuint,
@@ -85,7 +97,7 @@ struct RenderGod {
 
     // uniforms
     pub u_camera_pos: GLint,
-    pub u_lights: GLint,
+    pub lights_ubo: GLuint,
     pub u_light_count: GLint,
     pub u_mouse: GLint,
     pub u_model_mat_v1: GLint,
@@ -306,11 +318,12 @@ pub fn init() -> Result<(), NUError> {
         r_num_verts: 0,
         verts_changed: true,
         // 2 vec3 per light [(x,y,z), [r,g,b], ...]
-        r_light_buffer: vec![0.; MAX_LIGHT_V3S * 3]
+        r_light_buffer: vec![0.; MAX_LIGHT_VEC4S * 4]
             .into_boxed_slice()
             .try_into()
             .unwrap(),
         r_num_lights: 0,
+        r_light_candidates: Vec::new(),
 
         // shader stuff
         shader_program: 0,
@@ -324,7 +337,7 @@ pub fn init() -> Result<(), NUError> {
 
         // uniforms
         u_camera_pos: 0,
-        u_lights: 0,
+        lights_ubo: 0,
         u_light_count: 0,
         u_mouse: 0,
         u_model_mat_v1: 0,
@@ -382,7 +395,6 @@ pub fn init() -> Result<(), NUError> {
         // also change these names in the shader
         rg.u_camera_pos =
             gl::GetUniformLocation(rg.shader_program, CString::new("camera_pos")?.as_ptr());
-        rg.u_lights = gl::GetUniformLocation(rg.shader_program, CString::new("lights")?.as_ptr());
         rg.u_light_count =
             gl::GetUniformLocation(rg.shader_program, CString::new("light_count")?.as_ptr());
         rg.u_mouse = gl::GetUniformLocation(rg.shader_program, CString::new("mouse")?.as_ptr());
@@ -396,6 +408,26 @@ pub fn init() -> Result<(), NUError> {
             gl::GetUniformLocation(rg.shader_program, CString::new("model_mat_v4")?.as_ptr());
         rg.u_blend = gl::GetUniformLocation(rg.shader_program, CString::new("blend")?.as_ptr());
         rg.u_glow = gl::GetUniformLocation(rg.shader_program, CString::new("glow")?.as_ptr());
+    }
+
+    // lights uniform buffer
+    unsafe {
+        let block_index =
+            gl::GetUniformBlockIndex(rg.shader_program, CString::new("Lights")?.as_ptr());
+        if block_index == gl::INVALID_INDEX {
+            return Err(NUError::MiscError("Lights uniform block not found".to_string()));
+        }
+        gl::UniformBlockBinding(rg.shader_program, block_index, LIGHTS_UBO_BINDING);
+
+        gl::GenBuffers(1, addr_of_mut!(rg.lights_ubo));
+        gl::BindBuffer(gl::UNIFORM_BUFFER, rg.lights_ubo);
+        gl::BufferData(
+            gl::UNIFORM_BUFFER,
+            (MAX_LIGHT_VEC4S * 4 * 4) as GLsizeiptr,
+            rg.r_light_buffer.as_ptr() as *const GLvoid,
+            gl::DYNAMIC_DRAW,
+        );
+        gl::BindBufferBase(gl::UNIFORM_BUFFER, LIGHTS_UBO_BINDING, rg.lights_ubo);
     }
 
     // vertex array object - captures attribute state so we don't re-set it each frame
@@ -629,8 +661,10 @@ pub fn create_texture_from_rgba(data: &[u8], width: u32, height: u32) -> Result<
 }
 
 pub fn prepare_frame() -> Result<(), NUError> {
-    let num_lights = &mut RenderGod::get()?.r_num_lights;
-    *num_lights = 0;
+    let rg = RenderGod::get()?;
+    rg.r_num_lights = 0;
+    // keeps capacity, so no allocations after the first few frames
+    rg.r_light_candidates.clear();
 
     unsafe {
         gl::ClearColor(0., 0., 0., 1.0);
@@ -659,6 +693,18 @@ pub fn end_frame() -> Result<(), NUError> {
         gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT);
     }
 
+    // keep only the nearest lights if there are too many
+    let max_lights = MAX_LIGHT_VEC4S / 2;
+    if rg.r_light_candidates.len() > max_lights {
+        rg.r_light_candidates
+            .select_nth_unstable_by(max_lights, |a, b| a.dist.total_cmp(&b.dist));
+    }
+    rg.r_num_lights = rg.r_light_candidates.len().min(max_lights);
+    for (i, l) in rg.r_light_candidates[..rg.r_num_lights].iter().enumerate() {
+        rg.r_light_buffer[i * 8..i * 8 + 3].copy_from_slice(&l.data[0..3]);
+        rg.r_light_buffer[i * 8 + 4..i * 8 + 7].copy_from_slice(&l.data[3..6]);
+    }
+
     unsafe {
         gl::Uniform4f(
             rg.u_camera_pos,
@@ -668,11 +714,14 @@ pub fn end_frame() -> Result<(), NUError> {
             16.0 / 9.0,
         );
         gl::Uniform2f(rg.u_mouse, rg.camera_yaw, rg.camera_pitch);
-        gl::Uniform3fv(
-            rg.u_lights,
-            (rg.r_num_lights * 2) as i32,
-            rg.r_light_buffer.as_ptr() as *const GLfloat,
+        gl::BindBuffer(gl::UNIFORM_BUFFER, rg.lights_ubo);
+        gl::BufferSubData(
+            gl::UNIFORM_BUFFER,
+            0,
+            (rg.r_num_lights * 8 * 4) as GLsizeiptr,
+            rg.r_light_buffer.as_ptr() as *const GLvoid,
         );
+        gl::BindBufferBase(gl::UNIFORM_BUFFER, LIGHTS_UBO_BINDING, rg.lights_ubo);
         gl::Uniform1i(rg.u_light_count, (rg.r_num_lights * 2) as i32);
     }
 
@@ -984,11 +1033,10 @@ pub fn _push_block(
     }
 */
 pub fn push_light(pos: Vector3, intensity: u8, r: u8, g: u8, b: u8) -> Result<(), NUError> {
-    let cam_pos = RenderGod::get()?.camera_position;
-    let r_num_lights = &mut RenderGod::get()?.r_num_lights;
-    let r_light_buffer = &mut RenderGod::get()?.r_light_buffer;
+    let rg = RenderGod::get()?;
+    let cam_pos = rg.camera_position;
 
-    // Calculate the distance to the light, fade it out between 16--32
+    // Calculate the distance to the light, fade it out between 32--128
     let start_fade_dist = 32.;
     let end_fade_dist = 128.;
     let cam_light_dist = vector3_distance(pos, cam_pos);
@@ -1002,20 +1050,18 @@ pub fn push_light(pos: Vector3, intensity: u8, r: u8, g: u8, b: u8) -> Result<()
         * intensity as f32
         / 255.;
 
-    if *r_num_lights * 2 >= MAX_LIGHT_V3S {
-        eprintln!("max lights reached");
-        return Ok(());
-    }
-
-    let lindex = *r_num_lights * 6;
-    r_light_buffer[lindex + 0] = pos.x;
-    r_light_buffer[lindex + 1] = pos.y;
-    r_light_buffer[lindex + 2] = pos.z;
-    r_light_buffer[lindex + 3] = r as f32 * fade;
-    r_light_buffer[lindex + 4] = g as f32 * fade;
-    r_light_buffer[lindex + 5] = b as f32 * fade;
-
-    *r_num_lights += 1;
+    // the nearest are picked in end_frame if this exceeds MAX_LIGHT_VEC4S / 2
+    rg.r_light_candidates.push(LightCandidate {
+        dist: cam_light_dist,
+        data: [
+            pos.x,
+            pos.y,
+            pos.z,
+            r as f32 * fade,
+            g as f32 * fade,
+            b as f32 * fade,
+        ],
+    });
 
     Ok(())
 }
