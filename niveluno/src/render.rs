@@ -26,7 +26,9 @@ const DEBUG_F_SHADER_STR: &str = include_str!("debug_frag.glsl");
 // magic numbers
 // MAX_LIGHT_V3S game_frag.glsl
 const MAX_VERTS: usize = 1024 * 128 * 64;
-const MAX_LIGHT_V3S: usize = 256 * 2;
+// GL 3.3 only guarantees 256 vec4 slots, 126 lights (252 v3s) leaves
+// room for light_count and the sampler
+const MAX_LIGHT_V3S: usize = 126 * 2;
 
 pub const PLACEHOLDER_PNG: &[u8; 69] = include_bytes!("placeholder.png");
 
@@ -476,7 +478,7 @@ pub fn init() -> Result<(), NUError> {
         gl::TexImage2D(
             gl::TEXTURE_2D,
             0,
-            gl::DEPTH_COMPONENT as GLint,
+            gl::DEPTH_COMPONENT24 as GLint,
             INTERNAL_W,
             INTERNAL_H,
             0,
@@ -668,7 +670,7 @@ pub fn end_frame() -> Result<(), NUError> {
         gl::Uniform2f(rg.u_mouse, rg.camera_yaw, rg.camera_pitch);
         gl::Uniform3fv(
             rg.u_lights,
-            (rg.r_num_lights * 3 * 2) as i32,
+            (rg.r_num_lights * 2) as i32,
             rg.r_light_buffer.as_ptr() as *const GLfloat,
         );
         gl::Uniform1i(rg.u_light_count, (rg.r_num_lights * 2) as i32);

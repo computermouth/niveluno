@@ -10,7 +10,8 @@ uniform sampler2D s;
 uniform int light_count;
 
 // Lights [(x,y,z), [r,g,b], ...]
-uniform vec3 lights[512];
+// Must match MAX_LIGHT_V3S in render.rs, kept within the GL 3.3 guarantee (256 vec4 slots)
+uniform vec3 lights[252];
 
 // Use a static multiplier to light, instead
 // of dynamic lighting
